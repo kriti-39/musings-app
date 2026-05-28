@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getDashboardStats } from '../../firebase/db'
+import { getDashboardStats, getTeacherId } from '../../firebase/db'
 
 export default function AdminDashboard() {
   const { user } = useAuth()
@@ -10,7 +10,10 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null)
 
   useEffect(() => {
-    if (user?.id) getDashboardStats(user.id).then(setStats)
+    if (!user?.id) return
+    getTeacherId().then(teacherId => {
+      if (teacherId) getDashboardStats(teacherId).then(setStats)
+    })
   }, [user])
 
   const cards = [

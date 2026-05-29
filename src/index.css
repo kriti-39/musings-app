@@ -1,1 +1,58 @@
 @import "tailwindcss";
+
+/* ─── DARK MODE ─────────────────────────────────────────────────────────────── */
+/* These unlayered styles override Tailwind's layered utilities in dark mode.   */
+
+html.dark {
+  color-scheme: dark;
+}
+
+/* Backgrounds */
+html.dark .bg-white          { background-color: #1e293b; }
+html.dark .bg-gray-50        { background-color: #0f172a; }
+html.dark .bg-gray-100       { background-color: #1e293b; }
+html.dark .bg-amber-50       { background-color: #292012; }
+html.dark .bg-red-50         { background-color: #3f1515; }
+html.dark .bg-green-50       { background-color: #052e16; }
+html.dark .bg-blue-50        { background-color: #172554; }
+html.dark .bg-yellow-50      { background-color: #292012; }
+
+/* Hover backgrounds */
+html.dark .hover\:bg-gray-50:hover  { background-color: #1e293b; }
+html.dark .hover\:bg-gray-100:hover { background-color: #273549; }
+
+/* Text */
+html.dark .text-gray-800 { color: #f1f5f9; }
+html.dark .text-gray-700 { color: #e2e8f0; }
+html.dark .text-gray-600 { color: #cbd5e1; }
+html.dark .text-gray-500 { color: #94a3b8; }
+html.dark .text-gray-400 { color: #64748b; }
+
+/* Hover text */
+html.dark .hover\:text-gray-800:hover { color: #f1f5f9; }
+
+/* Borders */
+html.dark .border-gray-100 { border-color: #334155; }
+html.dark .border-gray-200 { border-color: #475569; }
+html.dark .divide-gray-100 > * + * { border-color: #334155; }
+
+/* Shadows — soften in dark */
+html.dark .shadow-sm  { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.4); }
+html.dark .shadow-md  { box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.5); }
+html.dark .shadow-xl  { box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.6); }
+
+/* Inputs, textareas, selects */
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark textarea,
+html.dark select {
+  background-color: #0f172a;
+  color: #f1f5f9;
+  border-color: #475569;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b;
+}
+
+/* Modal overlays already have bg-black/40 which works fine */

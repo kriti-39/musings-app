@@ -3,10 +3,11 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
 import NotificationBell from '../shared/NotificationBell'
 import {
   RiDashboardLine, RiCalendarLine, RiMoneyDollarCircleLine,
-  RiMenuLine, RiLogoutBoxLine
+  RiMenuLine, RiLogoutBoxLine, RiSunLine, RiMoonLine
 } from 'react-icons/ri'
 
 const navItems = [
@@ -18,6 +19,7 @@ const navItems = [
 export default function TeacherLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { user } = useAuth()
+  const { dark, toggle } = useTheme()
   const navigate = useNavigate()
 
   async function handleLogout() {
@@ -61,6 +63,12 @@ export default function TeacherLayout({ children }) {
             <p className="text-xs font-medium text-gray-700 truncate">{user?.name || 'Teacher'}</p>
             <p className="text-xs text-gray-400 truncate">{user?.email}</p>
           </div>
+          <button onClick={toggle}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors w-full"
+          >
+            {dark ? <RiSunLine size={18} /> : <RiMoonLine size={18} />}
+            {dark ? 'Light mode' : 'Dark mode'}
+          </button>
           <button onClick={handleLogout}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors w-full"
           >

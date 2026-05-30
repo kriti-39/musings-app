@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ─── DARK MODE — "Midnight Velvet" ─────────────────────────────────────────
-   Deep indigo gradient bg · glassmorphism surfaces · amber + violet glows
+   Deep indigo gradient bg · opaque surfaces · amber→orange gradient accents
    ─────────────────────────────────────────────────────────────────────────── */
 
 html.dark {
@@ -23,7 +23,7 @@ html.dark body::before {
   right: -180px;
   width: 560px;
   height: 560px;
-  background: radial-gradient(circle, rgba(124, 58, 237, 0.22) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.2) 0%, transparent 65%);
   border-radius: 50%;
   pointer-events: none;
 }
@@ -35,63 +35,72 @@ html.dark body::after {
   left: -120px;
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, rgba(245, 158, 11, 0.13) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.12) 0%, transparent 65%);
   border-radius: 50%;
   pointer-events: none;
 }
 
-/* Page wrapper: transparent so gradient shows through */
+/* Page wrapper transparent so gradient shows */
 html.dark .bg-gray-50 { background: transparent; }
 
-/* ── Glassmorphism surfaces ── */
+/* ── Opaque surfaces ── */
 html.dark .bg-white {
-  background: rgba(255, 255, 255, 0.055);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: rgba(22, 17, 52, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 html.dark .bg-gray-100 {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(30, 24, 65, 0.9);
 }
 
-/* Amber active item — warm glow */
+/* Amber active nav */
 html.dark .bg-amber-50 {
-  background: rgba(245, 158, 11, 0.14);
+  background: rgba(245, 158, 11, 0.15);
 }
 
-html.dark .bg-red-50   { background: rgba(239, 68, 68, 0.12); }
-html.dark .bg-green-50 { background: rgba(34, 197, 94, 0.1); }
-html.dark .bg-blue-50  { background: rgba(59, 130, 246, 0.1); }
+html.dark .bg-red-50   { background: rgba(239, 68, 68, 0.15); }
+html.dark .bg-green-50 { background: rgba(34, 197, 94, 0.12); }
+html.dark .bg-blue-50  { background: rgba(59, 130, 246, 0.12); }
 
-/* ── Borders — luminous subtle lines ── */
-html.dark .border-gray-100 { border-color: rgba(255, 255, 255, 0.08); }
-html.dark .border-gray-200 { border-color: rgba(255, 255, 255, 0.13); }
-html.dark .divide-gray-100 > * + * { border-color: rgba(255, 255, 255, 0.08); }
+/* ── Gradient amber buttons ── */
+html.dark .bg-amber-500 {
+  background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+}
+html.dark .hover\:bg-amber-600:hover {
+  background: linear-gradient(135deg, #d97706 0%, #ea580c 100%);
+}
+html.dark .bg-amber-600 {
+  background: linear-gradient(135deg, #d97706 0%, #ea580c 100%);
+}
+
+/* ── Borders ── */
+html.dark .border-gray-100 { border-color: rgba(255, 255, 255, 0.09); }
+html.dark .border-gray-200 { border-color: rgba(255, 255, 255, 0.14); }
+html.dark .divide-gray-100 > * + * { border-color: rgba(255, 255, 255, 0.09); }
 
 /* ── Hover states ── */
 html.dark .hover\:bg-gray-50:hover  { background: rgba(255, 255, 255, 0.07); }
-html.dark .hover\:bg-gray-100:hover { background: rgba(255, 255, 255, 0.11); }
-html.dark .hover\:border-amber-200:hover { border-color: rgba(245, 158, 11, 0.35); }
+html.dark .hover\:bg-gray-100:hover { background: rgba(255, 255, 255, 0.1); }
+html.dark .hover\:border-amber-200:hover { border-color: rgba(245, 158, 11, 0.4); }
 
-/* ── Text — purple-tinted whites ── */
+/* ── Text ── */
 html.dark .text-gray-800 { color: #ede9ff; }
 html.dark .text-gray-700 { color: #ddd6fe; }
 html.dark .text-gray-600 { color: #c4b5fd; }
 html.dark .text-gray-500 { color: #a78bfa; }
 html.dark .text-gray-400 { color: #7c6db5; }
 html.dark .hover\:text-gray-800:hover { color: #ede9ff; }
-
-/* Amber text stays vivid */
 html.dark .text-amber-600 { color: #fbbf24; }
 html.dark .text-amber-800 { color: #fde68a; }
 
 /* ── Shadows ── */
-html.dark .shadow-sm  { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
-html.dark .shadow-md  { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); }
+html.dark .shadow-sm  { box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+html.dark .shadow-md  { box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
 html.dark .shadow-xl  {
   box-shadow:
-    0 20px 40px rgba(0, 0, 0, 0.6),
-    0 0 60px rgba(124, 58, 237, 0.08);
+    0 20px 40px rgba(0,0,0,0.6),
+    0 0 50px rgba(124,58,237,0.08);
 }
 
 /* ── Inputs ── */
@@ -100,7 +109,7 @@ html.dark textarea,
 html.dark select {
   background: rgba(255, 255, 255, 0.07);
   color: #ede9ff;
-  border-color: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 html.dark input::placeholder,
@@ -108,11 +117,40 @@ html.dark textarea::placeholder {
   color: #7c6db5;
 }
 
-/* Focus ring in purple-tinted amber */
 html.dark input:focus,
 html.dark textarea:focus,
 html.dark select:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.45);
-  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 0 2px rgba(245,158,11,0.4);
+  border-color: rgba(245,158,11,0.5);
 }
+
+/* ── react-big-calendar dark overrides ── */
+html.dark .rbc-calendar           { background: transparent; color: #ede9ff; }
+html.dark .rbc-month-view,
+html.dark .rbc-time-view          { border-color: rgba(255,255,255,0.09); }
+html.dark .rbc-header             { border-color: rgba(255,255,255,0.09); color: #a78bfa; }
+html.dark .rbc-day-bg             { background: transparent; }
+html.dark .rbc-day-bg + .rbc-day-bg { border-color: rgba(255,255,255,0.09); }
+html.dark .rbc-today              { background: rgba(245,158,11,0.07) !important; }
+html.dark .rbc-off-range-bg       { background: rgba(0,0,0,0.15); }
+html.dark .rbc-time-content,
+html.dark .rbc-time-header        { border-color: rgba(255,255,255,0.09); }
+html.dark .rbc-timeslot-group     { border-color: rgba(255,255,255,0.06); }
+html.dark .rbc-time-slot          { color: #7c6db5; }
+html.dark .rbc-label              { color: #7c6db5; }
+html.dark .rbc-toolbar button     {
+  color: #c4b5fd;
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+}
+html.dark .rbc-toolbar button:hover { background: rgba(255,255,255,0.12); }
+html.dark .rbc-toolbar button.rbc-active {
+  background: linear-gradient(135deg, #f59e0b, #f97316) !important;
+  border-color: transparent !important;
+  color: white !important;
+}
+html.dark .rbc-current-time-indicator { background: #f59e0b; }
+html.dark .rbc-date-cell          { color: #c4b5fd; }
+html.dark .rbc-date-cell.rbc-now  { color: #fbbf24; }
+html.dark .rbc-show-more          { color: #fbbf24; }

@@ -1,58 +1,118 @@
 @import "tailwindcss";
 
-/* ─── DARK MODE ─────────────────────────────────────────────────────────────── */
-/* These unlayered styles override Tailwind's layered utilities in dark mode.   */
+/* ─── DARK MODE — "Midnight Velvet" ─────────────────────────────────────────
+   Deep indigo gradient bg · glassmorphism surfaces · amber + violet glows
+   ─────────────────────────────────────────────────────────────────────────── */
 
 html.dark {
   color-scheme: dark;
 }
 
-/* Backgrounds */
-html.dark .bg-white          { background-color: #1e293b; }
-html.dark .bg-gray-50        { background-color: #0f172a; }
-html.dark .bg-gray-100       { background-color: #1e293b; }
-html.dark .bg-amber-50       { background-color: #292012; }
-html.dark .bg-red-50         { background-color: #3f1515; }
-html.dark .bg-green-50       { background-color: #052e16; }
-html.dark .bg-blue-50        { background-color: #172554; }
-html.dark .bg-yellow-50      { background-color: #292012; }
+/* Gradient background */
+html.dark body {
+  background: linear-gradient(135deg, #0d0b1e 0%, #13102b 45%, #1c1640 100%);
+  min-height: 100vh;
+  position: relative;
+}
 
-/* Hover backgrounds */
-html.dark .hover\:bg-gray-50:hover  { background-color: #1e293b; }
-html.dark .hover\:bg-gray-100:hover { background-color: #273549; }
+/* Decorative ambient glows */
+html.dark body::before {
+  content: '';
+  position: fixed;
+  top: -180px;
+  right: -180px;
+  width: 560px;
+  height: 560px;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.22) 0%, transparent 65%);
+  border-radius: 50%;
+  pointer-events: none;
+}
 
-/* Text */
-html.dark .text-gray-800 { color: #f1f5f9; }
-html.dark .text-gray-700 { color: #e2e8f0; }
-html.dark .text-gray-600 { color: #cbd5e1; }
-html.dark .text-gray-500 { color: #94a3b8; }
-html.dark .text-gray-400 { color: #64748b; }
+html.dark body::after {
+  content: '';
+  position: fixed;
+  bottom: -180px;
+  left: -120px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.13) 0%, transparent 65%);
+  border-radius: 50%;
+  pointer-events: none;
+}
 
-/* Hover text */
-html.dark .hover\:text-gray-800:hover { color: #f1f5f9; }
+/* Page wrapper: transparent so gradient shows through */
+html.dark .bg-gray-50 { background: transparent; }
 
-/* Borders */
-html.dark .border-gray-100 { border-color: #334155; }
-html.dark .border-gray-200 { border-color: #475569; }
-html.dark .divide-gray-100 > * + * { border-color: #334155; }
+/* ── Glassmorphism surfaces ── */
+html.dark .bg-white {
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
 
-/* Shadows — soften in dark */
-html.dark .shadow-sm  { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.4); }
-html.dark .shadow-md  { box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.5); }
-html.dark .shadow-xl  { box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.6); }
+html.dark .bg-gray-100 {
+  background: rgba(255, 255, 255, 0.08);
+}
 
-/* Inputs, textareas, selects */
+/* Amber active item — warm glow */
+html.dark .bg-amber-50 {
+  background: rgba(245, 158, 11, 0.14);
+}
+
+html.dark .bg-red-50   { background: rgba(239, 68, 68, 0.12); }
+html.dark .bg-green-50 { background: rgba(34, 197, 94, 0.1); }
+html.dark .bg-blue-50  { background: rgba(59, 130, 246, 0.1); }
+
+/* ── Borders — luminous subtle lines ── */
+html.dark .border-gray-100 { border-color: rgba(255, 255, 255, 0.08); }
+html.dark .border-gray-200 { border-color: rgba(255, 255, 255, 0.13); }
+html.dark .divide-gray-100 > * + * { border-color: rgba(255, 255, 255, 0.08); }
+
+/* ── Hover states ── */
+html.dark .hover\:bg-gray-50:hover  { background: rgba(255, 255, 255, 0.07); }
+html.dark .hover\:bg-gray-100:hover { background: rgba(255, 255, 255, 0.11); }
+html.dark .hover\:border-amber-200:hover { border-color: rgba(245, 158, 11, 0.35); }
+
+/* ── Text — purple-tinted whites ── */
+html.dark .text-gray-800 { color: #ede9ff; }
+html.dark .text-gray-700 { color: #ddd6fe; }
+html.dark .text-gray-600 { color: #c4b5fd; }
+html.dark .text-gray-500 { color: #a78bfa; }
+html.dark .text-gray-400 { color: #7c6db5; }
+html.dark .hover\:text-gray-800:hover { color: #ede9ff; }
+
+/* Amber text stays vivid */
+html.dark .text-amber-600 { color: #fbbf24; }
+html.dark .text-amber-800 { color: #fde68a; }
+
+/* ── Shadows ── */
+html.dark .shadow-sm  { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+html.dark .shadow-md  { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); }
+html.dark .shadow-xl  {
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.6),
+    0 0 60px rgba(124, 58, 237, 0.08);
+}
+
+/* ── Inputs ── */
 html.dark input:not([type="checkbox"]):not([type="radio"]),
 html.dark textarea,
 html.dark select {
-  background-color: #0f172a;
-  color: #f1f5f9;
-  border-color: #475569;
+  background: rgba(255, 255, 255, 0.07);
+  color: #ede9ff;
+  border-color: rgba(255, 255, 255, 0.13);
 }
 
 html.dark input::placeholder,
 html.dark textarea::placeholder {
-  color: #64748b;
+  color: #7c6db5;
 }
 
-/* Modal overlays already have bg-black/40 which works fine */
+/* Focus ring in purple-tinted amber */
+html.dark input:focus,
+html.dark textarea:focus,
+html.dark select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.45);
+  border-color: rgba(245, 158, 11, 0.5);
+}

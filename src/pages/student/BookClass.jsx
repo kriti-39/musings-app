@@ -23,41 +23,42 @@ const localizer = dateFnsLocalizer({
 // ── Custom calendar toolbar — Month + Day only for students ─────────────────
 function CalendarToolbar({ label, onNavigate, onView, view }) {
   return (
-    <div className="flex items-center justify-end gap-1 mb-4 px-1">
-      {/* ‹  label  [Month | Day]  › — all in one row */}
-      <button
-        onClick={() => onNavigate('PREV')}
-        className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
-      >
-        <RiArrowLeftSLine size={18} />
-      </button>
+    <div className="flex items-center justify-between gap-3 mb-4 px-1">
+      {/* Period label — month name or selected day */}
+      <span className="text-sm font-semibold text-gray-800">{label}</span>
 
-      <span className="text-xs font-semibold text-gray-700 px-2 whitespace-nowrap">
-        {label}
-      </span>
+      {/* ‹  [Month | Day]  › */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onNavigate('PREV')}
+          className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
+        >
+          <RiArrowLeftSLine size={18} />
+        </button>
 
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-        {['month', 'day'].map(v => (
-          <button
-            key={v}
-            onClick={() => onView(v)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
-              view === v
-                ? 'bg-amber-500 text-white shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {v}
-          </button>
-        ))}
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+          {['month', 'day'].map(v => (
+            <button
+              key={v}
+              onClick={() => onView(v)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
+                view === v
+                  ? 'bg-amber-500 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => onNavigate('NEXT')}
+          className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
+        >
+          <RiArrowRightSLine size={18} />
+        </button>
       </div>
-
-      <button
-        onClick={() => onNavigate('NEXT')}
-        className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
-      >
-        <RiArrowRightSLine size={18} />
-      </button>
     </div>
   )
 }
@@ -204,6 +205,9 @@ export default function BookClass() {
             /* Time labels in day view */
             .rbc-label                 { font-size: 11px; color: #9ca3af; }
             .rbc-time-gutter .rbc-timeslot-group { border-color: rgba(0,0,0,0.07); }
+            /* Hide redundant day column header in day view — label already shows it */
+            .rbc-time-header-content .rbc-header { display: none; }
+            .rbc-time-header-content { border: none !important; }
           `}</style>
           <Calendar
             localizer={localizer}

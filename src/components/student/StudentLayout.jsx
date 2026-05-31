@@ -23,11 +23,7 @@ export default function StudentLayout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const pageLabel = {
-    '/student/dashboard': 'My Classes',
-    '/student/book': 'Book a Class',
-    '/student/fees': 'Fees',
-  }[location.pathname] ?? 'Musings with Deva'
+  const pageLabel = "Deva's Classes"
 
   async function handleLogout() {
     await signOut(auth)

@@ -62,21 +62,38 @@ html.dark .bg-red-50    { background: rgba(239, 68, 68, 0.12); }
 html.dark .bg-green-50  { background: rgba(34, 197, 94, 0.1); }
 html.dark .bg-blue-50   { background: rgba(56, 139, 253, 0.1); }
 
-/* ── Golden gradient buttons ── */
+/* ── Golden gradient buttons — dark navy text on gold ── */
 html.dark .bg-amber-500 {
   background: linear-gradient(135deg, #f5c518 0%, #c8920a 100%);
+  color: #0d1117;
 }
 html.dark .hover\:bg-amber-600:hover {
   background: linear-gradient(135deg, #d4a80e 0%, #a97608 100%);
+  color: #0d1117;
 }
 html.dark .bg-amber-600 {
   background: linear-gradient(135deg, #d4a80e 0%, #a97608 100%);
+  color: #0d1117;
+}
+/* Ensure text-white on golden buttons is overridden */
+html.dark .bg-amber-500.text-white,
+html.dark .bg-amber-600.text-white {
+  color: #0d1117;
 }
 
 /* ── Borders — GitHub style ── */
 html.dark .border-gray-100 { border-color: #21262d; }
 html.dark .border-gray-200 { border-color: #30363d; }
 html.dark .divide-gray-100 > * + * { border-color: #21262d; }
+
+/* Cards get a very subtle gold shimmer on hover */
+html.dark .hover\:border-amber-200:hover { border-color: rgba(245, 197, 24, 0.35); }
+
+/* Active nav item — gold left accent bar */
+html.dark .bg-amber-50 {
+  background: rgba(245, 197, 24, 0.1);
+  border-left: 2px solid #f5c518;
+}
 
 /* ── Hover states ── */
 html.dark .hover\:bg-gray-50:hover  { background: #1c2128; }

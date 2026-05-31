@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
@@ -21,6 +21,13 @@ export default function StudentLayout({ children }) {
   const { user } = useAuth()
   const { dark, toggle } = useTheme()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const pageLabel = {
+    '/student/dashboard': 'My Classes',
+    '/student/book': 'Book a Class',
+    '/student/fees': 'Fees',
+  }[location.pathname] ?? 'Musings with Deva'
 
   async function handleLogout() {
     await signOut(auth)
@@ -82,6 +89,7 @@ export default function StudentLayout({ children }) {
           <button onClick={() => setSidebarOpen(true)} className="text-gray-500">
             <RiMenuLine size={22} />
           </button>
+          <span className="text-sm font-semibold text-gray-800">{pageLabel}</span>
           <NotificationBell />
         </header>
 

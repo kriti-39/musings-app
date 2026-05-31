@@ -20,9 +20,9 @@ const localizer = dateFnsLocalizer({
   locales: { 'en-US': enUS },
 })
 
-// ── Custom calendar toolbar ──────────────────────────────────────────────────
+// ── Custom calendar toolbar — Month + Day only for students ─────────────────
 function CalendarToolbar({ label, onNavigate, onView, view }) {
-  const views = ['month', 'week', 'day']
+  const views = ['month', 'day']
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4 px-1">
       {/* Navigation */}
@@ -52,7 +52,7 @@ function CalendarToolbar({ label, onNavigate, onView, view }) {
         {label}
       </span>
 
-      {/* View switcher */}
+      {/* View switcher — Month / Day only */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
         {views.map(v => (
           <button
@@ -87,7 +87,7 @@ export default function BookClass() {
   const [note, setNote] = useState('')
   const [bookingLoading, setBookingLoading] = useState(false)
   const [conflict, setConflict] = useState(false)
-  const [currentView, setCurrentView] = useState('week')
+  const [currentView, setCurrentView] = useState('month')
 
   useEffect(() => {
     getTeacherId().then(id => { if (id) setTeacherId(id) })
@@ -192,6 +192,21 @@ export default function BookClass() {
 
         {/* Calendar */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+          <style>{`
+            .rbc-month-view, .rbc-time-view { border-color: rgba(0,0,0,0.07); }
+            .rbc-header { border-color: rgba(0,0,0,0.07) !important; font-size: 12px; font-weight: 500; color: #6b7280; padding: 8px 4px; }
+            .rbc-day-bg + .rbc-day-bg { border-color: rgba(0,0,0,0.06); }
+            .rbc-month-row + .rbc-month-row { border-color: rgba(0,0,0,0.06); }
+            .rbc-timeslot-group { border-color: rgba(0,0,0,0.05); }
+            .rbc-time-slot { border-color: rgba(0,0,0,0.04); }
+            .rbc-time-content { border-color: rgba(0,0,0,0.07); }
+            .rbc-time-header-content { border-color: rgba(0,0,0,0.07); }
+            .rbc-today { background-color: #fffbeb !important; }
+            .rbc-date-cell { font-size: 12px; padding: 4px 6px; cursor: pointer; }
+            .rbc-date-cell:hover { color: #f59e0b; }
+            .rbc-off-range-bg { background: rgba(0,0,0,0.02); }
+            .rbc-label { font-size: 11px; color: #9ca3af; }
+          `}</style>
           <Calendar
             localizer={localizer}
             events={events}
@@ -201,6 +216,11 @@ export default function BookClass() {
             onNavigate={date => setCurrentDate(date)}
             view={currentView}
             onView={setCurrentView}
+            onDrillDown={(date) => {
+              setCurrentDate(date)
+              setCurrentView('day')
+            }}
+            drilldownView="day"
             components={{ toolbar: CalendarToolbar }}
             eventPropGetter={() => ({
               style: {
@@ -212,7 +232,7 @@ export default function BookClass() {
                 padding: '2px 6px',
               }
             })}
-            views={['month', 'week', 'day']}
+            views={['month', 'day']}
             popup
           />
         </div>

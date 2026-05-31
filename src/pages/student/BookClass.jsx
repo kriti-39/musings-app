@@ -166,14 +166,20 @@ export default function BookClass() {
 
   return (
     <StudentLayout>
-      <div className="max-w-5xl mx-auto">
+      <div className="w-full">
         {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-800">Book a Class</h1>
-            <p className="text-sm text-gray-400 mt-1">
-              Check the calendar for availability, then pick your slot.
-            </p>
+        <div className="mb-4">
+          <h1 className="text-xl font-semibold text-gray-800">Book a Class</h1>
+          <p className="text-sm text-gray-400 mt-1">
+            Check the calendar for availability, then pick your slot.
+          </p>
+        </div>
+
+        {/* Controls row — button + legend on same line */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <span className="w-3 h-3 rounded-sm bg-red-200 border border-red-300" />
+            Booked / Unavailable
           </div>
           <button
             onClick={() => setShowPicker(true)}
@@ -182,14 +188,6 @@ export default function BookClass() {
             <RiCalendarLine size={16} />
             Pick a time
           </button>
-        </div>
-
-        {/* Legend */}
-        <div className="flex gap-4 mb-4">
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span className="w-3 h-3 rounded-sm bg-red-200 border border-red-300" />
-            Booked / Unavailable
-          </div>
         </div>
 
         {/* Calendar */}

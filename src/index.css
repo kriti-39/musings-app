@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ─── DARK MODE — GitHub-style dark blue ────────────────────────────────────
-   Deep navy bg · dark blue surfaces · amber→orange gradient accents
+   Deep navy bg · solid dark surfaces · golden gradient accents
    ─────────────────────────────────────────────────────────────────────────── */
 
 html.dark {
@@ -23,7 +23,7 @@ html.dark body::before {
   right: -180px;
   width: 560px;
   height: 560px;
-  background: radial-gradient(circle, rgba(56, 139, 253, 0.15) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(56, 139, 253, 0.13) 0%, transparent 65%);
   border-radius: 50%;
   pointer-events: none;
 }
@@ -35,7 +35,7 @@ html.dark body::after {
   left: -120px;
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, rgba(245, 158, 11, 0.1) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(240, 192, 64, 0.1) 0%, transparent 65%);
   border-radius: 50%;
   pointer-events: none;
 }
@@ -43,32 +43,34 @@ html.dark body::after {
 /* Page wrapper transparent so gradient shows */
 html.dark .bg-gray-50 { background: transparent; }
 
-/* ── Surfaces — GitHub-style navy ── */
+/* ── Solid surfaces — fully opaque ── */
 html.dark .bg-white {
-  background: rgba(22, 27, 34, 0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: #161b22;
+}
+
+html.dark aside.bg-white {
+  background: #0d1117;
 }
 
 html.dark .bg-gray-100 {
-  background: rgba(33, 38, 45, 0.95);
+  background: #21262d;
 }
 
-/* Amber active nav */
-html.dark .bg-amber-50  { background: rgba(245, 158, 11, 0.12); }
+/* Status badge backgrounds */
+html.dark .bg-amber-50  { background: rgba(240, 192, 64, 0.12); }
 html.dark .bg-red-50    { background: rgba(239, 68, 68, 0.12); }
 html.dark .bg-green-50  { background: rgba(34, 197, 94, 0.1); }
 html.dark .bg-blue-50   { background: rgba(56, 139, 253, 0.1); }
 
-/* ── Gradient amber→orange buttons ── */
+/* ── Golden gradient buttons ── */
 html.dark .bg-amber-500 {
-  background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+  background: linear-gradient(135deg, #f5c518 0%, #c8920a 100%);
 }
 html.dark .hover\:bg-amber-600:hover {
-  background: linear-gradient(135deg, #d97706 0%, #ea580c 100%);
+  background: linear-gradient(135deg, #d4a80e 0%, #a97608 100%);
 }
 html.dark .bg-amber-600 {
-  background: linear-gradient(135deg, #d97706 0%, #ea580c 100%);
+  background: linear-gradient(135deg, #d4a80e 0%, #a97608 100%);
 }
 
 /* ── Borders — GitHub style ── */
@@ -77,9 +79,9 @@ html.dark .border-gray-200 { border-color: #30363d; }
 html.dark .divide-gray-100 > * + * { border-color: #21262d; }
 
 /* ── Hover states ── */
-html.dark .hover\:bg-gray-50:hover  { background: rgba(255, 255, 255, 0.05); }
-html.dark .hover\:bg-gray-100:hover { background: rgba(255, 255, 255, 0.08); }
-html.dark .hover\:border-amber-200:hover { border-color: rgba(245, 158, 11, 0.4); }
+html.dark .hover\:bg-gray-50:hover  { background: #1c2128; }
+html.dark .hover\:bg-gray-100:hover { background: #21262d; }
+html.dark .hover\:border-amber-200:hover { border-color: rgba(240, 192, 64, 0.4); }
 
 /* ── Text — GitHub palette ── */
 html.dark .text-gray-800 { color: #e6edf3; }
@@ -88,7 +90,7 @@ html.dark .text-gray-600 { color: #adbac7; }
 html.dark .text-gray-500 { color: #8b949e; }
 html.dark .text-gray-400 { color: #6e7681; }
 html.dark .hover\:text-gray-800:hover { color: #e6edf3; }
-html.dark .text-amber-600 { color: #fbbf24; }
+html.dark .text-amber-600 { color: #f5c518; }
 html.dark .text-amber-800 { color: #fde68a; }
 
 /* ── Shadows ── */
@@ -97,7 +99,7 @@ html.dark .shadow-md  { box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
 html.dark .shadow-xl  {
   box-shadow:
     0 20px 40px rgba(0,0,0,0.6),
-    0 0 50px rgba(56,139,253,0.06);
+    0 0 50px rgba(56,139,253,0.05);
 }
 
 /* ── Inputs ── */
@@ -118,8 +120,8 @@ html.dark input:focus,
 html.dark textarea:focus,
 html.dark select:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4);
-  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 0 2px rgba(245, 197, 24, 0.35);
+  border-color: rgba(245, 197, 24, 0.5);
 }
 
 /* ── react-big-calendar dark overrides ── */
@@ -129,7 +131,7 @@ html.dark .rbc-time-view          { border-color: #21262d; }
 html.dark .rbc-header             { border-color: #21262d; color: #8b949e; }
 html.dark .rbc-day-bg             { background: transparent; }
 html.dark .rbc-day-bg + .rbc-day-bg { border-color: #21262d; }
-html.dark .rbc-today              { background: rgba(245,158,11,0.06) !important; }
+html.dark .rbc-today              { background: rgba(245, 197, 24, 0.06) !important; }
 html.dark .rbc-off-range-bg       { background: rgba(0,0,0,0.2); }
 html.dark .rbc-time-content,
 html.dark .rbc-time-header        { border-color: #21262d; }
@@ -143,11 +145,11 @@ html.dark .rbc-toolbar button     {
 }
 html.dark .rbc-toolbar button:hover { background: #21262d; }
 html.dark .rbc-toolbar button.rbc-active {
-  background: linear-gradient(135deg, #f59e0b, #f97316) !important;
+  background: linear-gradient(135deg, #f5c518, #c8920a) !important;
   border-color: transparent !important;
-  color: white !important;
+  color: #0d1117 !important;
 }
-html.dark .rbc-current-time-indicator { background: #f59e0b; }
+html.dark .rbc-current-time-indicator { background: #f5c518; }
 html.dark .rbc-date-cell          { color: #adbac7; }
-html.dark .rbc-date-cell.rbc-now  { color: #fbbf24; }
-html.dark .rbc-show-more          { color: #fbbf24; }
+html.dark .rbc-date-cell.rbc-now  { color: #f5c518; }
+html.dark .rbc-show-more          { color: #f5c518; }

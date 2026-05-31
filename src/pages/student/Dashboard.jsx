@@ -22,16 +22,24 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true)
 
   async function fetchClasses() {
-    const [up, all] = await Promise.all([
-      getStudentUpcomingClasses(user.id),
-      getStudentAllClasses(user.id),
-    ])
-    setUpcoming(up)
-    setPast(all.filter(c => c.status === 'completed' || c.status === 'cancelled'))
-    setLoading(false)
+    try {
+      const [up, all] = await Promise.all([
+        getStudentUpcomingClasses(user.id),
+        getStudentAllClasses(user.id),
+      ])
+      setUpcoming(up)
+      setPast(all.filter(c => c.status === 'completed' || c.status === 'cancelled'))
+    } catch (e) {
+      console.error('Failed to fetch classes:', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(() => { if (user?.id) fetchClasses() }, [user])
+  useEffect(() => {
+    if (user?.id) fetchClasses()
+    else if (user !== undefined) setLoading(false)
+  }, [user])
 
   const completedCount = past.filter(c => c.status === 'completed').length
 

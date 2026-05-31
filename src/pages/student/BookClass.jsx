@@ -22,43 +22,43 @@ const localizer = dateFnsLocalizer({
 
 // ── Custom calendar toolbar — Month + Day only for students ─────────────────
 function CalendarToolbar({ label, onNavigate, onView, view }) {
-  const views = ['month', 'day']
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4 px-1">
-      {/* Navigation */}
-      <div className="flex items-center gap-2">
+    <div className="flex items-center justify-between gap-3 mb-4 px-1">
+
+      {/* ‹ Label › — arrows wrap the month/day label */}
+      <div className="flex items-center gap-1">
         <button
           onClick={() => onNavigate('PREV')}
-          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
         >
-          <RiArrowLeftSLine size={20} />
+          <RiArrowLeftSLine size={18} />
         </button>
         <button
           onClick={() => onNavigate('TODAY')}
-          className="px-4 h-9 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 transition-colors font-medium"
+          className="px-3 h-8 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 hover:text-gray-800 transition-colors font-medium"
         >
           Today
         </button>
         <button
           onClick={() => onNavigate('NEXT')}
-          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
         >
-          <RiArrowRightSLine size={20} />
+          <RiArrowRightSLine size={18} />
         </button>
       </div>
 
-      {/* Label */}
-      <span className="text-base font-semibold text-gray-800 order-first sm:order-none">
+      {/* Label — centered */}
+      <span className="text-sm font-semibold text-gray-800 text-center flex-1">
         {label}
       </span>
 
-      {/* View switcher — Month / Day only */}
+      {/* View switcher — Month / Day */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-        {views.map(v => (
+        {['month', 'day'].map(v => (
           <button
             key={v}
             onClick={() => onView(v)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
               view === v
                 ? 'bg-amber-500 text-white shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
@@ -193,19 +193,27 @@ export default function BookClass() {
         {/* Calendar */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
           <style>{`
-            .rbc-month-view, .rbc-time-view { border-color: rgba(0,0,0,0.07); }
-            .rbc-header { border-color: rgba(0,0,0,0.07) !important; font-size: 12px; font-weight: 500; color: #6b7280; padding: 8px 4px; }
-            .rbc-day-bg + .rbc-day-bg { border-color: rgba(0,0,0,0.06); }
-            .rbc-month-row + .rbc-month-row { border-color: rgba(0,0,0,0.06); }
-            .rbc-timeslot-group { border-color: rgba(0,0,0,0.05); }
-            .rbc-time-slot { border-color: rgba(0,0,0,0.04); }
-            .rbc-time-content { border-color: rgba(0,0,0,0.07); }
-            .rbc-time-header-content { border-color: rgba(0,0,0,0.07); }
-            .rbc-today { background-color: #fffbeb !important; }
-            .rbc-date-cell { font-size: 12px; padding: 4px 6px; cursor: pointer; }
-            .rbc-date-cell:hover { color: #f59e0b; }
-            .rbc-off-range-bg { background: rgba(0,0,0,0.02); }
-            .rbc-label { font-size: 11px; color: #9ca3af; }
+            /* Consistent borders across both month and day views */
+            .rbc-month-view,
+            .rbc-time-view             { border-color: rgba(0,0,0,0.07); }
+            .rbc-header                { border-color: rgba(0,0,0,0.07) !important; font-size: 12px; font-weight: 500; color: #6b7280; padding: 8px 4px; }
+            .rbc-day-bg + .rbc-day-bg  { border-color: rgba(0,0,0,0.07); }
+            .rbc-month-row + .rbc-month-row { border-color: rgba(0,0,0,0.07); }
+            .rbc-timeslot-group        { border-color: rgba(0,0,0,0.07); }
+            .rbc-time-slot             { border-color: rgba(0,0,0,0.07); }
+            .rbc-time-content          { border-color: rgba(0,0,0,0.07); }
+            .rbc-time-header-content   { border-color: rgba(0,0,0,0.07); }
+            .rbc-time-header-gutter    { border-color: rgba(0,0,0,0.07); }
+            .rbc-day-slot .rbc-time-slot { border-color: rgba(0,0,0,0.07); }
+            /* Today highlight */
+            .rbc-today                 { background-color: #fffbeb !important; }
+            /* Date cells in month view */
+            .rbc-date-cell             { font-size: 12px; padding: 4px 6px; cursor: pointer; }
+            .rbc-date-cell:hover a     { color: #f59e0b; }
+            .rbc-off-range-bg          { background: rgba(0,0,0,0.02); }
+            /* Time labels in day view */
+            .rbc-label                 { font-size: 11px; color: #9ca3af; }
+            .rbc-time-gutter .rbc-timeslot-group { border-color: rgba(0,0,0,0.07); }
           `}</style>
           <Calendar
             localizer={localizer}

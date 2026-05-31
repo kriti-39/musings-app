@@ -25,7 +25,12 @@ function CalendarToolbar({ label, onNavigate, onView, view }) {
   return (
     <div className="flex items-center justify-between gap-3 mb-4 px-1">
 
-      {/* ‹ Label › — arrows wrap the month/day label */}
+      {/* Current period label */}
+      <span className="text-sm font-semibold text-gray-800">
+        {label}
+      </span>
+
+      {/* ‹ [Month] [Day] › — arrows navigate based on active view */}
       <div className="flex items-center gap-1">
         <button
           onClick={() => onNavigate('PREV')}
@@ -33,40 +38,29 @@ function CalendarToolbar({ label, onNavigate, onView, view }) {
         >
           <RiArrowLeftSLine size={18} />
         </button>
-        <button
-          onClick={() => onNavigate('TODAY')}
-          className="px-3 h-8 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 hover:text-gray-800 transition-colors font-medium"
-        >
-          Today
-        </button>
+
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+          {['month', 'day'].map(v => (
+            <button
+              key={v}
+              onClick={() => onView(v)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
+                view === v
+                  ? 'bg-amber-500 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+
         <button
           onClick={() => onNavigate('NEXT')}
           className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
         >
           <RiArrowRightSLine size={18} />
         </button>
-      </div>
-
-      {/* Label — centered */}
-      <span className="text-sm font-semibold text-gray-800 text-center flex-1">
-        {label}
-      </span>
-
-      {/* View switcher — Month / Day */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-        {['month', 'day'].map(v => (
-          <button
-            key={v}
-            onClick={() => onView(v)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
-              view === v
-                ? 'bg-amber-500 text-white shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {v}
-          </button>
-        ))}
       </div>
     </div>
   )

@@ -20,6 +20,20 @@ const localizer = dateFnsLocalizer({
   locales: { 'en-US': enUS },
 })
 
+// ── Day view header — shows day name + date in the empty slot above the grid ─
+function DayHeader({ date }) {
+  return (
+    <div className="py-3 text-center">
+      <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">
+        {format(date, 'EEEE')}
+      </p>
+      <p className="text-xl font-semibold text-gray-800 mt-0.5">
+        {format(date, 'd MMM')}
+      </p>
+    </div>
+  )
+}
+
 // ── Custom calendar toolbar — Month + Day only for students ─────────────────
 function CalendarToolbar({ label, onNavigate, onView, view }) {
   return (
@@ -205,9 +219,8 @@ export default function BookClass() {
             /* Time labels in day view */
             .rbc-label                 { font-size: 11px; color: #9ca3af; }
             .rbc-time-gutter .rbc-timeslot-group { border-color: rgba(0,0,0,0.07); }
-            /* Hide redundant day column header in day view — label already shows it */
-            .rbc-time-header-content .rbc-header { display: none; }
-            .rbc-time-header-content { border: none !important; }
+            /* Day column header */
+            .rbc-time-header-content .rbc-header { border-bottom: 1px solid rgba(0,0,0,0.07); }
           `}</style>
           <Calendar
             localizer={localizer}
@@ -223,7 +236,7 @@ export default function BookClass() {
               setCurrentView('day')
             }}
             drilldownView="day"
-            components={{ toolbar: CalendarToolbar }}
+            components={{ toolbar: CalendarToolbar, header: DayHeader }}
             eventPropGetter={() => ({
               style: {
                 backgroundColor: '#fecaca',

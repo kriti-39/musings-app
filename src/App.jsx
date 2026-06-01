@@ -12,6 +12,7 @@ import AdminSchedule from './pages/admin/Schedule'
 import AdminFees from './pages/admin/Fees'
 
 import TeacherDashboard from './pages/teacher/Dashboard'
+import TeacherStudents from './pages/teacher/Students'
 import TeacherSchedule from './pages/teacher/Schedule'
 import TeacherFees from './pages/teacher/Fees'
 
@@ -46,6 +47,7 @@ export default function App() {
 
           {/* Teacher */}
           <Route path="/teacher/dashboard" element={<ProtectedRoute allowedRoles={['teacher']}><TeacherDashboard /></ProtectedRoute>} />
+          <Route path="/teacher/students" element={<ProtectedRoute allowedRoles={['teacher']}><TeacherStudents /></ProtectedRoute>} />
           <Route path="/teacher/schedule" element={<ProtectedRoute allowedRoles={['teacher']}><TeacherSchedule /></ProtectedRoute>} />
           <Route path="/teacher/fees" element={<ProtectedRoute allowedRoles={['teacher']}><TeacherFees /></ProtectedRoute>} />
 

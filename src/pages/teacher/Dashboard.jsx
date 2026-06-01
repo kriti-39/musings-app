@@ -42,15 +42,19 @@ export default function TeacherDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: 'Total Students', value: stats?.totalStudents ?? '—' },
-            { label: "Today's Classes", value: stats?.todayClasses ?? '—' },
-            { label: 'Pending Requests', value: stats?.pendingRequests ?? '—' },
-            { label: 'This Month', value: stats?.monthClasses ?? '—' },
+            { label: 'Total Students', value: stats?.totalStudents ?? '—', link: '/teacher/students' },
+            { label: "Today's Classes", value: stats?.todayClasses ?? '—', link: '/teacher/schedule' },
+            { label: 'Pending Requests', value: stats?.pendingRequests ?? '—', link: null },
+            { label: 'This Month', value: stats?.monthClasses ?? '—', link: '/teacher/schedule' },
           ].map(c => (
-            <div key={c.label} className="bg-white rounded-xl border border-gray-100 px-5 py-4">
+            <button key={c.label}
+              onClick={() => c.link && navigate(c.link)}
+              className={`bg-white rounded-xl border border-gray-100 px-5 py-4 text-left transition-all
+                ${c.link ? 'hover:border-amber-200 hover:shadow-sm cursor-pointer' : 'cursor-default'}`}
+            >
               <p className="text-xs text-gray-400">{c.label}</p>
               <p className="text-2xl font-semibold text-gray-800 mt-1">{c.value}</p>
-            </div>
+            </button>
           ))}
         </div>
 

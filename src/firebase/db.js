@@ -30,17 +30,30 @@ export async function updateUser(uid, data) {
   await updateDoc(doc(db, 'users', uid), data)
 }
 
+export async function getStaffIds() {
+  const q = query(collection(db, 'users'), where('role', 'in', ['admin', 'teacher']))
+  const snap = await getDocs(q)
+  return snap.docs.map(d => d.id)
+}
+
 // ─── CLASSES ──────────────────────────────────────────────────────────────────
 
 export async function createClass(data) {
-  return await addDoc(collection(db, 'classes'), {
+  const ref = await addDoc(collection(db, 'classes'), {
     ...data,
-    status: 'scheduled',
     markedDoneBy: null,
-    lessonNotes: '',
+    lessonNotes: data.lessonNotes || '',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
+  // Notify teacher and all admins about the new booking request
+  if (data.status === 'pending') {
+    const staffIds = await getStaffIds()
+    await Promise.all(staffIds.map(id =>
+      createNotification(id, 'new_booking', 'A student has requested a new class.', ref.id)
+    ))
+  }
+  return ref
 }
 
 export async function getClass(classId) {

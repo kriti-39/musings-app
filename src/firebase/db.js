@@ -144,18 +144,24 @@ export async function getPendingRequests(teacherId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }
 
-export async function confirmClass(classId) {
+export async function confirmClass(classId, studentId = null) {
   await updateDoc(doc(db, 'classes', classId), {
     status: 'scheduled',
     updatedAt: serverTimestamp(),
   })
+  if (studentId) {
+    await createNotification(studentId, 'class_confirmed', 'Your class request has been confirmed!', classId)
+  }
 }
 
-export async function rejectClass(classId) {
+export async function rejectClass(classId, studentId = null) {
   await updateDoc(doc(db, 'classes', classId), {
     status: 'rejected',
     updatedAt: serverTimestamp(),
   })
+  if (studentId) {
+    await createNotification(studentId, 'class_rejected', 'Your class request was not accepted.', classId)
+  }
 }
 
 export async function rescheduleClass(classId, newScheduledAt) {

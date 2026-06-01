@@ -73,12 +73,12 @@ export default function TeacherDashboard() {
                       </p>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={async () => { await confirmClass(cls.id); fetchAll() }}
+                      <button onClick={async () => { await confirmClass(cls.id, cls.studentId); fetchAll() }}
                         className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors"
                       >
                         <RiCheckLine size={13} /> Confirm
                       </button>
-                      <button onClick={async () => { await rejectClass(cls.id); fetchAll() }}
+                      <button onClick={async () => { await rejectClass(cls.id, cls.studentId); fetchAll() }}
                         className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors"
                       >
                         <RiCloseLine size={13} /> Reject

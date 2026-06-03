@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { RiCloseLine } from 'react-icons/ri'
-import { getAllStudents, createClass, createRecurringSchedule } from '../../firebase/db'
-import { useAuth } from '../../context/AuthContext'
+import { getAllStudents, createClass, createRecurringSchedule, getTeacherId } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 
 const DURATIONS = [30, 45, 60, 90, 120]
@@ -11,7 +10,6 @@ const FREQUENCIES = [
 ]
 
 export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) {
-  const { user } = useAuth()
   const [students, setStudents] = useState([])
   const [form, setForm] = useState({
     studentId: '',
@@ -44,7 +42,9 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
 
     try {
       const scheduledAt = Timestamp.fromDate(new Date(`${form.date}T${form.time}`))
-      const teacherId = user.id
+      // Shared calendar: all classes belong to the single teacher, even if an admin schedules them
+      const teacherId = await getTeacherId()
+      if (!teacherId) { setError('No teacher account found.'); setLoading(false); return }
       const studentId = form.studentId
 
       if (form.isRecurring) {

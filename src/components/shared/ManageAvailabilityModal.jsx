@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react'
 import { RiCloseLine, RiAddLine, RiDeleteBinLine } from 'react-icons/ri'
-import { getBlockedSlotsForMonth, addBlockedSlot, deleteBlockedSlot } from '../../firebase/db'
-import { Timestamp } from 'firebase/firestore'
+import { getBlockedSlotsForMonth, addBlockedSlot, deleteBlockedSlot, getTeacherId } from '../../firebase/db'
 
-export default function ManageAvailabilityModal({ teacherId, onClose }) {
+export default function ManageAvailabilityModal({ onClose }) {
+  const [teacherId, setTeacherId] = useState(null)
   const [slots, setSlots] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ date: '', startTime: '', endTime: '', reason: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  // Shared calendar: availability always belongs to the single teacher
+  useEffect(() => { getTeacherId().then(id => setTeacherId(id)) }, [])
+
   async function fetchSlots() {
+    if (!teacherId) return
     setLoading(true)
-    // Fetch next 3 months of blocked slots
     const now = new Date()
     const results = await Promise.all([0, 1, 2].map(i => {
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
@@ -25,7 +28,7 @@ export default function ManageAvailabilityModal({ teacherId, onClose }) {
     setLoading(false)
   }
 
-  useEffect(() => { fetchSlots() }, [teacherId])
+  useEffect(() => { if (teacherId) fetchSlots() }, [teacherId])
 
   async function handleAdd(e) {
     e.preventDefault()

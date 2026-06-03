@@ -195,7 +195,7 @@ export default function TeacherSchedule() {
         />
       )}
       {showAvailability && (
-        <ManageAvailabilityModal teacherId={user.id} onClose={() => setShowAvailability(false)} />
+        <ManageAvailabilityModal onClose={() => setShowAvailability(false)} />
       )}
 
       {showDetail && (

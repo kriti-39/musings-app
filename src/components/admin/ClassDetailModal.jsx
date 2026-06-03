@@ -34,7 +34,7 @@ export default function ClassDetailModal({ cls, studentName, onClose, onUpdate }
 
   async function handleReschedule() {
     if (!newDate || !newTime) return
-    await handle(() => rescheduleClass(cls.id, `${newDate}T${newTime}`))
+    await handle(() => rescheduleClass(cls.id, `${newDate}T${newTime}`, cls.studentId))
   }
 
   async function handleSaveNotes() {
@@ -163,7 +163,7 @@ export default function ClassDetailModal({ cls, studentName, onClose, onUpdate }
                 </button>
               )}
               {cls.status !== 'completed' && (
-                <button onClick={() => handle(() => cancelClass(cls.id))} disabled={loading}
+                <button onClick={() => handle(() => cancelClass(cls.id, cls.studentId))} disabled={loading}
                   className="col-span-2 border border-red-200 text-red-500 rounded-lg py-2.5 text-sm hover:bg-red-50 transition-colors disabled:opacity-50"
                 >
                   Cancel Class

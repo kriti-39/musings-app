@@ -143,11 +143,15 @@ export async function markClassDone(classId, markedBy) {
   })
 }
 
-export async function cancelClass(classId) {
+export async function cancelClass(classId, notifyStudentId = null) {
   await updateDoc(doc(db, 'classes', classId), {
     status: 'cancelled',
     updatedAt: serverTimestamp(),
   })
+  // When staff cancels, notify the student
+  if (notifyStudentId) {
+    await createNotification(notifyStudentId, 'class_cancelled', 'Your class has been cancelled.', classId)
+  }
 }
 
 // Permanently delete a class document (admin/teacher only)
@@ -213,12 +217,32 @@ export async function rejectClass(classId, studentId = null) {
   }
 }
 
-export async function rescheduleClass(classId, newScheduledAt) {
+// Staff reschedules a class → notify student
+export async function rescheduleClass(classId, newScheduledAt, notifyStudentId = null) {
+  const newDate = new Date(newScheduledAt)
   await updateDoc(doc(db, 'classes', classId), {
-    scheduledAt: Timestamp.fromDate(new Date(newScheduledAt)),
+    scheduledAt: Timestamp.fromDate(newDate),
     status: 'scheduled',
     updatedAt: serverTimestamp(),
   })
+  if (notifyStudentId) {
+    const when = newDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) +
+      ' at ' + newDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+    await createNotification(notifyStudentId, 'class_rescheduled', `Your class was rescheduled to ${when}.`, classId)
+  }
+}
+
+// Student requests a reschedule → goes back to pending for staff to re-confirm + notify staff
+export async function requestReschedule(classId, newScheduledAt) {
+  await updateDoc(doc(db, 'classes', classId), {
+    scheduledAt: Timestamp.fromDate(new Date(newScheduledAt)),
+    status: 'pending',
+    updatedAt: serverTimestamp(),
+  })
+  const staffIds = await getStaffIds()
+  await Promise.all(staffIds.map(id =>
+    createNotification(id, 'reschedule_request', 'A student requested to reschedule a class.', classId)
+  ))
 }
 
 // ─── RECURRING SCHEDULES ──────────────────────────────────────────────────────
@@ -232,13 +256,27 @@ export async function createRecurringSchedule(data) {
 }
 
 export async function getStudentRecurringSchedules(studentId) {
-  const q = query(
-    collection(db, 'recurringSchedules'),
-    where('studentId', '==', studentId),
-    where('isActive', '==', true)
-  )
-  const snap = await getDocs(q)
+  const snap = await getDocs(query(collection(db, 'recurringSchedules'), where('studentId', '==', studentId)))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => r.isActive !== false)
+}
+
+export async function getAllRecurringSchedules() {
+  const snap = await getDocs(query(collection(db, 'recurringSchedules'), where('isActive', '==', true)))
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+// End a recurring series: mark inactive + cancel all its FUTURE generated classes
+export async function cancelRecurringSchedule(recurringId) {
+  await updateDoc(doc(db, 'recurringSchedules', recurringId), { isActive: false })
+  const now = Timestamp.now()
+  const snap = await getDocs(query(collection(db, 'classes'), where('recurringId', '==', recurringId)))
+  const futureScheduled = snap.docs.filter(d => {
+    const data = d.data()
+    return (data.status === 'scheduled' || !data.status) && (data.scheduledAt?.seconds ?? 0) >= now.seconds
+  })
+  await Promise.all(futureScheduled.map(d =>
+    updateDoc(doc(db, 'classes', d.id), { status: 'cancelled', updatedAt: serverTimestamp() })
+  ))
 }
 
 // ─── AVAILABILITY (BLOCKED SLOTS) ─────────────────────────────────────────────

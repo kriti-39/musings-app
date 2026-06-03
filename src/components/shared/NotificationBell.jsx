@@ -15,7 +15,13 @@ export default function NotificationBell() {
     setNotifications(data)
   }
 
-  useEffect(() => { if (user?.id) fetch() }, [user?.id])
+  useEffect(() => {
+    if (!user?.id) return
+    fetch()
+    // Auto-refresh every 30s so new notifications appear without a page reload
+    const interval = setInterval(fetch, 30000)
+    return () => clearInterval(interval)
+  }, [user?.id])
 
   useEffect(() => {
     function handleClick(e) {

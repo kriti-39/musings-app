@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { RiCloseLine, RiCalendarLine, RiTimeLine, RiUserLine } from 'react-icons/ri'
 import {
   cancelClass, rescheduleClass, markClassDone,
-  confirmClass, rejectClass, updateClass
+  confirmClass, rejectClass, updateClass, deleteClass
 } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext'
@@ -169,6 +169,13 @@ export default function ClassDetailModal({ cls, studentName, onClose, onUpdate }
                   Cancel Class
                 </button>
               )}
+              <button
+                onClick={() => { if (window.confirm('Permanently delete this class? This cannot be undone.')) handle(() => deleteClass(cls.id)) }}
+                disabled={loading}
+                className="col-span-2 text-xs text-gray-400 hover:text-red-500 transition-colors py-1 disabled:opacity-50"
+              >
+                Delete permanently
+              </button>
             </div>
           )}
         </div>

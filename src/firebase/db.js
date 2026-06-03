@@ -150,6 +150,11 @@ export async function cancelClass(classId) {
   })
 }
 
+// Permanently delete a class document (admin/teacher only)
+export async function deleteClass(classId) {
+  await deleteDoc(doc(db, 'classes', classId))
+}
+
 function sortByScheduled(docs) {
   return docs
     .map(d => ({ id: d.id, ...d.data() }))

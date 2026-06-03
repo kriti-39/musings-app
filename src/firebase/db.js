@@ -276,12 +276,39 @@ export async function getAllPayments() {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }
 
-export async function confirmPayment(paymentId, confirmedByUid) {
+export async function confirmPayment(paymentId, confirmedByUid, studentId = null) {
   await updateDoc(doc(db, 'payments', paymentId), {
     status: 'confirmed',
     confirmedBy: confirmedByUid,
     confirmedAt: serverTimestamp(),
   })
+  if (studentId) {
+    await createNotification(studentId, 'payment_confirmed', 'Your payment has been confirmed!', null)
+  }
+}
+
+export async function getAllStudentsIncludingInactive() {
+  const q = query(collection(db, 'users'), where('role', '==', 'student'))
+  const snap = await getDocs(q)
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function deactivateStudent(uid) {
+  await updateDoc(doc(db, 'users', uid), { isActive: false })
+}
+
+export async function reactivateStudent(uid) {
+  await updateDoc(doc(db, 'users', uid), { isActive: true })
+}
+
+export async function getTeacherAllClasses(teacherId) {
+  const q = query(
+    collection(db, 'classes'),
+    where('teacherId', '==', teacherId),
+    orderBy('scheduledAt', 'desc')
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }
 
 // ─── NOTIFICATIONS ────────────────────────────────────────────────────────────

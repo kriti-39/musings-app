@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import AddAdminModal from '../../components/teacher/AddAdminModal'
-import { getAllStudents, getAdmins } from '../../firebase/db'
-import { RiSearchLine, RiUserLine, RiAddLine } from 'react-icons/ri'
+import { getAllStudents, getAllStudentsIncludingInactive, getAdmins, deactivateStudent, reactivateStudent } from '../../firebase/db'
+import { RiSearchLine, RiUserLine, RiAddLine, RiUserUnfollowLine, RiUserFollowLine } from 'react-icons/ri'
 
 const SORT_OPTIONS = [
   { value: 'name', label: 'Name' },
@@ -12,7 +12,7 @@ const SORT_OPTIONS = [
 
 export default function TeacherStudents() {
   const [tab, setTab] = useState('students')
-  const [students, setStudents] = useState([])
+  const [allStudents, setAllStudents] = useState([])
   const [admins, setAdmins] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -21,15 +21,18 @@ export default function TeacherStudents() {
 
   async function fetchAll() {
     setLoading(true)
-    const [s, a] = await Promise.all([getAllStudents(), getAdmins()])
-    setStudents(s)
+    const [s, a] = await Promise.all([getAllStudentsIncludingInactive(), getAdmins()])
+    setAllStudents(s)
     setAdmins(a)
     setLoading(false)
   }
 
   useEffect(() => { fetchAll() }, [])
 
-  const filteredStudents = students
+  const students = allStudents.filter(s => s.isActive !== false)
+  const inactiveStudents = allStudents.filter(s => s.isActive === false)
+
+  const filteredStudents = (tab === 'deactivated' ? inactiveStudents : students)
     .filter(s =>
       s.name?.toLowerCase().includes(search.toLowerCase()) ||
       s.email?.toLowerCase().includes(search.toLowerCase()) ||
@@ -50,7 +53,7 @@ export default function TeacherStudents() {
           <div>
             <h1 className="text-xl font-semibold text-gray-800">Users</h1>
             <p className="text-sm text-gray-400 mt-0.5">
-              {tab === 'students' ? `${students.length} students` : `${admins.length} admins`}
+              {tab === 'students' ? `${students.length} active` : tab === 'deactivated' ? `${inactiveStudents.length} deactivated` : `${admins.length} admins`}
             </p>
           </div>
           {tab === 'admins' && (
@@ -63,18 +66,18 @@ export default function TeacherStudents() {
 
         {/* Tabs */}
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-5">
-          {['students', 'admins'].map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`px-5 py-1.5 rounded-lg text-sm font-medium capitalize transition-all ${
-                tab === t ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          {[{k:'students',l:'Students'},{k:'deactivated',l:'Deactivated'},{k:'admins',l:'Admins'}].map(t => (
+            <button key={t.k} onClick={() => setTab(t.k)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                tab === t.k ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}>
-              {t}
+              {t.l}
             </button>
           ))}
         </div>
 
-        {/* Students tab */}
-        {tab === 'students' && (
+        {/* Students / Deactivated tab */}
+        {(tab === 'students' || tab === 'deactivated') && (
           <>
             <div className="flex gap-3 mb-5">
               <div className="flex-1 relative">
@@ -108,11 +111,12 @@ export default function TeacherStudents() {
                       <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Country</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Timezone</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Fee</th>
+                      <th className="text-left px-5 py-3 text-xs font-medium text-gray-500"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredStudents.map((s, i) => (
-                      <tr key={s.id} className={i !== filteredStudents.length - 1 ? 'border-b border-gray-50' : ''}>
+                      <tr key={s.id} className={`${tab === 'deactivated' ? 'opacity-60' : ''} ${i !== filteredStudents.length - 1 ? 'border-b border-gray-50' : ''}`}>
                         <td className="px-5 py-3.5 font-medium text-gray-800">{s.name}</td>
                         <td className="px-5 py-3.5 text-gray-500">{s.email}</td>
                         <td className="px-5 py-3.5 text-gray-500">{s.country || '—'}</td>
@@ -120,6 +124,19 @@ export default function TeacherStudents() {
                         <td className="px-5 py-3.5 text-gray-500">
                           {s.feeAmount ? `₹${s.feeAmount}` : '—'}
                           {s.feeType && <span className="ml-1 text-xs text-gray-400">({s.feeType === 'monthly' ? '/mo' : s.feeType === 'per_class' ? '/class' : 'flexible'})</span>}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {tab === 'students' ? (
+                            <button onClick={() => { deactivateStudent(s.id); fetchAll() }}
+                              className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
+                              <RiUserUnfollowLine size={13} /> Deactivate
+                            </button>
+                          ) : (
+                            <button onClick={() => { reactivateStudent(s.id); fetchAll() }}
+                              className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-green-600 border border-green-100 rounded-lg hover:bg-green-50 transition-colors">
+                              <RiUserFollowLine size={13} /> Reactivate
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

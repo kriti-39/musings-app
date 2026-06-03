@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
-import { getAllStudents, getStudentPayments } from '../../firebase/db'
+import { getAllStudents, getStudentPayments, confirmPayment } from '../../firebase/db'
+import { useAuth } from '../../context/AuthContext'
+import { RiCheckLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -16,7 +17,7 @@ function currentMonthStr() {
 }
 
 export default function TeacherFees() {
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const [students, setStudents] = useState([])
   const [payments, setPayments] = useState({})
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr())
@@ -41,6 +42,18 @@ export default function TeacherFees() {
     const found = list.find(p => p.months?.includes(month))
     if (!found) return 'unpaid'
     return found.status === 'confirmed' ? 'paid' : 'pending'
+  }
+
+  function getPayment(studentId, month) {
+    return (payments[studentId] || []).find(p => p.months?.includes(month))
+  }
+
+  async function handleConfirm(paymentId, studentId) {
+    await confirmPayment(paymentId, user.id, studentId)
+    const allStudents = await getAllStudents()
+    const map = {}
+    await Promise.all(allStudents.map(async s => { map[s.id] = await getStudentPayments(s.id) }))
+    setPayments(map)
   }
 
   const months = []
@@ -96,11 +109,13 @@ export default function TeacherFees() {
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Student</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Country</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">{monthLabel(selectedMonth)}</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {students.map((s, i) => {
                   const status = getStatus(s.id, selectedMonth)
+                  const payment = getPayment(s.id, selectedMonth)
                   return (
                     <tr key={s.id}
                       className={`transition-colors ${i !== students.length - 1 ? 'border-b border-gray-50' : ''}`}
@@ -113,8 +128,16 @@ export default function TeacherFees() {
                           status === 'pending' ? 'bg-amber-50 text-amber-700' :
                           'bg-red-50 text-red-500'
                         }`}>
-                          {status === 'paid' ? 'Paid' : status === 'pending' ? 'Pending' : 'Unpaid'}
+                          {status === 'paid' ? 'Paid' : status === 'pending' ? 'Pending confirmation' : 'Unpaid'}
                         </span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {status === 'pending' && payment && (
+                          <button onClick={() => handleConfirm(payment.id, s.id)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
+                            <RiCheckLine size={13} /> Confirm
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )

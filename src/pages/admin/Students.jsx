@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AddStudentModal from '../../components/admin/AddStudentModal'
-import { getAllStudents } from '../../firebase/db'
-import { RiAddLine, RiSearchLine, RiUserLine } from 'react-icons/ri'
+import { getAllStudents, getAllStudentsIncludingInactive, deactivateStudent, reactivateStudent } from '../../firebase/db'
+import { RiAddLine, RiSearchLine, RiUserLine, RiUserUnfollowLine, RiUserFollowLine } from 'react-icons/ri'
 
 const SORT_OPTIONS = [
   { value: 'name', label: 'Name' },
@@ -12,6 +12,7 @@ const SORT_OPTIONS = [
 ]
 
 export default function AdminStudents() {
+  const [tab, setTab] = useState('active')
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -21,14 +22,18 @@ export default function AdminStudents() {
 
   async function fetchStudents() {
     setLoading(true)
-    const data = await getAllStudents()
+    const data = await getAllStudentsIncludingInactive()
     setStudents(data)
     setLoading(false)
   }
 
   useEffect(() => { fetchStudents() }, [])
 
-  const filtered = students
+  const active = students.filter(s => s.isActive !== false)
+  const inactive = students.filter(s => s.isActive === false)
+  const list = tab === 'active' ? active : inactive
+
+  const filtered = list
     .filter(s =>
       s.name?.toLowerCase().includes(search.toLowerCase()) ||
       s.email?.toLowerCase().includes(search.toLowerCase()) ||
@@ -41,54 +46,65 @@ export default function AdminStudents() {
       return 0
     })
 
+  async function handleDeactivate(uid) {
+    await deactivateStudent(uid)
+    fetchStudents()
+  }
+
+  async function handleReactivate(uid) {
+    await reactivateStudent(uid)
+    fetchStudents()
+  }
+
   return (
     <AdminLayout>
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-semibold text-gray-800">Students</h1>
-            <p className="text-sm text-gray-400 mt-0.5">{students.length} total</p>
+            <p className="text-sm text-gray-400 mt-0.5">{active.length} active · {inactive.length} deactivated</p>
           </div>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            <RiAddLine size={18} />
-            Add Student
-          </button>
+          {tab === 'active' && (
+            <button onClick={() => setShowAdd(true)}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              <RiAddLine size={18} /> Add Student
+            </button>
+          )}
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-5">
+          {[{ key: 'active', label: 'Active' }, { key: 'inactive', label: 'Deactivated' }].map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`px-5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                tab === t.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              {t.label}
+            </button>
+          ))}
         </div>
 
         {/* Filters */}
         <div className="flex gap-3 mb-5">
           <div className="flex-1 relative">
             <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
+            <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search by name, email or country..."
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-            />
+              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
           </div>
-          <select
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
-          >
-            {SORT_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>Sort: {o.label}</option>
-            ))}
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400">
+            {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>Sort: {o.label}</option>)}
           </select>
         </div>
 
-        {/* Table */}
         {loading ? (
           <div className="text-center py-16 text-gray-400 text-sm">Loading students...</div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <RiUserLine size={36} className="mx-auto text-gray-300 mb-3" />
             <p className="text-gray-400 text-sm">
-              {search ? 'No students match your search.' : 'No students yet. Add your first student.'}
+              {search ? 'No students match your search.' : tab === 'active' ? 'No active students.' : 'No deactivated students.'}
             </p>
           </div>
         ) : (
@@ -99,27 +115,40 @@ export default function AdminStudents() {
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Name</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Email</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Country</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Timezone</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Fee</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500"></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((student, i) => (
-                  <tr
-                    key={student.id}
-                    onClick={() => navigate(`/admin/students/${student.id}`)}
-                    className={`hover:bg-amber-50 cursor-pointer transition-colors ${i !== filtered.length - 1 ? 'border-b border-gray-50' : ''}`}
+                  <tr key={student.id}
+                    className={`transition-colors ${tab === 'active' ? 'hover:bg-amber-50 cursor-pointer' : 'opacity-60'} ${i !== filtered.length - 1 ? 'border-b border-gray-50' : ''}`}
                   >
-                    <td className="px-5 py-3.5 font-medium text-gray-800">{student.name}</td>
+                    <td className="px-5 py-3.5 font-medium text-gray-800"
+                      onClick={() => tab === 'active' && navigate(`/admin/students/${student.id}`)}>
+                      {student.name}
+                    </td>
                     <td className="px-5 py-3.5 text-gray-500">{student.email}</td>
                     <td className="px-5 py-3.5 text-gray-500">{student.country || '—'}</td>
-                    <td className="px-5 py-3.5 text-gray-500">{student.timezone || '—'}</td>
                     <td className="px-5 py-3.5 text-gray-500">
                       {student.feeAmount ? `₹${student.feeAmount}` : '—'}
                       {student.feeType && (
                         <span className="ml-1 text-xs text-gray-400">
                           ({student.feeType === 'monthly' ? '/mo' : student.feeType === 'per_class' ? '/class' : 'flexible'})
                         </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      {tab === 'active' ? (
+                        <button onClick={() => handleDeactivate(student.id)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
+                          <RiUserUnfollowLine size={13} /> Deactivate
+                        </button>
+                      ) : (
+                        <button onClick={() => handleReactivate(student.id)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-green-600 border border-green-100 rounded-lg hover:bg-green-50 transition-colors">
+                          <RiUserFollowLine size={13} /> Reactivate
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -131,10 +160,7 @@ export default function AdminStudents() {
       </div>
 
       {showAdd && (
-        <AddStudentModal
-          onClose={() => setShowAdd(false)}
-          onSuccess={fetchStudents}
-        />
+        <AddStudentModal onClose={() => setShowAdd(false)} onSuccess={fetchStudents} />
       )}
     </AdminLayout>
   )

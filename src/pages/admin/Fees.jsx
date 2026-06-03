@@ -113,7 +113,7 @@ export default function AdminFees() {
                           {status === 'pending' && monthPayment && (
                             <button
                               onClick={async () => {
-                                await confirmPayment(monthPayment.id, user.id)
+                                await confirmPayment(monthPayment.id, user.id, s.id)
                                 fetchAll()
                               }}
                               className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors"

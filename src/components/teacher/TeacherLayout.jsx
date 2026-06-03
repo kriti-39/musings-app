@@ -6,13 +6,14 @@ import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import NotificationBell from '../shared/NotificationBell'
 import {
-  RiDashboardLine, RiCalendarLine, RiMoneyDollarCircleLine,
+  RiDashboardLine, RiCalendarLine, RiMoneyDollarCircleLine, RiListCheck2,
   RiMenuLine, RiLogoutBoxLine, RiSunLine, RiMoonLine, RiUserLine
 } from 'react-icons/ri'
 
 const navItems = [
   { to: '/teacher/dashboard', icon: RiDashboardLine, label: 'Dashboard' },
   { to: '/teacher/students', icon: RiUserLine, label: 'Students' },
+  { to: '/teacher/classes', icon: RiListCheck2, label: 'Classes' },
   { to: '/teacher/schedule', icon: RiCalendarLine, label: 'Schedule' },
   { to: '/teacher/fees', icon: RiMoneyDollarCircleLine, label: 'Fees' },
 ]

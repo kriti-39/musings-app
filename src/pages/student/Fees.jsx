@@ -130,6 +130,7 @@ function SubmitPaymentModal({ studentId, onClose, onSuccess }) {
         months: form.months,
         note: form.note,
         submittedBy: 'student',
+        status: 'pending',
       }
       const ref = await createPayment(paymentData)
       if (file) {

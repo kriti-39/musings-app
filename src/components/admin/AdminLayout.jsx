@@ -5,7 +5,7 @@ import { auth } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import {
-  RiDashboardLine, RiUserLine, RiCalendarLine,
+  RiDashboardLine, RiUserLine, RiCalendarLine, RiListCheck2,
   RiMoneyDollarCircleLine, RiMenuLine, RiCloseLine, RiLogoutBoxLine,
   RiSunLine, RiMoonLine
 } from 'react-icons/ri'
@@ -13,6 +13,7 @@ import {
 const navItems = [
   { to: '/admin/dashboard', icon: RiDashboardLine, label: 'Dashboard' },
   { to: '/admin/students', icon: RiUserLine, label: 'Students' },
+  { to: '/admin/classes', icon: RiListCheck2, label: 'Classes' },
   { to: '/admin/schedule', icon: RiCalendarLine, label: 'Schedule' },
   { to: '/admin/fees', icon: RiMoneyDollarCircleLine, label: 'Fees' },
 ]

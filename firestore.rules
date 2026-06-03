@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+    function role() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function isAdmin() { return isAuth() && role() == 'admin'; }
+    function isTeacher() { return isAuth() && role() == 'teacher'; }
+    function isAdminOrTeacher() { return isAdmin() || isTeacher(); }
+
+    match /users/{userId} {
+      allow read: if isAuth() && (request.auth.uid == userId || isAdminOrTeacher());
+      allow create: if isAdminOrTeacher();
+      allow update: if isAuth() && (request.auth.uid == userId || isAdminOrTeacher());
+      allow delete: if isAdmin();
+    }
+
+    match /classes/{classId} {
+      allow read: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
+      allow create: if isAuth() && (isAdminOrTeacher() || request.resource.data.studentId == request.auth.uid);
+      allow update: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
+      allow delete: if isAdminOrTeacher();
+    }
+
+    match /recurringSchedules/{id} {
+      allow read: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
+      allow write: if isAdminOrTeacher();
+    }
+
+    match /availability/{id} {
+      allow read: if isAuth();
+      allow write: if isAdminOrTeacher();
+    }
+
+    match /payments/{id} {
+      allow read: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
+      allow create: if isAuth() && (isAdminOrTeacher() || request.resource.data.studentId == request.auth.uid);
+      allow update: if isAdminOrTeacher();
+      allow delete: if isAdmin();
+    }
+
+    match /notifications/{id} {
+      allow read: if isAuth() && (isAdminOrTeacher() || resource.data.userId == request.auth.uid);
+      allow create: if isAuth();
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+  }
+}

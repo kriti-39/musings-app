@@ -128,6 +128,24 @@ export default function BookClass() {
 
   const minDate = format(new Date(), 'yyyy-MM-dd')
 
+  // Called when a date number is clicked in month view
+  function handleDrillDown(date) {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    if (date < today) return // block past dates
+    setCurrentDate(date)
+    setCurrentView('day')
+  }
+
+  // Called when a time slot is clicked in day view
+  function handleSelectSlot({ start }) {
+    if (currentView !== 'day') return
+    if (isBefore(start, new Date())) return // block past slots
+    setSelectedDate(format(start, 'yyyy-MM-dd'))
+    setSelectedTime(format(start, 'HH:mm'))
+    setConflict(false)
+    setShowPicker(true)
+  }
+
   async function handleBook() {
     if (!selectedDate || !selectedTime || !teacherId) return
     const [h, m] = selectedTime.split(':').map(Number)
@@ -162,7 +180,7 @@ export default function BookClass() {
         <div className="mb-4">
           <h1 className="text-xl font-semibold text-gray-800">Book a Class</h1>
           <p className="text-sm text-gray-400 mt-1">
-            Check the calendar for availability, then pick your slot.
+            Tap a date to open day view, then tap a time slot to send a request.
           </p>
         </div>
 
@@ -199,15 +217,19 @@ export default function BookClass() {
             /* Today highlight */
             .rbc-today                 { background-color: #fffbeb !important; }
             /* Date cells in month view */
-            .rbc-date-cell             { font-size: 12px; padding: 4px 6px; cursor: pointer; }
-            .rbc-date-cell:hover a     { color: #f59e0b; }
+            .rbc-date-cell             { font-size: 12px; padding: 4px 6px; }
+            .rbc-date-cell a           { cursor: pointer; }
+            .rbc-date-cell a:hover     { color: #f59e0b; font-weight: 600; }
             .rbc-off-range-bg          { background: rgba(0,0,0,0.02); }
-            /* Time labels in day view */
+            .rbc-off-range .rbc-date-cell a { opacity: 0.35; pointer-events: none; }
+            /* Clickable time slots in day view */
+            .rbc-day-slot .rbc-time-slot:hover { background: rgba(245,158,11,0.07); cursor: pointer; }
+            .rbc-slot-selection        { background: rgba(245,158,11,0.15) !important; }
+            /* Time labels */
             .rbc-label                 { font-size: 11px; color: #9ca3af; }
             .rbc-time-gutter .rbc-timeslot-group { border-color: rgba(0,0,0,0.07); }
-            /* Hide redundant day column header in day view — label already shows it */
-            .rbc-time-header-content .rbc-header { display: none; }
-            .rbc-time-header-content { border: none !important; }
+            /* Day column header */
+            .rbc-time-header-content .rbc-header { border-bottom: 1px solid rgba(0,0,0,0.07); }
           `}</style>
           <Calendar
             localizer={localizer}
@@ -218,11 +240,20 @@ export default function BookClass() {
             onNavigate={date => setCurrentDate(date)}
             view={currentView}
             onView={setCurrentView}
-            onDrillDown={(date) => {
-              setCurrentDate(date)
-              setCurrentView('day')
-            }}
+            onDrillDown={handleDrillDown}
             drilldownView="day"
+            selectable
+            longPressThreshold={10}
+            onSelectSlot={handleSelectSlot}
+            dayPropGetter={date => {
+              const today = new Date(); today.setHours(0, 0, 0, 0)
+              if (date < today) return { style: { opacity: 0.45, cursor: 'not-allowed' } }
+              return {}
+            }}
+            slotPropGetter={date => {
+              if (isBefore(date, new Date())) return { style: { cursor: 'not-allowed' } }
+              return {}
+            }}
             components={{ toolbar: CalendarToolbar }}
             eventPropGetter={() => ({
               style: {

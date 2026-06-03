@@ -115,7 +115,7 @@ export default function AddStudentModal({ onClose, onSuccess }) {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Temporary Password *</label>
             <input
-              name="password" type="text" value={form.password} onChange={handleChange} required minLength={6}
+              name="password" type="password" value={form.password} onChange={handleChange} required minLength={6}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
               placeholder="Share this with the student"
             />

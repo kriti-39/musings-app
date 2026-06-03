@@ -139,10 +139,12 @@ export async function updateClass(classId, data) {
 export async function markClassDone(classId, markedBy) {
   const cls = await getClass(classId)
   const prev = cls?.markedDoneBy
+  // Admin acts as teacher for mutual-done tracking
+  const role = markedBy === 'admin' ? 'teacher' : markedBy
 
-  let markedDoneBy = markedBy
-  if ((prev === 'student' && markedBy === 'teacher') ||
-      (prev === 'teacher' && markedBy === 'student')) {
+  let markedDoneBy = role
+  if ((prev === 'student' && role === 'teacher') ||
+      (prev === 'teacher' && role === 'student')) {
     markedDoneBy = 'both'
   }
 
@@ -254,7 +256,6 @@ export async function deleteBlockedSlot(slotId) {
 export async function createPayment(data) {
   return await addDoc(collection(db, 'payments'), {
     ...data,
-    status: 'pending',
     submittedAt: serverTimestamp(),
   })
 }

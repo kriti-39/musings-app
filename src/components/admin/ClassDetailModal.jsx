@@ -79,13 +79,13 @@ export default function ClassDetailModal({ cls, studentName, onClose, onUpdate }
               <p className="text-sm font-medium text-amber-800">Student booking request</p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => handle(() => confirmClass(cls.id))} disabled={loading}
+                  onClick={() => handle(() => confirmClass(cls.id, cls.studentId))} disabled={loading}
                   className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2 text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   Confirm
                 </button>
                 <button
-                  onClick={() => handle(() => rejectClass(cls.id))} disabled={loading}
+                  onClick={() => handle(() => rejectClass(cls.id, cls.studentId))} disabled={loading}
                   className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg py-2 text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   Reject
@@ -142,7 +142,7 @@ export default function ClassDetailModal({ cls, studentName, onClose, onUpdate }
           {/* Actions */}
           {view === 'detail' && cls.status !== 'cancelled' && cls.status !== 'rejected' && (
             <div className="grid grid-cols-2 gap-2 pt-1">
-              {cls.status !== 'completed' && (
+              {cls.status === 'scheduled' && (
                 <button onClick={() => handle(() => markClassDone(cls.id, user.role))}
                   disabled={loading}
                   className="col-span-2 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium transition-colors disabled:opacity-50"

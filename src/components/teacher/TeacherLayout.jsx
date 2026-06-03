@@ -84,6 +84,7 @@ export default function TeacherLayout({ children }) {
           <button onClick={() => setSidebarOpen(true)} className="text-gray-500">
             <RiMenuLine size={22} />
           </button>
+          <span className="text-sm font-semibold text-gray-800">Deva's Classes</span>
           <NotificationBell />
         </header>
 

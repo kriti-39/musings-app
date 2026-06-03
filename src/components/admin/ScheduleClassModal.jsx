@@ -67,17 +67,16 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
           8
         )
 
-        for (const date of occurrences) {
-          await createClass({
-            studentId,
-            teacherId,
-            scheduledAt: Timestamp.fromDate(date),
-            duration: Number(form.duration),
-            lessonNotes: form.notes,
-            recurringId: recurring.id,
-            isRecurring: true,
-          })
-        }
+        await Promise.all(occurrences.map(date => createClass({
+          studentId,
+          teacherId,
+          scheduledAt: Timestamp.fromDate(date),
+          duration: Number(form.duration),
+          lessonNotes: form.notes,
+          recurringId: recurring.id,
+          isRecurring: true,
+          status: 'scheduled',
+        })))
       } else {
         await createClass({
           studentId,
@@ -87,6 +86,7 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
           lessonNotes: form.notes,
           recurringId: null,
           isRecurring: false,
+          status: 'scheduled',
         })
       }
 

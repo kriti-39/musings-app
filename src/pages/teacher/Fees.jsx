@@ -103,8 +103,7 @@ export default function TeacherFees() {
                   const status = getStatus(s.id, selectedMonth)
                   return (
                     <tr key={s.id}
-                      onClick={() => navigate(`/admin/students/${s.id}`)}
-                      className={`cursor-pointer hover:bg-amber-50 transition-colors ${i !== students.length - 1 ? 'border-b border-gray-50' : ''}`}
+                      className={`transition-colors ${i !== students.length - 1 ? 'border-b border-gray-50' : ''}`}
                     >
                       <td className="px-5 py-3.5 font-medium text-gray-800">{s.name}</td>
                       <td className="px-5 py-3.5 text-gray-500">{s.country || '—'}</td>

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getStudentUpcomingClasses, getStudentAllClasses, markClassDone, cancelClass } from '../../firebase/db'
+import { getStudentAllClasses, markClassDone, cancelClass } from '../../firebase/db'
 import { RiCalendarLine, RiAddLine } from 'react-icons/ri'
 
 const STATUS_STYLES = {
@@ -23,12 +23,17 @@ export default function StudentDashboard() {
 
   async function fetchClasses() {
     try {
-      const [up, all] = await Promise.all([
-        getStudentUpcomingClasses(user.id),
-        getStudentAllClasses(user.id),
-      ])
-      setUpcoming(up)
-      setPast(all.filter(c => c.status === 'completed' || c.status === 'cancelled'))
+      const all = await getStudentAllClasses(user.id)
+      const now = new Date()
+      setUpcoming(
+        all
+          .filter(c =>
+            c.status === 'pending' ||
+            (c.status === 'scheduled' && (c.scheduledAt?.toDate?.() ?? new Date()) >= now)
+          )
+          .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
+      )
+      setPast(all.filter(c => c.status === 'completed' || c.status === 'cancelled' || c.status === 'rejected'))
     } catch (e) {
       console.error('Failed to fetch classes:', e)
     } finally {
@@ -154,21 +159,23 @@ function ClassCard({ cls, onAction, userId }) {
         </span>
       </div>
 
-      {cls.status === 'scheduled' && (
+      {(cls.status === 'scheduled' || cls.status === 'pending') && (
         <div className="flex gap-2 mt-4">
-          <button
-            onClick={() => handle(() => markClassDone(cls.id, 'student'))}
-            disabled={loading}
-            className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors disabled:opacity-50"
-          >
-            Mark Done
-          </button>
+          {cls.status === 'scheduled' && (
+            <button
+              onClick={() => handle(() => markClassDone(cls.id, 'student'))}
+              disabled={loading}
+              className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors disabled:opacity-50"
+            >
+              Mark Done
+            </button>
+          )}
           <button
             onClick={() => handle(() => cancelClass(cls.id))}
             disabled={loading}
             className="px-3 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors disabled:opacity-50"
           >
-            Cancel
+            {cls.status === 'pending' ? 'Cancel Request' : 'Cancel'}
           </button>
         </div>
       )}

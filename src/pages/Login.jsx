@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../firebase/config'
 import { useNavigate } from 'react-router-dom'
@@ -12,6 +12,12 @@ export default function Login() {
   const navigate = useNavigate()
   const { role } = useAuth()
 
+  useEffect(() => {
+    if (role === 'student') navigate('/student/dashboard', { replace: true })
+    else if (role === 'teacher') navigate('/teacher/dashboard', { replace: true })
+    else if (role === 'admin') navigate('/admin/dashboard', { replace: true })
+  }, [role])
+
   async function handleLogin(e) {
     e.preventDefault()
     setError('')
@@ -24,10 +30,6 @@ export default function Login() {
       setLoading(false)
     }
   }
-
-  if (role === 'student') return navigate('/student/dashboard')
-  if (role === 'teacher') return navigate('/teacher/dashboard')
-  if (role === 'admin') return navigate('/admin/dashboard')
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">

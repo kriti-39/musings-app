@@ -189,10 +189,10 @@ export default function BookClass() {
         </div>
 
         {/* Controls row — button + legend on same line */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span className="w-3 h-3 rounded-sm bg-red-200 border border-red-300" />
-            Your classes / Teacher unavailable
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2 text-xs text-gray-500 min-w-0">
+            <span className="w-3 h-3 rounded-sm bg-red-200 border border-red-300 shrink-0" />
+            <span className="truncate">Red = unavailable</span>
           </div>
           <button
             onClick={() => setShowPicker(true)}

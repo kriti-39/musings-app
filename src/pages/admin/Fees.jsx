@@ -58,14 +58,14 @@ export default function AdminFees() {
   return (
     <AdminLayout>
       <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-semibold text-gray-800">Fees</h1>
-          <div className="flex gap-2">
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold text-gray-800 mb-3">Fees</h1>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {months.map(m => (
               <button
                 key={m}
                 onClick={() => setSelectedMonth(m)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   selectedMonth === m ? 'bg-amber-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-amber-300'
                 }`}
               >
@@ -78,7 +78,7 @@ export default function AdminFees() {
         {loading ? (
           <p className="text-gray-400 text-sm text-center py-16">Loading...</p>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">

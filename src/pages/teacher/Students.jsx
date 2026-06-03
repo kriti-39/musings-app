@@ -104,7 +104,7 @@ export default function TeacherStudents() {
                 <p className="text-gray-400 text-sm">{search ? 'No students match.' : 'No students yet.'}</p>
               </div>
             ) : (
-              <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+              <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
@@ -162,7 +162,7 @@ export default function TeacherStudents() {
               <p className="text-gray-400 text-sm">No admins yet. Add your first admin.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50">

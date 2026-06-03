@@ -71,7 +71,7 @@ export default function StudentDetail() {
             <div>
               <h1 className="text-xl font-semibold text-gray-800">{student?.name}</h1>
               <p className="text-sm text-gray-400 mt-0.5">{student?.email}</p>
-              <div className="flex gap-4 mt-4">
+              <div className="flex gap-x-6 gap-y-3 mt-4 flex-wrap">
                 {[
                   { label: 'Country', value: student?.country || '—' },
                   { label: 'Timezone', value: student?.timezone || '—' },
@@ -143,7 +143,7 @@ export default function StudentDetail() {
 
         {/* Classes */}
         {tab === 'classes' && (
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
             {classes.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-10">No classes yet.</p>
             ) : (
@@ -185,7 +185,7 @@ export default function StudentDetail() {
 
         {/* Payments */}
         {tab === 'payments' && (
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
             {payments.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-10">No payment records.</p>
             ) : (

@@ -18,26 +18,29 @@ export default function AdminDashboard() {
 
   async function fetchAll() {
     if (!user?.id) return
-    const now = new Date()
-    const [s, allClasses, p, allStudents] = await Promise.all([
-      getAdminDashboardStats(),
-      getAllClassesForMonth(now.getFullYear(), now.getMonth()),
-      getAllPendingRequests(),
-      getAllStudents(),
-    ])
-    setStats(s)
-    // Today's classes from all-classes query
-    const todayStart = new Date(now); todayStart.setHours(0,0,0,0)
-    const todayEnd = new Date(now); todayEnd.setHours(23,59,59,999)
-    const t = allClasses.filter(c => {
-      const d = c.scheduledAt?.toDate?.() ?? new Date()
-      return d >= todayStart && d <= todayEnd && (c.status === 'scheduled' || !c.status)
-    })
-    setTodayClasses(t)
-    setPending(p)
-    const map = {}
-    allStudents.forEach(st => { map[st.id] = st })
-    setStudents(map)
+    try {
+      const now = new Date()
+      const todayStart = new Date(now); todayStart.setHours(0,0,0,0)
+      const todayEnd = new Date(now); todayEnd.setHours(23,59,59,999)
+      const [s, allClasses, p, allStudents] = await Promise.all([
+        getAdminDashboardStats(),
+        getAllClassesForMonth(now.getFullYear(), now.getMonth()),
+        getAllPendingRequests(),
+        getAllStudents(),
+      ])
+      setStats(s)
+      const t = allClasses.filter(c => {
+        const d = c.scheduledAt?.toDate?.() ?? new Date()
+        return d >= todayStart && d <= todayEnd && (c.status === 'scheduled' || !c.status)
+      })
+      setTodayClasses(t)
+      setPending(p)
+      const map = {}
+      allStudents.forEach(st => { map[st.id] = st })
+      setStudents(map)
+    } catch (e) {
+      console.error('Admin dashboard fetch failed:', e)
+    }
   }
 
   useEffect(() => { fetchAll() }, [user])

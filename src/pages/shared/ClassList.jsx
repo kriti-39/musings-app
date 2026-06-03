@@ -79,42 +79,32 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
             <p className="text-gray-400 text-sm">No classes in this category.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Student</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Date & Time</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Duration</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((cls, i) => {
-                  const date = cls.scheduledAt?.toDate?.() ?? new Date()
-                  const student = students[cls.studentId]
-                  return (
-                    <tr key={cls.id}
-                      onClick={() => setDetail(cls)}
-                      className={`cursor-pointer hover:bg-amber-50 transition-colors ${i !== filtered.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                      <td className="px-5 py-3.5 font-medium text-gray-800">{student?.name || '—'}</td>
-                      <td className="px-5 py-3.5 text-gray-600">
-                        {date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        <span className="ml-2 text-xs text-gray-400">
-                          {date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-gray-500">{cls.duration || 60}m</td>
-                      <td className="px-5 py-3.5">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[cls.status] || ''}`}>
-                          {cls.status === 'pending' ? 'Awaiting confirmation' : cls.status}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            {filtered.map(cls => {
+              const date = cls.scheduledAt?.toDate?.() ?? new Date()
+              const student = students[cls.studentId]
+              const status = cls.status || 'scheduled'
+              return (
+                <button key={cls.id}
+                  onClick={() => setDetail(cls)}
+                  className="w-full text-left bg-white rounded-xl border border-gray-100 p-4 hover:border-amber-200 hover:shadow-sm transition-all">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-800 truncate">{student?.name || '—'}</p>
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        {date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {cls.duration || 60} min
+                      </p>
+                    </div>
+                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[status] || ''}`}>
+                      {status === 'pending' ? 'Awaiting confirmation' : status}
+                    </span>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         )}
       </div>

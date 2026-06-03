@@ -76,25 +76,21 @@ export async function getClass(classId) {
 }
 
 export async function getStudentUpcomingClasses(studentId) {
-  const q = query(
-    collection(db, 'classes'),
-    where('studentId', '==', studentId),
-    where('status', '==', 'scheduled'),
-    where('scheduledAt', '>=', Timestamp.now()),
-    orderBy('scheduledAt', 'asc')
-  )
-  const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  const now = Date.now() / 1000
+  const snap = await getDocs(query(collection(db, 'classes'), where('studentId', '==', studentId)))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(c => (c.status === 'scheduled' || !c.status) && (c.scheduledAt?.seconds ?? 0) >= now)
+    .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
 }
 
 export async function getStudentAllClasses(studentId) {
-  const q = query(
-    collection(db, 'classes'),
-    where('studentId', '==', studentId),
-    orderBy('scheduledAt', 'desc')
-  )
+  // No orderBy → avoids composite index; sorted client-side
+  const q = query(collection(db, 'classes'), where('studentId', '==', studentId))
   const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.scheduledAt?.seconds ?? 0) - (a.scheduledAt?.seconds ?? 0))
 }
 
 export async function getTeacherClassesForDay(teacherId, date) {
@@ -103,30 +99,22 @@ export async function getTeacherClassesForDay(teacherId, date) {
   const end = new Date(date)
   end.setHours(23, 59, 59, 999)
 
-  const q = query(
-    collection(db, 'classes'),
-    where('teacherId', '==', teacherId),
-    where('scheduledAt', '>=', Timestamp.fromDate(start)),
-    where('scheduledAt', '<=', Timestamp.fromDate(end)),
-    orderBy('scheduledAt', 'asc')
-  )
-  const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  const snap = await getDocs(query(collection(db, 'classes'), where('teacherId', '==', teacherId)))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(c => { const t = c.scheduledAt?.toDate?.(); return t >= start && t <= end })
+    .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
 }
 
 export async function getTeacherClassesForMonth(teacherId, year, month) {
   const start = new Date(year, month, 1)
   const end = new Date(year, month + 1, 0, 23, 59, 59)
 
-  const q = query(
-    collection(db, 'classes'),
-    where('teacherId', '==', teacherId),
-    where('scheduledAt', '>=', Timestamp.fromDate(start)),
-    where('scheduledAt', '<=', Timestamp.fromDate(end)),
-    orderBy('scheduledAt', 'asc')
-  )
-  const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  const snap = await getDocs(query(collection(db, 'classes'), where('teacherId', '==', teacherId)))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(c => { const t = c.scheduledAt?.toDate?.(); return t >= start && t <= end })
+    .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
 }
 
 export async function updateClass(classId, data) {
@@ -162,26 +150,28 @@ export async function cancelClass(classId) {
   })
 }
 
+function sortByScheduled(docs) {
+  return docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
+}
+
 export async function getPendingRequests(teacherId) {
+  // No orderBy → avoids composite index; sorted client-side
   const q = query(
     collection(db, 'classes'),
     where('teacherId', '==', teacherId),
-    where('status', '==', 'pending'),
-    orderBy('scheduledAt', 'asc')
+    where('status', '==', 'pending')
   )
   const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return sortByScheduled(snap.docs)
 }
 
 // Admin sees ALL pending requests regardless of which teacher they belong to
 export async function getAllPendingRequests() {
-  const q = query(
-    collection(db, 'classes'),
-    where('status', '==', 'pending'),
-    orderBy('scheduledAt', 'asc')
-  )
+  const q = query(collection(db, 'classes'), where('status', '==', 'pending'))
   const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return sortByScheduled(snap.docs)
 }
 
 // Admin sees ALL classes for a month (across all teachers)
@@ -262,14 +252,10 @@ export async function getBlockedSlotsForMonth(teacherId, year, month) {
   const start = new Date(year, month, 1)
   const end = new Date(year, month + 1, 0, 23, 59, 59)
 
-  const q = query(
-    collection(db, 'availability'),
-    where('teacherId', '==', teacherId),
-    where('startAt', '>=', Timestamp.fromDate(start)),
-    where('startAt', '<=', Timestamp.fromDate(end))
-  )
-  const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  const snap = await getDocs(query(collection(db, 'availability'), where('teacherId', '==', teacherId)))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(s => { const t = s.startAt?.toDate?.(); return t >= start && t <= end })
 }
 
 export async function deleteBlockedSlot(slotId) {
@@ -286,13 +272,12 @@ export async function createPayment(data) {
 }
 
 export async function getStudentPayments(studentId) {
-  const q = query(
-    collection(db, 'payments'),
-    where('studentId', '==', studentId),
-    orderBy('submittedAt', 'desc')
-  )
+  // No orderBy → avoids composite index; sorted client-side
+  const q = query(collection(db, 'payments'), where('studentId', '==', studentId))
   const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.submittedAt?.seconds ?? 0) - (a.submittedAt?.seconds ?? 0))
 }
 
 export async function getAllPayments() {
@@ -327,13 +312,12 @@ export async function reactivateStudent(uid) {
 }
 
 export async function getTeacherAllClasses(teacherId) {
-  const q = query(
-    collection(db, 'classes'),
-    where('teacherId', '==', teacherId),
-    orderBy('scheduledAt', 'desc')
-  )
+  // No orderBy → avoids composite index; sorted client-side
+  const q = query(collection(db, 'classes'), where('teacherId', '==', teacherId))
   const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.scheduledAt?.seconds ?? 0) - (a.scheduledAt?.seconds ?? 0))
 }
 
 export async function getAllClassesDesc() {
@@ -356,13 +340,12 @@ export async function createNotification(userId, type, message, relatedClassId =
 }
 
 export async function getUserNotifications(userId) {
-  const q = query(
-    collection(db, 'notifications'),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
-  )
+  // No orderBy → avoids composite index; sorted client-side
+  const q = query(collection(db, 'notifications'), where('userId', '==', userId))
   const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0))
 }
 
 export async function markNotificationRead(notificationId) {
@@ -381,7 +364,7 @@ export async function getTeacherId() {
 
 // ─── STATS ────────────────────────────────────────────────────────────────────
 
-// Admin dashboard stats — counts across ALL classes (not filtered by teacherId)
+// Admin dashboard stats — no compound queries, all client-side filtering
 export async function getAdminDashboardStats() {
   const now = new Date()
   const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
@@ -389,23 +372,26 @@ export async function getAdminDashboardStats() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
-  const [studentsSnap, todaySnap, monthSnap, pendingSnap] = await Promise.all([
-    getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('isActive', '==', true))),
-    getDocs(query(collection(db, 'classes'),
-      where('scheduledAt', '>=', Timestamp.fromDate(todayStart)),
-      where('scheduledAt', '<=', Timestamp.fromDate(todayEnd)),
-      where('status', '==', 'scheduled')
-    )),
-    getDocs(query(collection(db, 'classes'),
+  // Simple single-field queries — no composite index needed
+  const [studentsSnap, pendingSnap, monthSnap] = await Promise.all([
+    getDocs(query(collection(db, 'users'), where('role', '==', 'student'))),
+    getDocs(query(collection(db, 'classes'), where('status', '==', 'pending'))),
+    getDocs(query(
+      collection(db, 'classes'),
       where('scheduledAt', '>=', Timestamp.fromDate(monthStart)),
       where('scheduledAt', '<=', Timestamp.fromDate(monthEnd))
     )),
-    getDocs(query(collection(db, 'classes'), where('status', '==', 'pending'))),
   ])
+
+  // Compute today count client-side to avoid compound index
+  const todayCount = monthSnap.docs.filter(d => {
+    const t = d.data().scheduledAt?.toDate?.()
+    return t >= todayStart && t <= todayEnd
+  }).length
 
   return {
     totalStudents: studentsSnap.size,
-    todayClasses: todaySnap.size,
+    todayClasses: todayCount,
     monthClasses: monthSnap.size,
     pendingRequests: pendingSnap.size,
   }
@@ -418,30 +404,28 @@ export async function getDashboardStats(teacherId) {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
-  const [studentsSnap, todaySnap, monthSnap, pendingSnap] = await Promise.all([
-    getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('isActive', '==', true))),
-    getDocs(query(collection(db, 'classes'),
-      where('teacherId', '==', teacherId),
-      where('scheduledAt', '>=', Timestamp.fromDate(todayStart)),
-      where('scheduledAt', '<=', Timestamp.fromDate(todayEnd)),
-      where('status', '==', 'scheduled')
-    )),
-    getDocs(query(collection(db, 'classes'),
-      where('teacherId', '==', teacherId),
-      where('scheduledAt', '>=', Timestamp.fromDate(monthStart)),
-      where('scheduledAt', '<=', Timestamp.fromDate(monthEnd))
-    )),
-    getDocs(query(collection(db, 'classes'),
-      where('teacherId', '==', teacherId),
-      where('status', '==', 'pending')
-    )),
+  // Single-field queries only — filter the rest client-side (no composite index)
+  const [studentsSnap, classesSnap] = await Promise.all([
+    getDocs(query(collection(db, 'users'), where('role', '==', 'student'))),
+    getDocs(query(collection(db, 'classes'), where('teacherId', '==', teacherId))),
   ])
 
+  const classes = classesSnap.docs.map(d => d.data())
+  const inMonth = classes.filter(c => {
+    const t = c.scheduledAt?.toDate?.()
+    return t >= monthStart && t <= monthEnd
+  })
+  const today = inMonth.filter(c => {
+    const t = c.scheduledAt?.toDate?.()
+    return t >= todayStart && t <= todayEnd && (c.status === 'scheduled' || !c.status)
+  })
+  const pending = classes.filter(c => c.status === 'pending')
+
   return {
-    totalStudents: studentsSnap.size,
-    todayClasses: todaySnap.size,
-    monthClasses: monthSnap.size,
-    pendingRequests: pendingSnap.size,
+    totalStudents: studentsSnap.docs.filter(d => d.data().isActive !== false).length,
+    todayClasses: today.length,
+    monthClasses: inMonth.length,
+    pendingRequests: pending.length,
   }
 }
 
@@ -451,24 +435,25 @@ export async function getTeacherCalendarForMonth(teacherId, year, month) {
   const start = new Date(year, month, 1)
   const end = new Date(year, month + 1, 0, 23, 59, 59)
 
+  // Fetch by teacherId only, filter by date + status client-side (no composite index)
   const [classesSnap, blockedSnap] = await Promise.all([
-    getDocs(query(
-      collection(db, 'classes'),
-      where('teacherId', '==', teacherId),
-      where('scheduledAt', '>=', Timestamp.fromDate(start)),
-      where('scheduledAt', '<=', Timestamp.fromDate(end)),
-      where('status', 'in', ['scheduled', 'pending']),
-    )),
-    getDocs(query(
-      collection(db, 'availability'),
-      where('teacherId', '==', teacherId),
-      where('startAt', '>=', Timestamp.fromDate(start)),
-      where('startAt', '<=', Timestamp.fromDate(end)),
-    )),
+    getDocs(query(collection(db, 'classes'), where('teacherId', '==', teacherId))),
+    getDocs(query(collection(db, 'availability'), where('teacherId', '==', teacherId))),
   ])
 
-  return {
-    bookedSlots: classesSnap.docs.map(d => ({ id: d.id, ...d.data() })),
-    blockedSlots: blockedSnap.docs.map(d => ({ id: d.id, ...d.data() })),
-  }
+  const inRange = (t) => t && t >= start && t <= end
+
+  const bookedSlots = classesSnap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(c => {
+      const t = c.scheduledAt?.toDate?.()
+      const status = c.status || 'scheduled'
+      return inRange(t) && (status === 'scheduled' || status === 'pending')
+    })
+
+  const blockedSlots = blockedSnap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(s => inRange(s.startAt?.toDate?.()))
+
+  return { bookedSlots, blockedSlots }
 }

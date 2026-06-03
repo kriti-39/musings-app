@@ -26,15 +26,20 @@ export default function ClassList({ teacherId, Layout }) {
 
   async function fetchAll() {
     if (!teacherId) return
-    const [allClasses, allStudents] = await Promise.all([
-      getTeacherAllClasses(teacherId),
-      getAllStudents(),
-    ])
-    const map = {}
-    allStudents.forEach(s => { map[s.id] = s })
-    setStudents(map)
-    setClasses(allClasses)
-    setLoading(false)
+    try {
+      const [allClasses, allStudents] = await Promise.all([
+        getTeacherAllClasses(teacherId),
+        getAllStudents(),
+      ])
+      const map = {}
+      allStudents.forEach(s => { map[s.id] = s })
+      setStudents(map)
+      setClasses(allClasses)
+    } catch (e) {
+      console.error('ClassList fetch failed:', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchAll() }, [teacherId])
@@ -42,9 +47,11 @@ export default function ClassList({ teacherId, Layout }) {
   const now = new Date()
   const filtered = classes.filter(c => {
     const date = c.scheduledAt?.toDate?.() ?? new Date()
-    if (tab === 'upcoming') return (c.status === 'scheduled' || c.status === 'pending') && date >= now
-    if (tab === 'completed') return c.status === 'completed'
-    if (tab === 'cancelled') return c.status === 'cancelled' || c.status === 'rejected'
+    // treat missing/null status as 'scheduled' for legacy classes
+    const status = c.status || 'scheduled'
+    if (tab === 'upcoming') return (status === 'scheduled' || status === 'pending') && date >= now
+    if (tab === 'completed') return status === 'completed'
+    if (tab === 'cancelled') return status === 'cancelled' || status === 'rejected'
     return false
   })
 

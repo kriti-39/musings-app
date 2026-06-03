@@ -3,6 +3,5 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import ClassList from '../shared/ClassList'
 
 export default function AdminClasses() {
-  const { user } = useAuth()
-  return <ClassList teacherId={user?.id} Layout={AdminLayout} />
+  return <ClassList showAll Layout={AdminLayout} />
 }

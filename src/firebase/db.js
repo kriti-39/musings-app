@@ -173,6 +173,32 @@ export async function getPendingRequests(teacherId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }
 
+// Admin sees ALL pending requests regardless of which teacher they belong to
+export async function getAllPendingRequests() {
+  const q = query(
+    collection(db, 'classes'),
+    where('status', '==', 'pending'),
+    orderBy('scheduledAt', 'asc')
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+// Admin sees ALL classes for a month (across all teachers)
+export async function getAllClassesForMonth(year, month) {
+  const start = new Date(year, month, 1)
+  const end = new Date(year, month + 1, 0, 23, 59, 59)
+  const q = query(
+    collection(db, 'classes'),
+    where('scheduledAt', '>=', Timestamp.fromDate(start)),
+    where('scheduledAt', '<=', Timestamp.fromDate(end)),
+    orderBy('scheduledAt', 'asc')
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+}
+
 export async function confirmClass(classId, studentId = null) {
   await updateDoc(doc(db, 'classes', classId), {
     status: 'scheduled',
@@ -307,6 +333,12 @@ export async function getTeacherAllClasses(teacherId) {
     where('teacherId', '==', teacherId),
     orderBy('scheduledAt', 'desc')
   )
+  const snap = await getDocs(q)
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function getAllClassesDesc() {
+  const q = query(collection(db, 'classes'), orderBy('scheduledAt', 'desc'))
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }

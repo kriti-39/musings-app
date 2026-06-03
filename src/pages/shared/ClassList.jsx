@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getTeacherAllClasses, getAllStudents } from '../../firebase/db'
+import { getTeacherAllClasses, getAllClassesDesc, getAllStudents } from '../../firebase/db'
 import { RiCalendarLine } from 'react-icons/ri'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
 
@@ -17,7 +17,7 @@ const TABS = [
   { key: 'cancelled', label: 'Cancelled / Rejected' },
 ]
 
-export default function ClassList({ teacherId, Layout }) {
+export default function ClassList({ teacherId, Layout, showAll = false }) {
   const [classes, setClasses] = useState([])
   const [students, setStudents] = useState({})
   const [loading, setLoading] = useState(true)
@@ -28,7 +28,7 @@ export default function ClassList({ teacherId, Layout }) {
     if (!teacherId) return
     try {
       const [allClasses, allStudents] = await Promise.all([
-        getTeacherAllClasses(teacherId),
+        showAll ? getAllClassesDesc() : getTeacherAllClasses(teacherId),
         getAllStudents(),
       ])
       const map = {}

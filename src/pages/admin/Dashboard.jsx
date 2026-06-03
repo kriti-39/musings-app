@@ -4,7 +4,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import { useAuth } from '../../context/AuthContext'
 import {
   getDashboardStats, getTeacherClassesForDay,
-  getAllStudents, getPendingRequests, confirmClass, rejectClass
+  getAllStudents, getAllPendingRequests, confirmClass, rejectClass
 } from '../../firebase/db'
 import { RiCheckLine, RiCloseLine, RiCalendarLine } from 'react-icons/ri'
 
@@ -21,7 +21,7 @@ export default function AdminDashboard() {
     const [s, t, p, allStudents] = await Promise.all([
       getDashboardStats(user.id),
       getTeacherClassesForDay(user.id, new Date()),
-      getPendingRequests(user.id),
+      getAllPendingRequests(),
       getAllStudents(),
     ])
     setStats(s)

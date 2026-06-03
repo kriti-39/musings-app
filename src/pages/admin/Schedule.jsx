@@ -6,7 +6,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ScheduleClassModal from '../../components/admin/ScheduleClassModal'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
-import { getTeacherClassesForMonth, getAllStudents, getPendingRequests } from '../../firebase/db'
+import { getAllClassesForMonth, getAllStudents, getAllPendingRequests } from '../../firebase/db'
 import { useAuth } from '../../context/AuthContext'
 import ManageAvailabilityModal from '../../components/shared/ManageAvailabilityModal'
 import { RiAddLine, RiArrowLeftSLine, RiArrowRightSLine, RiCalendarCheckLine } from 'react-icons/ri'
@@ -73,9 +73,9 @@ export default function AdminSchedule() {
   async function fetchData(date) {
     if (!user?.id) return
     const [allClasses, allStudents, pending] = await Promise.all([
-      getTeacherClassesForMonth(user.id, date.getFullYear(), date.getMonth()),
+      getAllClassesForMonth(date.getFullYear(), date.getMonth()),
       getAllStudents(),
-      getPendingRequests(user.id),
+      getAllPendingRequests(),
     ])
     const map = {}
     allStudents.forEach(s => { map[s.id] = s })

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
@@ -21,8 +21,6 @@ export default function StudentLayout({ children }) {
   const { user } = useAuth()
   const { dark, toggle } = useTheme()
   const navigate = useNavigate()
-  const location = useLocation()
-
   const pageLabel = "Deva's Classes"
 
   async function handleLogout() {

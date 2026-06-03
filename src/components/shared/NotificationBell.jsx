@@ -10,11 +10,12 @@ export default function NotificationBell() {
   const ref = useRef(null)
 
   async function fetch() {
+    if (!user?.id) return
     const data = await getUserNotifications(user.id)
     setNotifications(data)
   }
 
-  useEffect(() => { fetch() }, [])
+  useEffect(() => { if (user?.id) fetch() }, [user?.id])
 
   useEffect(() => {
     function handleClick(e) {

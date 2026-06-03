@@ -4,6 +4,7 @@ import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
+import NotificationBell from '../shared/NotificationBell'
 import {
   RiDashboardLine, RiUserLine, RiCalendarLine, RiListCheck2,
   RiMoneyDollarCircleLine, RiMenuLine, RiCloseLine, RiLogoutBoxLine,
@@ -96,12 +97,17 @@ export default function AdminLayout({ children }) {
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar (mobile) */}
-        <header className="lg:hidden flex items-center gap-4 px-4 py-3 bg-white border-b border-gray-100">
+        <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
           <button onClick={() => setSidebarOpen(true)} className="text-gray-500">
             <RiMenuLine size={22} />
           </button>
-          <span className="text-sm font-medium text-gray-700">Musings with Deva</span>
+          <span className="text-sm font-semibold text-gray-800">Deva's Classes</span>
+          <NotificationBell />
         </header>
+
+        <div className="hidden lg:flex justify-end px-6 py-3 bg-white border-b border-gray-100">
+          <NotificationBell />
+        </div>
 
         <main className="flex-1 p-6">
           {children}

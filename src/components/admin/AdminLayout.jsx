@@ -8,7 +8,7 @@ import NotificationBell from '../shared/NotificationBell'
 import {
   RiDashboardLine, RiUserLine, RiCalendarLine, RiListCheck2,
   RiMoneyDollarCircleLine, RiMenuLine, RiCloseLine, RiLogoutBoxLine,
-  RiSunLine, RiMoonLine
+  RiSunLine, RiMoonLine, RiSettings3Line
 } from 'react-icons/ri'
 
 const navItems = [
@@ -17,6 +17,7 @@ const navItems = [
   { to: '/admin/classes', icon: RiListCheck2, label: 'Classes' },
   { to: '/admin/schedule', icon: RiCalendarLine, label: 'Schedule' },
   { to: '/admin/fees', icon: RiMoneyDollarCircleLine, label: 'Fees' },
+  { to: '/admin/settings', icon: RiSettings3Line, label: 'Settings' },
 ]
 
 export default function AdminLayout({ children }) {

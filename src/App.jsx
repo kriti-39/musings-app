@@ -22,6 +22,8 @@ import StudentDashboard from './pages/student/Dashboard'
 import BookClass from './pages/student/BookClass'
 import StudentFees from './pages/student/Fees'
 
+import Settings from './pages/shared/Settings'
+
 function RoleRedirect() {
   const { role, loading } = useAuth()
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400">Loading...</div>
@@ -60,6 +62,11 @@ export default function App() {
           <Route path="/student/dashboard" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard /></ProtectedRoute>} />
           <Route path="/student/book" element={<ProtectedRoute allowedRoles={['student']}><BookClass /></ProtectedRoute>} />
           <Route path="/student/fees" element={<ProtectedRoute allowedRoles={['student']}><StudentFees /></ProtectedRoute>} />
+
+          {/* Settings — all roles */}
+          <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><Settings /></ProtectedRoute>} />
+          <Route path="/teacher/settings" element={<ProtectedRoute allowedRoles={['teacher']}><Settings /></ProtectedRoute>} />
+          <Route path="/student/settings" element={<ProtectedRoute allowedRoles={['student']}><Settings /></ProtectedRoute>} />
 
           <Route path="/unauthorized" element={<div className="min-h-screen flex items-center justify-center text-gray-500">You don't have access to this page.</div>} />
           <Route path="*" element={<Navigate to="/" replace />} />

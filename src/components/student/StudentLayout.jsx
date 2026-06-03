@@ -7,13 +7,14 @@ import { useTheme } from '../../context/ThemeContext'
 import NotificationBell from '../shared/NotificationBell'
 import {
   RiDashboardLine, RiCalendarLine, RiMoneyDollarCircleLine,
-  RiMenuLine, RiLogoutBoxLine, RiSunLine, RiMoonLine
+  RiMenuLine, RiLogoutBoxLine, RiSunLine, RiMoonLine, RiSettings3Line
 } from 'react-icons/ri'
 
 const navItems = [
   { to: '/student/dashboard', icon: RiDashboardLine, label: 'My Classes' },
   { to: '/student/book', icon: RiCalendarLine, label: 'Book a Class' },
   { to: '/student/fees', icon: RiMoneyDollarCircleLine, label: 'Fees' },
+  { to: '/student/settings', icon: RiSettings3Line, label: 'Settings' },
 ]
 
 export default function StudentLayout({ children }) {

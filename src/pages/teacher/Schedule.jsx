@@ -28,8 +28,8 @@ const STATUS_COLORS = {
 
 function ScheduleToolbar({ label, onNavigate, onView, view }) {
   return (
-    <div className="flex items-center justify-between gap-3 mb-4 px-1">
-      <span className="text-sm font-semibold text-gray-800">{label}</span>
+    <div className="mb-4 px-1 space-y-2">
+      <p className="text-base font-semibold text-gray-800">{label}</p>
       <div className="flex items-center gap-1">
         <button onClick={() => onNavigate('PREV')}
           className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">

@@ -49,7 +49,7 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
     const date = c.scheduledAt?.toDate?.() ?? new Date()
     // treat missing/null status as 'scheduled' for legacy classes
     const status = c.status || 'scheduled'
-    if (tab === 'upcoming') return (status === 'scheduled' || status === 'pending') && date >= now
+    if (tab === 'upcoming') return status === 'pending' || (status === 'scheduled' && date >= now)
     if (tab === 'completed') return status === 'completed'
     if (tab === 'cancelled') return status === 'cancelled' || status === 'rejected'
     return false

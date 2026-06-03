@@ -78,6 +78,7 @@ export default function BookClass() {
   const [note, setNote] = useState('')
   const [bookingLoading, setBookingLoading] = useState(false)
   const [conflict, setConflict] = useState(false)
+  const [bookingError, setBookingError] = useState('')
   const [currentView, setCurrentView] = useState('month')
 
   useEffect(() => {
@@ -154,6 +155,7 @@ export default function BookClass() {
     if (isBefore(slotStart, new Date())) return
     if (!isSlotAvailable(slotStart)) { setConflict(true); return }
     setBookingLoading(true)
+    setBookingError('')
     try {
       await createClass({
         studentId: user.id,
@@ -168,6 +170,7 @@ export default function BookClass() {
       navigate('/student/dashboard')
     } catch (e) {
       console.error(e)
+      setBookingError('Failed to send request. Please try again.')
     } finally {
       setBookingLoading(false)
     }
@@ -334,6 +337,9 @@ export default function BookClass() {
                 <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">
                   This slot overlaps with an existing booking. Please choose a different time.
                 </p>
+              )}
+              {bookingError && (
+                <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{bookingError}</p>
               )}
             </div>
 

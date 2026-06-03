@@ -197,7 +197,6 @@ export async function getAllClassesForMonth(year, month) {
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }
-}
 
 export async function confirmClass(classId, studentId = null) {
   await updateDoc(doc(db, 'classes', classId), {
@@ -381,6 +380,36 @@ export async function getTeacherId() {
 }
 
 // ─── STATS ────────────────────────────────────────────────────────────────────
+
+// Admin dashboard stats — counts across ALL classes (not filtered by teacherId)
+export async function getAdminDashboardStats() {
+  const now = new Date()
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
+  const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+
+  const [studentsSnap, todaySnap, monthSnap, pendingSnap] = await Promise.all([
+    getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('isActive', '==', true))),
+    getDocs(query(collection(db, 'classes'),
+      where('scheduledAt', '>=', Timestamp.fromDate(todayStart)),
+      where('scheduledAt', '<=', Timestamp.fromDate(todayEnd)),
+      where('status', '==', 'scheduled')
+    )),
+    getDocs(query(collection(db, 'classes'),
+      where('scheduledAt', '>=', Timestamp.fromDate(monthStart)),
+      where('scheduledAt', '<=', Timestamp.fromDate(monthEnd))
+    )),
+    getDocs(query(collection(db, 'classes'), where('status', '==', 'pending'))),
+  ])
+
+  return {
+    totalStudents: studentsSnap.size,
+    todayClasses: todaySnap.size,
+    monthClasses: monthSnap.size,
+    pendingRequests: pendingSnap.size,
+  }
+}
 
 export async function getDashboardStats(teacherId) {
   const now = new Date()

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { useAuth } from '../../context/AuthContext'
 import {
-  getDashboardStats, getTeacherClassesForDay,
+  getAdminDashboardStats, getAllClassesForMonth,
   getAllStudents, getAllPendingRequests, confirmClass, rejectClass
 } from '../../firebase/db'
 import { RiCheckLine, RiCloseLine, RiCalendarLine } from 'react-icons/ri'
@@ -18,13 +18,21 @@ export default function AdminDashboard() {
 
   async function fetchAll() {
     if (!user?.id) return
-    const [s, t, p, allStudents] = await Promise.all([
-      getDashboardStats(user.id),
-      getTeacherClassesForDay(user.id, new Date()),
+    const now = new Date()
+    const [s, allClasses, p, allStudents] = await Promise.all([
+      getAdminDashboardStats(),
+      getAllClassesForMonth(now.getFullYear(), now.getMonth()),
       getAllPendingRequests(),
       getAllStudents(),
     ])
     setStats(s)
+    // Today's classes from all-classes query
+    const todayStart = new Date(now); todayStart.setHours(0,0,0,0)
+    const todayEnd = new Date(now); todayEnd.setHours(23,59,59,999)
+    const t = allClasses.filter(c => {
+      const d = c.scheduledAt?.toDate?.() ?? new Date()
+      return d >= todayStart && d <= todayEnd && (c.status === 'scheduled' || !c.status)
+    })
     setTodayClasses(t)
     setPending(p)
     const map = {}

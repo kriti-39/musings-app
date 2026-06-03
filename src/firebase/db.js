@@ -75,15 +75,6 @@ export async function getClass(classId) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null
 }
 
-export async function getStudentUpcomingClasses(studentId) {
-  const now = Date.now() / 1000
-  const snap = await getDocs(query(collection(db, 'classes'), where('studentId', '==', studentId)))
-  return snap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .filter(c => (c.status === 'scheduled' || !c.status) && (c.scheduledAt?.seconds ?? 0) >= now)
-    .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
-}
-
 export async function getStudentAllClasses(studentId) {
   // No orderBy → avoids composite index; sorted client-side
   const q = query(collection(db, 'classes'), where('studentId', '==', studentId))
@@ -472,34 +463,7 @@ export async function getDashboardStats(teacherId) {
   }
 }
 
-// ─── TEACHER CALENDAR (for student booking view) ──────────────────────────────
-
-export async function getTeacherCalendarForMonth(teacherId, year, month) {
-  const start = new Date(year, month, 1)
-  const end = new Date(year, month + 1, 0, 23, 59, 59)
-
-  // Fetch by teacherId only, filter by date + status client-side (no composite index)
-  const [classesSnap, blockedSnap] = await Promise.all([
-    getDocs(query(collection(db, 'classes'), where('teacherId', '==', teacherId))),
-    getDocs(query(collection(db, 'availability'), where('teacherId', '==', teacherId))),
-  ])
-
-  const inRange = (t) => t && t >= start && t <= end
-
-  const bookedSlots = classesSnap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .filter(c => {
-      const t = c.scheduledAt?.toDate?.()
-      const status = c.status || 'scheduled'
-      return inRange(t) && (status === 'scheduled' || status === 'pending')
-    })
-
-  const blockedSlots = blockedSnap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .filter(s => inRange(s.startAt?.toDate?.()))
-
-  return { bookedSlots, blockedSlots }
-}
+// ─── STUDENT BOOKING CALENDAR ─────────────────────────────────────────────────
 
 // Privacy-first student booking view:
 // returns ONLY the teacher's blocked slots + the student's OWN classes.

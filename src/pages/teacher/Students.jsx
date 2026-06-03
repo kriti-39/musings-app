@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import AddAdminModal from '../../components/teacher/AddAdminModal'
-import { getAllStudents, getAllStudentsIncludingInactive, getAdmins, deactivateStudent, reactivateStudent } from '../../firebase/db'
+import { getAllStudentsIncludingInactive, getAdmins, deactivateStudent, reactivateStudent } from '../../firebase/db'
 import { RiSearchLine, RiUserLine, RiAddLine, RiUserUnfollowLine, RiUserFollowLine } from 'react-icons/ri'
 
 const SORT_OPTIONS = [
@@ -11,6 +12,7 @@ const SORT_OPTIONS = [
 ]
 
 export default function TeacherStudents() {
+  const navigate = useNavigate()
   const [tab, setTab] = useState('students')
   const [allStudents, setAllStudents] = useState([])
   const [admins, setAdmins] = useState([])
@@ -116,8 +118,11 @@ export default function TeacherStudents() {
                   </thead>
                   <tbody>
                     {filteredStudents.map((s, i) => (
-                      <tr key={s.id} className={`${tab === 'deactivated' ? 'opacity-60' : ''} ${i !== filteredStudents.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                        <td className="px-5 py-3.5 font-medium text-gray-800">{s.name}</td>
+                      <tr key={s.id} className={`${tab === 'deactivated' ? 'opacity-60' : 'hover:bg-amber-50'} transition-colors ${i !== filteredStudents.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                        <td className="px-5 py-3.5 font-medium text-gray-800 cursor-pointer"
+                          onClick={() => navigate(`/teacher/students/${s.id}`)}>
+                          {s.name}
+                        </td>
                         <td className="px-5 py-3.5 text-gray-500">{s.email}</td>
                         <td className="px-5 py-3.5 text-gray-500">{s.country || '—'}</td>
                         <td className="px-5 py-3.5 text-gray-500">{s.timezone || '—'}</td>

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
+import TeacherLayout from '../../components/teacher/TeacherLayout'
+import { useAuth } from '../../context/AuthContext'
 import { getUser, getStudentAllClasses, getStudentPayments } from '../../firebase/db'
 import { RiArrowLeftLine, RiCalendarLine, RiMoneyDollarCircleLine } from 'react-icons/ri'
 
@@ -15,6 +17,10 @@ const STATUS_STYLES = {
 export default function StudentDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { role } = useAuth()
+  const isTeacher = role === 'teacher'
+  const Layout = isTeacher ? TeacherLayout : AdminLayout
+  const backPath = isTeacher ? '/teacher/students' : '/admin/students'
   const [student, setStudent] = useState(null)
   const [classes, setClasses] = useState([])
   const [payments, setPayments] = useState([])
@@ -40,12 +46,12 @@ export default function StudentDetail() {
   const scheduledCount = classes.filter(c => c.status === 'scheduled').length
   const confirmedPayments = payments.filter(p => p.status === 'confirmed')
 
-  if (loading) return <AdminLayout><p className="text-gray-400 text-sm">Loading...</p></AdminLayout>
+  if (loading) return <Layout><p className="text-gray-400 text-sm">Loading...</p></Layout>
 
   return (
-    <AdminLayout>
+    <Layout>
       <div className="max-w-3xl mx-auto">
-        <button onClick={() => navigate('/admin/students')} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 mb-5 transition-colors">
+        <button onClick={() => navigate(backPath)} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 mb-5 transition-colors">
           <RiArrowLeftLine size={16} /> Back to Students
         </button>
 
@@ -182,6 +188,6 @@ export default function StudentDetail() {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </Layout>
   )
 }

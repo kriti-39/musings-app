@@ -25,7 +25,7 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
   const [detail, setDetail] = useState(null)
 
   async function fetchAll() {
-    if (!teacherId) return
+    if (!showAll && !teacherId) return
     try {
       const [allClasses, allStudents] = await Promise.all([
         showAll ? getAllClassesDesc() : getTeacherAllClasses(teacherId),
@@ -42,7 +42,7 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
     }
   }
 
-  useEffect(() => { fetchAll() }, [teacherId])
+  useEffect(() => { fetchAll() }, [teacherId, showAll])
 
   const now = new Date()
   const filtered = classes.filter(c => {

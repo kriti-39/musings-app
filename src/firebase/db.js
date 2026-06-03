@@ -500,3 +500,31 @@ export async function getTeacherCalendarForMonth(teacherId, year, month) {
 
   return { bookedSlots, blockedSlots }
 }
+
+// Privacy-first student booking view:
+// returns ONLY the teacher's blocked slots + the student's OWN classes.
+// Never exposes other students' bookings. Works with strict security rules.
+export async function getStudentBookingCalendar(teacherId, studentId, year, month) {
+  const start = new Date(year, month, 1)
+  const end = new Date(year, month + 1, 0, 23, 59, 59)
+  const inRange = (t) => t && t >= start && t <= end
+
+  const [ownClassesSnap, blockedSnap] = await Promise.all([
+    getDocs(query(collection(db, 'classes'), where('studentId', '==', studentId))),
+    getDocs(query(collection(db, 'availability'), where('teacherId', '==', teacherId))),
+  ])
+
+  const bookedSlots = ownClassesSnap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(c => {
+      const t = c.scheduledAt?.toDate?.()
+      const status = c.status || 'scheduled'
+      return inRange(t) && (status === 'scheduled' || status === 'pending')
+    })
+
+  const blockedSlots = blockedSnap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(s => inRange(s.startAt?.toDate?.()))
+
+  return { bookedSlots, blockedSlots }
+}

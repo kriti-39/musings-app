@@ -6,7 +6,7 @@ import { enUS } from 'date-fns/locale/en-US'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getTeacherCalendarForMonth, createClass, getTeacherId } from '../../firebase/db'
+import { getStudentBookingCalendar, createClass, getTeacherId } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 import {
   RiCloseLine, RiCalendarLine,
@@ -86,11 +86,12 @@ export default function BookClass() {
   }, [])
 
   useEffect(() => {
-    if (teacherId) {
-      getTeacherCalendarForMonth(teacherId, currentDate.getFullYear(), currentDate.getMonth())
+    if (teacherId && user?.id) {
+      getStudentBookingCalendar(teacherId, user.id, currentDate.getFullYear(), currentDate.getMonth())
         .then(setCalendarData)
+        .catch(e => console.error('Calendar load failed:', e))
     }
-  }, [teacherId, currentDate])
+  }, [teacherId, user, currentDate])
 
   const events = [
     ...calendarData.bookedSlots.map(cls => {
@@ -191,7 +192,7 @@ export default function BookClass() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <span className="w-3 h-3 rounded-sm bg-red-200 border border-red-300" />
-            Booked / Unavailable
+            Your classes / Teacher unavailable
           </div>
           <button
             onClick={() => setShowPicker(true)}

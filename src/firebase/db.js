@@ -36,6 +36,20 @@ export async function getStaffIds() {
   return snap.docs.map(d => d.id)
 }
 
+export async function getAdmins() {
+  const q = query(collection(db, 'users'), where('role', '==', 'admin'))
+  const snap = await getDocs(q)
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function createAdmin(uid, data) {
+  await setDoc(doc(db, 'users', uid), {
+    ...data,
+    role: 'admin',
+    createdAt: serverTimestamp(),
+  })
+}
+
 // ─── CLASSES ──────────────────────────────────────────────────────────────────
 
 export async function createClass(data) {

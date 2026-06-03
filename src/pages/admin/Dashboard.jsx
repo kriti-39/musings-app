@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { useAuth } from '../../context/AuthContext'
 import {
-  getDashboardStats, getTeacherId, getTeacherClassesForDay,
+  getDashboardStats, getTeacherClassesForDay,
   getAllStudents, getPendingRequests, confirmClass, rejectClass
 } from '../../firebase/db'
 import { RiCheckLine, RiCloseLine, RiCalendarLine } from 'react-icons/ri'
@@ -18,12 +18,10 @@ export default function AdminDashboard() {
 
   async function fetchAll() {
     if (!user?.id) return
-    const teacherId = await getTeacherId()
-    if (!teacherId) return
     const [s, t, p, allStudents] = await Promise.all([
-      getDashboardStats(teacherId),
-      getTeacherClassesForDay(teacherId, new Date()),
-      getPendingRequests(teacherId),
+      getDashboardStats(user.id),
+      getTeacherClassesForDay(user.id, new Date()),
+      getPendingRequests(user.id),
       getAllStudents(),
     ])
     setStats(s)

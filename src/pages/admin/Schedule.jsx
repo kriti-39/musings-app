@@ -6,7 +6,8 @@ import 'react-big-calendar/lib/css/react-big-calendar.css'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ScheduleClassModal from '../../components/admin/ScheduleClassModal'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
-import { getTeacherClassesForMonth, getAllStudents, getPendingRequests, getTeacherId } from '../../firebase/db'
+import { getTeacherClassesForMonth, getAllStudents, getPendingRequests } from '../../firebase/db'
+import { useAuth } from '../../context/AuthContext'
 import { RiAddLine, RiArrowLeftSLine, RiArrowRightSLine } from 'react-icons/ri'
 
 const localizer = dateFnsLocalizer({
@@ -57,7 +58,7 @@ function ScheduleToolbar({ label, onNavigate, onView, view }) {
 }
 
 export default function AdminSchedule() {
-  const [teacherId, setTeacherId] = useState(null)
+  const { user } = useAuth()
   const [classes, setClasses] = useState([])
   const [students, setStudents] = useState({})
   const [pendingCount, setPendingCount] = useState(0)
@@ -67,14 +68,12 @@ export default function AdminSchedule() {
   const [showDetail, setShowDetail] = useState(null)
   const [clickedSlot, setClickedSlot] = useState(null)
 
-  useEffect(() => { getTeacherId().then(id => { if (id) setTeacherId(id) }) }, [])
-
   async function fetchData(date) {
-    if (!teacherId) return
+    if (!user?.id) return
     const [allClasses, allStudents, pending] = await Promise.all([
-      getTeacherClassesForMonth(teacherId, date.getFullYear(), date.getMonth()),
+      getTeacherClassesForMonth(user.id, date.getFullYear(), date.getMonth()),
       getAllStudents(),
-      getPendingRequests(teacherId),
+      getPendingRequests(user.id),
     ])
     const map = {}
     allStudents.forEach(s => { map[s.id] = s })
@@ -83,7 +82,7 @@ export default function AdminSchedule() {
     setPendingCount(pending.length)
   }
 
-  useEffect(() => { fetchData(currentDate) }, [teacherId, currentDate])
+  useEffect(() => { fetchData(currentDate) }, [user, currentDate])
 
   const events = classes.map(cls => {
     const start = cls.scheduledAt?.toDate?.() ?? new Date()

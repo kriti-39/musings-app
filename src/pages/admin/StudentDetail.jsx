@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getUser, getStudentAllClasses, getStudentPayments } from '../../firebase/db'
-import { RiArrowLeftLine, RiCalendarLine, RiMoneyDollarCircleLine } from 'react-icons/ri'
+import { getUser, getStudentAllClasses, getStudentPayments, getStudentRecurringSchedules, cancelRecurringSchedule } from '../../firebase/db'
+import { RiArrowLeftLine, RiCalendarLine, RiMoneyDollarCircleLine, RiRepeatLine } from 'react-icons/ri'
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 const STATUS_STYLES = {
   scheduled:  'bg-green-50 text-green-700',
@@ -24,23 +26,31 @@ export default function StudentDetail() {
   const [student, setStudent] = useState(null)
   const [classes, setClasses] = useState([])
   const [payments, setPayments] = useState([])
+  const [recurring, setRecurring] = useState([])
   const [tab, setTab] = useState('classes')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function fetch() {
-      const [s, c, p] = await Promise.all([
-        getUser(id),
-        getStudentAllClasses(id),
-        getStudentPayments(id),
-      ])
-      setStudent(s)
-      setClasses(c)
-      setPayments(p)
-      setLoading(false)
-    }
-    fetch()
-  }, [id])
+  async function fetchAll() {
+    const [s, c, p, r] = await Promise.all([
+      getUser(id),
+      getStudentAllClasses(id),
+      getStudentPayments(id),
+      getStudentRecurringSchedules(id),
+    ])
+    setStudent(s)
+    setClasses(c)
+    setPayments(p)
+    setRecurring(r)
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchAll() }, [id])
+
+  async function handleEndSeries(recurringId) {
+    if (!window.confirm('End this recurring series? All future classes in it will be cancelled.')) return
+    await cancelRecurringSchedule(recurringId)
+    fetchAll()
+  }
 
   const completedCount = classes.filter(c => c.status === 'completed').length
   const scheduledCount = classes.filter(c => c.status === 'scheduled').length
@@ -91,6 +101,32 @@ export default function StudentDetail() {
             </div>
           ))}
         </div>
+
+        {/* Recurring series */}
+        {recurring.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-100 p-5 mb-5">
+            <div className="flex items-center gap-2 mb-3">
+              <RiRepeatLine size={16} className="text-amber-500" />
+              <h2 className="text-sm font-semibold text-gray-800">Recurring Classes</h2>
+            </div>
+            <div className="space-y-2">
+              {recurring.map(r => (
+                <div key={r.id} className="flex items-center justify-between bg-amber-50 rounded-lg px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">
+                      Every {r.frequency === 'biweekly' ? '2 weeks' : 'week'} · {DAYS[r.dayOfWeek] ?? ''} {r.time}
+                    </p>
+                    <p className="text-xs text-gray-500">{r.duration || 60} min</p>
+                  </div>
+                  <button onClick={() => handleEndSeries(r.id)}
+                    className="text-xs text-red-500 border border-red-100 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">
+                    End series
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">

@@ -51,6 +51,7 @@ export default function StudentDashboard() {
   }
   const visible = lists[tab]
   const completedCount = lists.completed.length
+  const tz = user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
 
   return (
     <StudentLayout>
@@ -58,7 +59,9 @@ export default function StudentDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold text-gray-800">My Classes</h1>
-            <p className="text-sm text-gray-400 mt-0.5">{completedCount} classes completed</p>
+            <p className="text-sm text-gray-400 mt-0.5">
+              {completedCount} completed · times in {tz.replace('_', ' ')}
+            </p>
           </div>
           <button
             onClick={() => navigate('/student/book')}
@@ -95,7 +98,7 @@ export default function StudentDashboard() {
           </div>
         ) : (
           <div className="space-y-3">
-            {visible.map(cls => <ClassCard key={cls.id} cls={cls} onAction={fetchClasses} />)}
+            {visible.map(cls => <ClassCard key={cls.id} cls={cls} onAction={fetchClasses} tz={tz} />)}
           </div>
         )}
       </div>
@@ -103,12 +106,13 @@ export default function StudentDashboard() {
   )
 }
 
-function ClassCard({ cls, onAction }) {
+function ClassCard({ cls, onAction, tz }) {
   const [loading, setLoading] = useState(false)
   const [reschedule, setReschedule] = useState(false)
   const [newDate, setNewDate] = useState('')
   const [newTime, setNewTime] = useState('')
   const date = cls.scheduledAt?.toDate?.() ?? new Date()
+  const tzOpt = tz ? { timeZone: tz } : {}
 
   async function handle(fn) {
     setLoading(true)
@@ -128,10 +132,10 @@ function ClassCard({ cls, onAction }) {
       <div className="flex items-start justify-between">
         <div>
           <p className="font-medium text-gray-800">
-            {date.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {date.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', ...tzOpt })}
           </p>
           <p className="text-sm text-gray-400 mt-0.5">
-            {date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {cls.duration || 60} min
+            {date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', ...tzOpt })} · {cls.duration || 60} min
           </p>
           {cls.lessonNotes && <p className="text-xs text-gray-500 mt-2 italic">"{cls.lessonNotes}"</p>}
         </div>

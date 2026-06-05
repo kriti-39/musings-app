@@ -26,7 +26,7 @@ import Settings from './pages/shared/Settings'
 
 function RoleRedirect() {
   const { role, loading } = useAuth()
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400">Loading...</div>
+  if (loading) return <div className="min-h-dvh flex items-center justify-center text-gray-400">Loading...</div>
   if (role === 'student') return <Navigate to="/student/dashboard" replace />
   if (role === 'teacher') return <Navigate to="/teacher/dashboard" replace />
   if (role === 'admin') return <Navigate to="/admin/dashboard" replace />
@@ -68,7 +68,7 @@ export default function App() {
           <Route path="/teacher/settings" element={<ProtectedRoute allowedRoles={['teacher']}><Settings /></ProtectedRoute>} />
           <Route path="/student/settings" element={<ProtectedRoute allowedRoles={['student']}><Settings /></ProtectedRoute>} />
 
-          <Route path="/unauthorized" element={<div className="min-h-screen flex items-center justify-center text-gray-500">You don't have access to this page.</div>} />
+          <Route path="/unauthorized" element={<div className="min-h-dvh flex items-center justify-center text-gray-500">You don't have access to this page.</div>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

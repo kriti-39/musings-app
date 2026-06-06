@@ -4,7 +4,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import { useAuth } from '../../context/AuthContext'
 import {
   getAdminDashboardStats, getAllClassesForMonth,
-  getAllStudents, getAllPendingRequests, confirmClass, rejectClass
+  getAllStudentsIncludingInactive, getAllPendingRequests, confirmClass, rejectClass
 } from '../../firebase/db'
 import { RiCheckLine, RiCloseLine, RiCalendarLine } from 'react-icons/ri'
 
@@ -26,7 +26,7 @@ export default function AdminDashboard() {
         getAdminDashboardStats(),
         getAllClassesForMonth(now.getFullYear(), now.getMonth()),
         getAllPendingRequests(),
-        getAllStudents(),
+        getAllStudentsIncludingInactive(),
       ])
       setStats(s)
       const t = allClasses.filter(c => {
@@ -80,7 +80,7 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-xl border border-amber-100">
             <div className="px-5 py-4 border-b border-gray-50">
               <h2 className="text-sm font-semibold text-gray-800">Needs Confirmation</h2>
-              <p className="text-xs text-gray-400 mt-0.5">These bookings overlap an existing class.</p>
+              <p className="text-xs text-gray-400 mt-0.5">Overlapping bookings or reschedule requests.</p>
             </div>
             <div className="divide-y divide-gray-50">
               {pending.map(cls => {

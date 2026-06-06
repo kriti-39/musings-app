@@ -11,7 +11,10 @@ function destinationFor(type, role) {
     if (type === 'payment_confirmed' || type === 'payment_rejected') return '/student/fees'
     return '/student/dashboard' // class confirmed/rejected/cancelled/rescheduled
   }
-  // staff: bookings & reschedule requests → dashboard (has the confirm section)
+  // staff: overlaps & reschedule requests need action → dashboard (confirm section)
+  if (type === 'overlap_booking' || type === 'reschedule_request') return `${base}/dashboard`
+  // a plain new booking is just informational → show it on the schedule
+  if (type === 'class_booked') return `${base}/schedule`
   return `${base}/dashboard`
 }
 

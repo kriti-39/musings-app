@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getTeacherAllClasses, getAllClassesDesc, getAllStudents } from '../../firebase/db'
+import { getTeacherAllClasses, getAllClassesDesc, getAllStudentsIncludingInactive } from '../../firebase/db'
 import { RiCalendarLine } from 'react-icons/ri'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
 
@@ -29,7 +29,7 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
     try {
       const [allClasses, allStudents] = await Promise.all([
         showAll ? getAllClassesDesc() : getTeacherAllClasses(teacherId),
-        getAllStudents(),
+        getAllStudentsIncludingInactive(),
       ])
       const map = {}
       allStudents.forEach(s => { map[s.id] = s })

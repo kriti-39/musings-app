@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getDashboardStats, getTeacherClassesForDay, getAllStudents, getPendingRequests, confirmClass, rejectClass } from '../../firebase/db'
+import { getDashboardStats, getTeacherClassesForDay, getAllStudentsIncludingInactive, getPendingRequests, confirmClass, rejectClass } from '../../firebase/db'
 import { RiCheckLine, RiCloseLine, RiCalendarLine } from 'react-icons/ri'
 
 export default function TeacherDashboard() {
@@ -19,7 +19,7 @@ export default function TeacherDashboard() {
       getDashboardStats(user.id),
       getTeacherClassesForDay(user.id, new Date()),
       getPendingRequests(user.id),
-      getAllStudents(),
+      getAllStudentsIncludingInactive(),
     ])
     setStats(s)
     setTodayClasses(t)
@@ -63,7 +63,7 @@ export default function TeacherDashboard() {
           <div className="bg-white rounded-xl border border-amber-100">
             <div className="px-5 py-4 border-b border-gray-50">
               <h2 className="text-sm font-semibold text-gray-800">Needs Confirmation</h2>
-              <p className="text-xs text-gray-400 mt-0.5">These bookings overlap an existing class.</p>
+              <p className="text-xs text-gray-400 mt-0.5">Overlapping bookings or reschedule requests.</p>
             </div>
             <div className="divide-y divide-gray-50">
               {pending.map(cls => {

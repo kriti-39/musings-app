@@ -116,13 +116,13 @@ export async function createBooking({
     updatedAt: serverTimestamp(),
   })
 
-  // Only overlapping bookings need staff confirmation → notify them
-  if (status === 'pending') {
-    const staffIds = await getStaffIds()
-    await Promise.all(staffIds.map(id =>
-      createNotification(id, 'overlap_booking', 'A booking overlaps an existing class — please confirm.', ref.id)
-    ))
-  }
+  // Notify staff: overlaps need confirmation, free bookings are just a heads-up
+  const staffIds = await getStaffIds()
+  const [type, msg] = status === 'pending'
+    ? ['overlap_booking', 'A booking overlaps an existing class — please confirm.']
+    : ['class_booked', 'A student booked a new class.']
+  await Promise.all(staffIds.map(id => createNotification(id, type, msg, ref.id)))
+
   return { id: ref.id, status, overlap }
 }
 
@@ -149,7 +149,11 @@ export async function getTeacherClassesForDay(teacherId, date) {
   const snap = await getDocs(query(collection(db, 'classes'), where('teacherId', '==', teacherId)))
   return snap.docs
     .map(d => ({ id: d.id, ...d.data() }))
-    .filter(c => { const t = c.scheduledAt?.toDate?.(); return t >= start && t <= end })
+    .filter(c => {
+      const t = c.scheduledAt?.toDate?.()
+      const s = c.status || 'scheduled'
+      return t >= start && t <= end && s !== 'cancelled' && s !== 'rejected'
+    })
     .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
 }
 
@@ -484,16 +488,19 @@ export async function getAdminDashboardStats() {
     )),
   ])
 
-  // Compute today count client-side to avoid compound index
-  const todayCount = monthSnap.docs.filter(d => {
-    const t = d.data().scheduledAt?.toDate?.()
-    return t >= todayStart && t <= todayEnd
+  // Count only real classes (scheduled or completed), not cancelled/rejected/pending
+  const isReal = (c) => { const s = c.status || 'scheduled'; return s === 'scheduled' || s === 'completed' }
+  const monthDocs = monthSnap.docs.map(d => d.data())
+  const todayCount = monthDocs.filter(c => {
+    const t = c.scheduledAt?.toDate?.()
+    return t >= todayStart && t <= todayEnd && isReal(c)
   }).length
+  const monthCount = monthDocs.filter(isReal).length
 
   return {
-    totalStudents: studentsSnap.size,
+    totalStudents: studentsSnap.docs.filter(d => d.data().isActive !== false).length,
     todayClasses: todayCount,
-    monthClasses: monthSnap.size,
+    monthClasses: monthCount,
     pendingRequests: pendingSnap.size,
   }
 }
@@ -512,13 +519,14 @@ export async function getDashboardStats(teacherId) {
   ])
 
   const classes = classesSnap.docs.map(d => d.data())
+  const isReal = (c) => { const s = c.status || 'scheduled'; return s === 'scheduled' || s === 'completed' }
   const inMonth = classes.filter(c => {
     const t = c.scheduledAt?.toDate?.()
-    return t >= monthStart && t <= monthEnd
+    return t >= monthStart && t <= monthEnd && isReal(c)
   })
   const today = inMonth.filter(c => {
     const t = c.scheduledAt?.toDate?.()
-    return t >= todayStart && t <= todayEnd && (c.status === 'scheduled' || !c.status)
+    return t >= todayStart && t <= todayEnd
   })
   const pending = classes.filter(c => c.status === 'pending')
 

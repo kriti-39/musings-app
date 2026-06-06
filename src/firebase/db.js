@@ -70,6 +70,62 @@ export async function createClass(data) {
   return ref
 }
 
+// Returns existing scheduled/pending classes that overlap the given slot
+export async function findOverlappingClasses(teacherId, startDate, durationMin) {
+  const start = new Date(startDate)
+  const end = new Date(start.getTime() + durationMin * 60000)
+  const snap = await getDocs(query(collection(db, 'classes'), where('teacherId', '==', teacherId)))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(c => {
+      const status = c.status || 'scheduled'
+      if (status !== 'scheduled' && status !== 'pending') return false
+      const cStart = c.scheduledAt?.toDate?.()
+      if (!cStart) return false
+      const cEnd = new Date(cStart.getTime() + (c.duration || 60) * 60000)
+      return start < cEnd && end > cStart
+    })
+}
+
+// Book a class. Auto-confirms (scheduled) if the slot is free.
+// If it overlaps an existing class, it goes to 'pending' for staff to confirm.
+// forceStatus='scheduled' lets staff book directly even on overlap.
+export async function createBooking({
+  studentId, teacherId, scheduledAt, duration,
+  lessonNotes = '', isRecurring = false, recurringId = null, forceStatus = null,
+}) {
+  const startDate = scheduledAt?.toDate ? scheduledAt.toDate() : new Date(scheduledAt)
+  let overlap = false
+  let status = forceStatus
+
+  if (!status) {
+    const overlaps = await findOverlappingClasses(teacherId, startDate, duration)
+    overlap = overlaps.length > 0
+    status = overlap ? 'pending' : 'scheduled'
+  }
+
+  const ref = await addDoc(collection(db, 'classes'), {
+    studentId, teacherId,
+    scheduledAt: scheduledAt?.toDate ? scheduledAt : Timestamp.fromDate(startDate),
+    duration, lessonNotes,
+    isRecurring, recurringId,
+    status,
+    isOverlap: overlap,
+    markedDoneBy: null,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+
+  // Only overlapping bookings need staff confirmation → notify them
+  if (status === 'pending') {
+    const staffIds = await getStaffIds()
+    await Promise.all(staffIds.map(id =>
+      createNotification(id, 'overlap_booking', 'A booking overlaps an existing class — please confirm.', ref.id)
+    ))
+  }
+  return { id: ref.id, status, overlap }
+}
+
 export async function getClass(classId) {
   const snap = await getDoc(doc(db, 'classes', classId))
   return snap.exists() ? { id: snap.id, ...snap.data() } : null
@@ -465,26 +521,33 @@ export async function getDashboardStats(teacherId) {
 
 // ─── STUDENT BOOKING CALENDAR ─────────────────────────────────────────────────
 
-// Privacy-first student booking view:
-// returns ONLY the teacher's blocked slots + the student's OWN classes.
-// Never exposes other students' bookings. Works with strict security rules.
+// Student booking view: shows the teacher's blocked slots + ANONYMOUS busy blocks
+// for occupied times. Other students' names/notes are never returned — only the
+// time range is exposed so a student can see when the teacher is busy.
 export async function getStudentBookingCalendar(teacherId, studentId, year, month) {
   const start = new Date(year, month, 1)
   const end = new Date(year, month + 1, 0, 23, 59, 59)
   const inRange = (t) => t && t >= start && t <= end
 
-  const [ownClassesSnap, blockedSnap] = await Promise.all([
-    getDocs(query(collection(db, 'classes'), where('studentId', '==', studentId))),
+  const [allClassesSnap, blockedSnap] = await Promise.all([
+    getDocs(query(collection(db, 'classes'), where('teacherId', '==', teacherId))),
     getDocs(query(collection(db, 'availability'), where('teacherId', '==', teacherId))),
   ])
 
-  const bookedSlots = ownClassesSnap.docs
+  // Anonymize: only id, time, duration, and whether it's the student's own
+  const bookedSlots = allClassesSnap.docs
     .map(d => ({ id: d.id, ...d.data() }))
     .filter(c => {
       const t = c.scheduledAt?.toDate?.()
       const status = c.status || 'scheduled'
       return inRange(t) && (status === 'scheduled' || status === 'pending')
     })
+    .map(c => ({
+      id: c.id,
+      scheduledAt: c.scheduledAt,
+      duration: c.duration || 60,
+      mine: c.studentId === studentId,
+    }))
 
   const blockedSlots = blockedSnap.docs
     .map(d => ({ id: d.id, ...d.data() }))

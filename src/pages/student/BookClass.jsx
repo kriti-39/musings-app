@@ -6,7 +6,7 @@ import { enUS } from 'date-fns/locale/en-US'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getStudentBookingCalendar, createClass, getTeacherId } from '../../firebase/db'
+import { getStudentBookingCalendar, createBooking, getTeacherId } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 import {
   RiCloseLine, RiCalendarLine,
@@ -98,7 +98,7 @@ export default function BookClass() {
       const start = cls.scheduledAt?.toDate?.() ?? new Date()
       return {
         id: cls.id,
-        title: 'Booked',
+        title: cls.mine ? 'Your class' : 'Busy',
         start,
         end: new Date(start.getTime() + (cls.duration || 60) * 60000),
         type: 'booked',
@@ -111,9 +111,15 @@ export default function BookClass() {
     }),
   ]
 
-  function isSlotAvailable(slotStart) {
+  // Overlaps a teacher-blocked (unavailable) time → cannot book at all
+  function hitsBlocked(slotStart) {
     const slotEnd = addMinutes(slotStart, duration)
-    return !events.some(e => slotStart < e.end && slotEnd > e.start)
+    return events.some(e => e.type === 'blocked' && slotStart < e.end && slotEnd > e.start)
+  }
+  // Overlaps another class → bookable, but needs teacher confirmation
+  function hitsBusy(slotStart) {
+    const slotEnd = addMinutes(slotStart, duration)
+    return events.some(e => e.type === 'booked' && slotStart < e.end && slotEnd > e.start)
   }
 
   function handleDateTimeChange(date, time) {
@@ -124,7 +130,8 @@ export default function BookClass() {
       const [h, m] = t.split(':').map(Number)
       const slotStart = new Date(d)
       slotStart.setHours(h, m, 0, 0)
-      if (!isSlotAvailable(slotStart)) setConflict(true)
+      if (hitsBlocked(slotStart)) setConflict('blocked')
+      else if (hitsBusy(slotStart)) setConflict('busy')
     }
   }
 
@@ -145,6 +152,7 @@ export default function BookClass() {
     setSelectedDate(format(start, 'yyyy-MM-dd'))
     setSelectedTime(format(start, 'HH:mm'))
     setConflict(false)
+    handleDateTimeChange(format(start, 'yyyy-MM-dd'), format(start, 'HH:mm'))
     setShowPicker(true)
   }
 
@@ -154,24 +162,23 @@ export default function BookClass() {
     const slotStart = new Date(selectedDate)
     slotStart.setHours(h, m, 0, 0)
     if (isBefore(slotStart, new Date())) return
-    if (!isSlotAvailable(slotStart)) { setConflict(true); return }
+    // Teacher-blocked times can't be booked at all
+    if (hitsBlocked(slotStart)) { setConflict('blocked'); return }
     setBookingLoading(true)
     setBookingError('')
     try {
-      await createClass({
+      const res = await createBooking({
         studentId: user.id,
         teacherId,
         scheduledAt: Timestamp.fromDate(slotStart),
         duration,
         lessonNotes: note,
-        isRecurring: false,
-        recurringId: null,
-        status: 'pending',
       })
+      // res.status: 'scheduled' (instant) or 'pending' (overlap → needs confirm)
       navigate('/student/dashboard')
     } catch (e) {
       console.error(e)
-      setBookingError('Failed to send request. Please try again.')
+      setBookingError('Failed to book. Please try again.')
     } finally {
       setBookingLoading(false)
     }
@@ -184,7 +191,7 @@ export default function BookClass() {
         <div className="mb-4">
           <h1 className="text-xl font-semibold text-gray-800">Book a Class</h1>
           <p className="text-sm text-gray-400 mt-1">
-            Tap a date to open day view, then tap a time slot to send a request.
+            Tap a date, then a free time slot to book instantly. Taken slots need teacher confirmation.
           </p>
         </div>
 
@@ -192,7 +199,7 @@ export default function BookClass() {
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2 text-xs text-gray-500 min-w-0">
             <span className="w-3 h-3 rounded-sm bg-red-200 border border-red-300 shrink-0" />
-            <span className="truncate">Red = unavailable</span>
+            <span className="truncate">Red = busy / unavailable</span>
           </div>
           <button
             onClick={() => setShowPicker(true)}
@@ -334,9 +341,14 @@ export default function BookClass() {
                 />
               </div>
 
-              {conflict && (
+              {conflict === 'blocked' && (
                 <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">
-                  This slot overlaps with an existing booking. Please choose a different time.
+                  The teacher is unavailable at this time. Please pick another slot.
+                </p>
+              )}
+              {conflict === 'busy' && (
+                <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                  This time already has a class. You can still request it — the teacher will confirm if it works.
                 </p>
               )}
               {bookingError && (
@@ -353,10 +365,10 @@ export default function BookClass() {
               </button>
               <button
                 onClick={handleBook}
-                disabled={bookingLoading || !selectedDate || !selectedTime || conflict}
+                disabled={bookingLoading || !selectedDate || !selectedTime || conflict === 'blocked'}
                 className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50"
               >
-                {bookingLoading ? 'Sending...' : 'Send Request'}
+                {bookingLoading ? 'Booking...' : conflict === 'busy' ? 'Request anyway' : 'Book Class'}
               </button>
             </div>
           </div>

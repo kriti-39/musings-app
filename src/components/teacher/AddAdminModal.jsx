@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { secondaryAuth } from '../../firebase/config'
 import { createAdmin } from '../../firebase/db'
+import PasswordInput from '../shared/PasswordInput'
 import { RiCloseLine } from 'react-icons/ri'
 
 export default function AddAdminModal({ onClose, onSuccess }) {
@@ -55,7 +56,7 @@ export default function AddAdminModal({ onClose, onSuccess }) {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
-            <input name="password" type="password" value={form.password} onChange={handleChange} required
+            <PasswordInput name="password" value={form.password} onChange={handleChange} required
               placeholder="Min. 6 characters"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
           </div>

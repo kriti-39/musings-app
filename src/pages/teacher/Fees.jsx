@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
-import { getAllStudents, getStudentPayments, confirmPayment } from '../../firebase/db'
+import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment } from '../../firebase/db'
 import { useAuth } from '../../context/AuthContext'
-import { RiCheckLine, RiAddLine } from 'react-icons/ri'
+import { RiCheckLine, RiAddLine, RiCloseLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -49,21 +49,23 @@ export default function TeacherFees() {
 
   function getStatus(studentId, month) {
     const list = payments[studentId] || []
-    const found = list.find(p => p.months?.includes(month))
+    const found = list.find(p => p.months?.includes(month) && p.status !== 'rejected')
     if (!found) return 'unpaid'
     return found.status === 'confirmed' ? 'paid' : 'pending'
   }
 
   function getPayment(studentId, month) {
-    return (payments[studentId] || []).find(p => p.months?.includes(month))
+    return (payments[studentId] || []).find(p => p.months?.includes(month) && p.status !== 'rejected')
   }
 
   async function handleConfirm(paymentId, studentId) {
     await confirmPayment(paymentId, user.id, studentId)
-    const allStudents = await getAllStudents()
-    const map = {}
-    await Promise.all(allStudents.map(async s => { map[s.id] = await getStudentPayments(s.id) }))
-    setPayments(map)
+    refreshPayments()
+  }
+
+  async function handleDecline(paymentId, studentId) {
+    await rejectPayment(paymentId, studentId)
+    refreshPayments()
   }
 
   const months = []
@@ -156,10 +158,16 @@ export default function TeacherFees() {
                       </td>
                       <td className="px-5 py-3.5">
                         {status === 'pending' && payment && (
-                          <button onClick={() => handleConfirm(payment.id, s.id)}
-                            className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
-                            <RiCheckLine size={13} /> Confirm
-                          </button>
+                          <div className="flex gap-2">
+                            <button onClick={() => handleConfirm(payment.id, s.id)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
+                              <RiCheckLine size={13} /> Confirm
+                            </button>
+                            <button onClick={() => handleDecline(payment.id, s.id)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors">
+                              <RiCloseLine size={13} /> Decline
+                            </button>
+                          </div>
                         )}
                         {status === 'unpaid' && (
                           <button onClick={() => setMarkPaid(s.id)}

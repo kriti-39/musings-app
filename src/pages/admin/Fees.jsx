@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
-import { getAllStudents, getStudentPayments, confirmPayment } from '../../firebase/db'
+import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment } from '../../firebase/db'
 import { useAuth } from '../../context/AuthContext'
-import { RiCheckLine, RiAddLine } from 'react-icons/ri'
+import { RiCheckLine, RiAddLine, RiCloseLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -42,7 +42,7 @@ export default function AdminFees() {
 
   function getStatusForMonth(studentId, month) {
     const list = payments[studentId] || []
-    const found = list.find(p => p.months?.includes(month))
+    const found = list.find(p => p.months?.includes(month) && p.status !== 'rejected')
     if (!found) return 'unpaid'
     if (found.status === 'confirmed') return 'paid'
     return 'pending'
@@ -91,7 +91,7 @@ export default function AdminFees() {
               <tbody>
                 {students.map((s, i) => {
                   const status = getStatusForMonth(s.id, selectedMonth)
-                  const monthPayment = (payments[s.id] || []).find(p => p.months?.includes(selectedMonth))
+                  const monthPayment = (payments[s.id] || []).find(p => p.months?.includes(selectedMonth) && p.status !== 'rejected')
                   return (
                     <tr key={s.id} className={`${i !== students.length - 1 ? 'border-b border-gray-50' : ''}`}>
                       <td className="px-5 py-3.5 font-medium text-gray-800">{s.name}</td>
@@ -111,15 +111,20 @@ export default function AdminFees() {
                       <td className="px-5 py-3.5">
                         <div className="flex gap-2">
                           {status === 'pending' && monthPayment && (
-                            <button
-                              onClick={async () => {
-                                await confirmPayment(monthPayment.id, user.id, s.id)
-                                fetchAll()
-                              }}
-                              className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors"
-                            >
-                              <RiCheckLine size={13} /> Confirm
-                            </button>
+                            <>
+                              <button
+                                onClick={async () => { await confirmPayment(monthPayment.id, user.id, s.id); fetchAll() }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors"
+                              >
+                                <RiCheckLine size={13} /> Confirm
+                              </button>
+                              <button
+                                onClick={async () => { await rejectPayment(monthPayment.id, s.id); fetchAll() }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors"
+                              >
+                                <RiCloseLine size={13} /> Decline
+                              </button>
+                            </>
                           )}
                           {status === 'unpaid' && (
                             <button

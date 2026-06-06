@@ -387,6 +387,17 @@ export async function confirmPayment(paymentId, confirmedByUid, studentId = null
   }
 }
 
+// Staff declines a submitted payment → student is asked to re-submit
+export async function rejectPayment(paymentId, studentId = null) {
+  await updateDoc(doc(db, 'payments', paymentId), {
+    status: 'rejected',
+    updatedAt: serverTimestamp(),
+  })
+  if (studentId) {
+    await createNotification(studentId, 'payment_rejected', 'Your payment could not be confirmed — please re-submit.', null)
+  }
+}
+
 export async function getAllStudentsIncludingInactive() {
   const q = query(collection(db, 'users'), where('role', '==', 'student'))
   const snap = await getDocs(q)

@@ -6,6 +6,7 @@ import { updateUser } from '../../firebase/db'
 import AdminLayout from '../../components/admin/AdminLayout'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import StudentLayout from '../../components/student/StudentLayout'
+import PasswordInput from '../../components/shared/PasswordInput'
 import { RiLockLine, RiUserLine, RiGlobalLine } from 'react-icons/ri'
 
 const TIMEZONES = [
@@ -107,13 +108,13 @@ export default function Settings() {
           <div className="space-y-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">New password</label>
-              <input type="password" value={pw.next} onChange={e => setPw(p => ({ ...p, next: e.target.value }))}
+              <PasswordInput value={pw.next} onChange={e => setPw(p => ({ ...p, next: e.target.value }))}
                 placeholder="Min. 6 characters"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Confirm new password</label>
-              <input type="password" value={pw.confirm} onChange={e => setPw(p => ({ ...p, confirm: e.target.value }))}
+              <PasswordInput value={pw.confirm} onChange={e => setPw(p => ({ ...p, confirm: e.target.value }))}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
             </div>
             {pwMsg.text && (

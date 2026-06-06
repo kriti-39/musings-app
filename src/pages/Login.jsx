@@ -3,6 +3,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../firebase/config'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import PasswordInput from '../components/shared/PasswordInput'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -51,8 +52,7 @@ export default function Login() {
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">Password</label>
-            <input
-              type="password"
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required

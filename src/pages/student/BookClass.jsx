@@ -197,9 +197,13 @@ export default function BookClass() {
 
         {/* Controls row — button + legend on same line */}
         <div className="flex items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2 text-xs text-gray-500 min-w-0">
-            <span className="w-3 h-3 rounded-sm bg-red-200 border border-red-300 shrink-0" />
-            <span className="truncate">Red = busy / unavailable</span>
+          <div className="flex items-center gap-3 text-xs text-gray-500 min-w-0">
+            <span className="flex items-center gap-1.5 shrink-0">
+              <span className="w-3 h-3 rounded-sm bg-green-200 border border-green-300" /> Your class
+            </span>
+            <span className="flex items-center gap-1.5 shrink-0">
+              <span className="w-3 h-3 rounded-sm bg-red-200 border border-red-300" /> Busy / unavailable
+            </span>
           </div>
           <button
             onClick={() => setShowPicker(true)}
@@ -266,16 +270,23 @@ export default function BookClass() {
               return {}
             }}
             components={{ toolbar: CalendarToolbar }}
-            eventPropGetter={() => ({
-              style: {
-                backgroundColor: '#fecaca',
-                border: '1px solid #fca5a5',
-                color: '#991b1b',
-                borderRadius: '6px',
-                fontSize: '11px',
-                padding: '2px 6px',
+            eventPropGetter={(event) => {
+              // Student's own class → green; everything else (busy / blocked) → red
+              const isMine = event.title === 'Your class'
+              return {
+                style: isMine ? {
+                  backgroundColor: '#bbf7d0',
+                  border: '1px solid #86efac',
+                  color: '#166534',
+                  borderRadius: '6px', fontSize: '11px', padding: '2px 6px',
+                } : {
+                  backgroundColor: '#fecaca',
+                  border: '1px solid #fca5a5',
+                  color: '#991b1b',
+                  borderRadius: '6px', fontSize: '11px', padding: '2px 6px',
+                }
               }
-            })}
+            }}
             views={['month', 'day']}
             popup
           />

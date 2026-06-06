@@ -8,7 +8,7 @@ import { useAuth } from '../../context/AuthContext'
 function destinationFor(type, role) {
   const base = role === 'admin' ? '/admin' : role === 'teacher' ? '/teacher' : '/student'
   if (role === 'student') {
-    if (type === 'payment_confirmed') return '/student/fees'
+    if (type === 'payment_confirmed' || type === 'payment_rejected') return '/student/fees'
     return '/student/dashboard' // class confirmed/rejected/cancelled/rescheduled
   }
   // staff: bookings & reschedule requests → dashboard (has the confirm section)

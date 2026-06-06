@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { secondaryAuth } from '../../firebase/config'
 import { createStudent } from '../../firebase/db'
+import PasswordInput from '../shared/PasswordInput'
 import { RiCloseLine } from 'react-icons/ri'
 
 const TIMEZONES = [
@@ -114,8 +115,8 @@ export default function AddStudentModal({ onClose, onSuccess }) {
           {/* Password */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Temporary Password *</label>
-            <input
-              name="password" type="password" value={form.password} onChange={handleChange} required minLength={6}
+            <PasswordInput
+              name="password" value={form.password} onChange={handleChange} required minLength={6}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
               placeholder="Share this with the student"
             />

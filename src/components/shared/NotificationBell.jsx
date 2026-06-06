@@ -1,10 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { RiBellLine } from 'react-icons/ri'
 import { getUserNotifications, markNotificationRead } from '../../firebase/db'
 import { useAuth } from '../../context/AuthContext'
 
+// Where each notification type should take the user, per role
+function destinationFor(type, role) {
+  const base = role === 'admin' ? '/admin' : role === 'teacher' ? '/teacher' : '/student'
+  if (role === 'student') {
+    if (type === 'payment_confirmed') return '/student/fees'
+    return '/student/dashboard' // class confirmed/rejected/cancelled/rescheduled
+  }
+  // staff: bookings & reschedule requests → dashboard (has the confirm section)
+  return `${base}/dashboard`
+}
+
 export default function NotificationBell() {
-  const { user } = useAuth()
+  const { user, role } = useAuth()
+  const navigate = useNavigate()
   const [notifications, setNotifications] = useState([])
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -38,6 +51,8 @@ export default function NotificationBell() {
       await markNotificationRead(n.id)
       setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x))
     }
+    setOpen(false)
+    navigate(destinationFor(n.type, role))
   }
 
   return (

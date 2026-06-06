@@ -62,7 +62,8 @@ export default function TeacherDashboard() {
         {pending.length > 0 && (
           <div className="bg-white rounded-xl border border-amber-100">
             <div className="px-5 py-4 border-b border-gray-50">
-              <h2 className="text-sm font-semibold text-gray-800">Booking Requests</h2>
+              <h2 className="text-sm font-semibold text-gray-800">Needs Confirmation</h2>
+              <p className="text-xs text-gray-400 mt-0.5">These bookings overlap an existing class.</p>
             </div>
             <div className="divide-y divide-gray-50">
               {pending.map(cls => {

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
+import MarkPaidModal from '../../components/shared/MarkPaidModal'
 import { getAllStudents, getStudentPayments, confirmPayment } from '../../firebase/db'
 import { useAuth } from '../../context/AuthContext'
-import { RiCheckLine } from 'react-icons/ri'
+import { RiCheckLine, RiAddLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -21,7 +22,16 @@ export default function TeacherFees() {
   const [students, setStudents] = useState([])
   const [payments, setPayments] = useState({})
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr())
+  const [filter, setFilter] = useState('all') // all | paid | pending | unpaid
+  const [markPaid, setMarkPaid] = useState(null) // studentId
   const [loading, setLoading] = useState(true)
+
+  async function refreshPayments() {
+    const allStudents = await getAllStudents()
+    const map = {}
+    await Promise.all(allStudents.map(async s => { map[s.id] = await getStudentPayments(s.id) }))
+    setPayments(map)
+  }
 
   useEffect(() => {
     async function fetch() {
@@ -85,19 +95,30 @@ export default function TeacherFees() {
           </div>
         </div>
 
-        {/* Summary */}
+        {/* Summary — click a card to filter the list */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           {[
-            { label: 'Paid', value: paid, color: 'text-green-600' },
-            { label: 'Pending Confirmation', value: pending, color: 'text-amber-600' },
-            { label: 'Unpaid', value: unpaid, color: 'text-red-500' },
+            { key: 'paid', label: 'Paid', value: paid, color: 'text-green-600' },
+            { key: 'pending', label: 'Pending', value: pending, color: 'text-amber-600' },
+            { key: 'unpaid', label: 'Unpaid', value: unpaid, color: 'text-red-500' },
           ].map(c => (
-            <div key={c.label} className="bg-white rounded-xl border border-gray-100 px-5 py-4">
+            <button key={c.key}
+              onClick={() => setFilter(filter === c.key ? 'all' : c.key)}
+              className={`bg-white rounded-xl border px-5 py-4 text-left transition-all ${
+                filter === c.key ? 'border-amber-400 shadow-sm' : 'border-gray-100 hover:border-amber-200'
+              }`}
+            >
               <p className="text-xs text-gray-400">{c.label}</p>
               <p className={`text-2xl font-semibold mt-1 ${c.color}`}>{c.value}</p>
-            </div>
+            </button>
           ))}
         </div>
+        {filter !== 'all' && (
+          <p className="text-xs text-gray-400 mb-3">
+            Showing <span className="font-medium text-gray-600 capitalize">{filter}</span> students ·{' '}
+            <button onClick={() => setFilter('all')} className="text-amber-600 hover:underline">show all</button>
+          </p>
+        )}
 
         {loading ? (
           <p className="text-gray-400 text-sm text-center py-16">Loading...</p>
@@ -113,12 +134,14 @@ export default function TeacherFees() {
                 </tr>
               </thead>
               <tbody>
-                {students.map((s, i) => {
+                {students
+                  .filter(s => filter === 'all' || getStatus(s.id, selectedMonth) === filter)
+                  .map((s, i, arr) => {
                   const status = getStatus(s.id, selectedMonth)
                   const payment = getPayment(s.id, selectedMonth)
                   return (
                     <tr key={s.id}
-                      className={`transition-colors ${i !== students.length - 1 ? 'border-b border-gray-50' : ''}`}
+                      className={`transition-colors ${i !== arr.length - 1 ? 'border-b border-gray-50' : ''}`}
                     >
                       <td className="px-5 py-3.5 font-medium text-gray-800">{s.name}</td>
                       <td className="px-5 py-3.5 text-gray-500">{s.country || '—'}</td>
@@ -138,6 +161,12 @@ export default function TeacherFees() {
                             <RiCheckLine size={13} /> Confirm
                           </button>
                         )}
+                        {status === 'unpaid' && (
+                          <button onClick={() => setMarkPaid(s.id)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs hover:bg-amber-100 transition-colors">
+                            <RiAddLine size={13} /> Mark Paid
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )
@@ -147,6 +176,16 @@ export default function TeacherFees() {
           </div>
         )}
       </div>
+
+      {markPaid && (
+        <MarkPaidModal
+          studentId={markPaid}
+          selectedMonth={selectedMonth}
+          staffId={user.id}
+          onClose={() => setMarkPaid(null)}
+          onSuccess={refreshPayments}
+        />
+      )}
     </TeacherLayout>
   )
 }

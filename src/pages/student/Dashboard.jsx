@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getStudentAllClasses, markClassDone, cancelClass, requestReschedule, getTeacher } from '../../firebase/db'
+import { getStudentAllClasses, markClassDone, cancelClassByStudent, requestReschedule, getTeacher } from '../../firebase/db'
+import { Timestamp } from 'firebase/firestore'
 import { RiCalendarLine, RiAddLine, RiCloseLine } from 'react-icons/ri'
 import { LOCAL_TZ, tzCity, fmtTime, fmtLongDate } from '../../utils/timezone'
 import ConfirmDialog from '../../components/shared/ConfirmDialog'
@@ -37,6 +38,11 @@ export default function StudentDashboard() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Optimistic local update so an action reflects instantly, before the refetch.
+  function patchClass(id, patch) {
+    setAll(prev => prev.map(c => (c.id === id ? { ...c, ...patch } : c)))
   }
 
   useEffect(() => {
@@ -102,7 +108,7 @@ export default function StudentDashboard() {
           </div>
         ) : (
           <div className="space-y-3">
-            {visible.map(cls => <ClassCard key={cls.id} cls={cls} onAction={fetchClasses} tz={tz} teacherTz={teacherTz} />)}
+            {visible.map(cls => <ClassCard key={cls.id} cls={cls} onAction={fetchClasses} onPatch={patchClass} tz={tz} teacherTz={teacherTz} />)}
           </div>
         )}
       </div>
@@ -110,7 +116,7 @@ export default function StudentDashboard() {
   )
 }
 
-function ClassCard({ cls, onAction, tz, teacherTz }) {
+function ClassCard({ cls, onAction, onPatch, tz, teacherTz }) {
   const [loading, setLoading] = useState(false)
   const [reschedule, setReschedule] = useState(false)
   const [newDate, setNewDate] = useState('')
@@ -127,8 +133,9 @@ function ClassCard({ cls, onAction, tz, teacherTz }) {
 
   async function runConfirm() {
     if (!confirm) return
-    const action = confirm.action
+    const { action, optimistic } = confirm
     setConfirm(null)
+    if (optimistic) onPatch?.(cls.id, optimistic) // reflect instantly
     await handle(action)
   }
 
@@ -141,6 +148,7 @@ function ClassCard({ cls, onAction, tz, teacherTz }) {
       confirmLabel: 'Send Request',
       variant: 'primary',
       action: () => requestReschedule(cls.id, `${newDate}T${newTime}`),
+      optimistic: { status: 'pending', scheduledAt: Timestamp.fromDate(new Date(`${newDate}T${newTime}`)) },
     })
   }
 
@@ -196,6 +204,7 @@ function ClassCard({ cls, onAction, tz, teacherTz }) {
               confirmLabel: 'Mark Done',
               variant: 'primary',
               action: () => markClassDone(cls.id, 'student'),
+              optimistic: { status: 'completed' },
             })} disabled={loading}
               className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors disabled:opacity-50">
               Mark Done
@@ -211,10 +220,11 @@ function ClassCard({ cls, onAction, tz, teacherTz }) {
             title: cls.status === 'pending' ? 'Cancel this request?' : 'Cancel this class?',
             message: cls.status === 'pending'
               ? 'Your booking request will be withdrawn.'
-              : 'This will cancel your scheduled class.',
+              : 'This cancels your class. Your teacher will be notified.',
             confirmLabel: cls.status === 'pending' ? 'Cancel Request' : 'Cancel Class',
             variant: 'danger',
-            action: () => cancelClass(cls.id),
+            action: () => cancelClassByStudent(cls.id),
+            optimistic: { status: 'cancelled' },
           })} disabled={loading}
             className="px-3 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors disabled:opacity-50">
             {cls.status === 'pending' ? 'Cancel Request' : 'Cancel'}

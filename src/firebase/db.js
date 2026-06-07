@@ -291,17 +291,36 @@ export async function rescheduleClass(classId, newScheduledAt, notifyStudentId =
   }
 }
 
-// Student requests a reschedule → goes back to pending for staff to re-confirm + notify staff
+// Student requests a reschedule → goes back to pending for staff to re-confirm + notify staff.
+// Staff notification is wrapped so it can never fail the student's request.
 export async function requestReschedule(classId, newScheduledAt) {
   await updateDoc(doc(db, 'classes', classId), {
     scheduledAt: Timestamp.fromDate(new Date(newScheduledAt)),
     status: 'pending',
     updatedAt: serverTimestamp(),
   })
-  const staffIds = await getStaffIds()
-  await Promise.all(staffIds.map(id =>
-    createNotification(id, 'reschedule_request', 'A student requested to reschedule a class.', classId)
-  ))
+  try {
+    const staffIds = await getStaffIds()
+    await Promise.all(staffIds.map(id =>
+      createNotification(id, 'reschedule_request', 'A student requested to reschedule a class.', classId)
+    ))
+  } catch (e) { console.error('Reschedule saved, staff notify failed:', e) }
+}
+
+// Student cancels their own class → cancels immediately and informs staff
+// (no approval needed). Staff notification is wrapped so it can never fail the
+// cancellation itself.
+export async function cancelClassByStudent(classId) {
+  await updateDoc(doc(db, 'classes', classId), {
+    status: 'cancelled',
+    updatedAt: serverTimestamp(),
+  })
+  try {
+    const staffIds = await getStaffIds()
+    await Promise.all(staffIds.map(id =>
+      createNotification(id, 'class_cancelled_by_student', 'A student cancelled a class.', classId)
+    ))
+  } catch (e) { console.error('Cancelled, staff notify failed:', e) }
 }
 
 // ─── RECURRING SCHEDULES ──────────────────────────────────────────────────────

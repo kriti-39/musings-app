@@ -108,6 +108,11 @@ export default function AdminFees() {
                         }`}>
                           {status === 'paid' ? 'Paid' : status === 'pending' ? 'Pending confirmation' : 'Unpaid'}
                         </span>
+                        {monthPayment && (
+                          <span className="block text-xs text-gray-400 mt-1 capitalize">
+                            ₹{monthPayment.amount} · {monthPayment.method?.replace('_', ' ')}
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex gap-2">

@@ -157,6 +157,11 @@ export default function TeacherFees() {
                         }`}>
                           {status === 'paid' ? 'Paid' : status === 'pending' ? 'Pending confirmation' : 'Unpaid'}
                         </span>
+                        {payment && (
+                          <span className="block text-xs text-gray-400 mt-1 capitalize">
+                            ₹{payment.amount} · {payment.method?.replace('_', ' ')}
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex gap-2">

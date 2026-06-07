@@ -110,12 +110,13 @@ export default function BookClass() {
     ...calendarData.bookedSlots.map(cls => {
       const start = cls.scheduledAt?.toDate?.() ?? new Date()
       const end = new Date(start.getTime() + (cls.duration || 60) * 60000)
+      const completed = cls.status === 'completed'
       return {
         id: cls.id,
-        title: cls.mine ? 'Your class' : 'Busy',
+        title: completed ? 'Completed' : cls.mine ? 'Scheduled' : 'Busy',
         start: shiftToTz(start, displayTz),
         end: shiftToTz(end, displayTz),
-        type: 'booked',
+        type: completed ? 'completed' : cls.mine ? 'mine' : 'booked',
       }
     }),
     ...calendarData.blockedSlots.map(slot => {
@@ -265,12 +266,15 @@ export default function BookClass() {
 
         {/* Controls row — button + legend on same line */}
         <div className="flex items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3 text-xs text-gray-500 min-w-0">
+          <div className="flex items-center gap-3 text-xs text-gray-500 min-w-0 flex-wrap">
             <span className="flex items-center gap-1.5 shrink-0">
-              <span className="w-3 h-3 rounded-sm bg-green-200 border border-green-300" /> Your class
+              <span className="w-3 h-3 rounded-sm bg-green-200 border border-green-300" /> Scheduled
             </span>
             <span className="flex items-center gap-1.5 shrink-0">
               <span className="w-3 h-3 rounded-sm bg-red-200 border border-red-300" /> Busy
+            </span>
+            <span className="flex items-center gap-1.5 shrink-0">
+              <span className="w-3 h-3 rounded-sm bg-gray-200 border border-gray-300" /> Completed
             </span>
           </div>
           <button
@@ -340,33 +344,43 @@ export default function BookClass() {
             }}
             components={{ toolbar: CalendarToolbar }}
             eventPropGetter={(event) => {
-              // Highlighted selection → amber; own class → green; busy/blocked → red
-              if (event.type === 'selection') {
-                return { style: {
-                  backgroundColor: '#f59e0b', border: '2px solid #d97706', color: '#fff',
-                  borderRadius: '6px', fontSize: '11px', fontWeight: 600, padding: '2px 6px',
-                } }
-              }
-              const isMine = event.title === 'Your class'
-              return {
-                style: isMine ? {
-                  backgroundColor: '#bbf7d0',
-                  border: '1px solid #86efac',
-                  color: '#166534',
-                  borderRadius: '6px', fontSize: '11px', padding: '2px 6px',
-                } : {
-                  backgroundColor: '#fecaca',
-                  border: '1px solid #fca5a5',
-                  color: '#991b1b',
-                  borderRadius: '6px', fontSize: '11px', padding: '2px 6px',
-                }
-              }
+              const base = { borderRadius: '6px', fontSize: '11px', padding: '2px 6px' }
+              if (event.type === 'selection')
+                return { style: { ...base, backgroundColor: '#f59e0b', border: '2px solid #d97706', color: '#fff', fontWeight: 600 } }
+              if (event.type === 'mine')
+                return { style: { ...base, backgroundColor: '#bbf7d0', border: '1px solid #86efac', color: '#166534' } }
+              if (event.type === 'completed')
+                return { style: { ...base, backgroundColor: '#e5e7eb', border: '1px solid #d1d5db', color: '#4b5563' } }
+              // busy / blocked
+              return { style: { ...base, backgroundColor: '#fecaca', border: '1px solid #fca5a5', color: '#991b1b' } }
             }}
             views={['month', 'day']}
             popup
           />
         </div>
       </div>
+
+      {/* Floating confirm bar when a slot is selected (reliable on mobile) */}
+      {pendingSlot && !showPicker && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] px-4 py-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-800 truncate">
+              {format(pendingSlot, 'EEE, d MMM')} · {format(pendingSlot, 'h:mm a')}
+            </p>
+            <p className="text-xs text-gray-400">{tzCity(displayTz)} time</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={() => setPendingSlot(null)}
+              className="px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50">
+              Cancel
+            </button>
+            <button onClick={() => openBookingFor(pendingSlot)}
+              className="px-4 py-2 text-sm font-medium bg-amber-500 hover:bg-amber-600 text-white rounded-lg">
+              Book this slot
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Booking modal */}
       {showPicker && (

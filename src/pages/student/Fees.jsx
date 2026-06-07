@@ -125,7 +125,7 @@ function SubmitPaymentModal({ studentId, onClose, onSuccess }) {
         const url = await uploadFeeReceipt(file, studentId)
         await updatePaymentScreenshot(ref.id, url)
       }
-      onSuccess()
+      await onSuccess()
       onClose()
     } catch (e) {
       console.error(e)

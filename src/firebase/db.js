@@ -593,20 +593,28 @@ export async function getStudentBookingCalendar(teacherId, studentId, year, mont
     getDocs(query(collection(db, 'availability'), where('teacherId', '==', teacherId))),
   ])
 
-  // Anonymize: only id, time, duration, and whether it's the student's own
+  // Anonymize others (only busy time); the student's OWN classes also show
+  // their status (scheduled / completed) so the legend can colour them.
   const bookedSlots = allClassesSnap.docs
     .map(d => ({ id: d.id, ...d.data() }))
     .filter(c => {
       const t = c.scheduledAt?.toDate?.()
+      if (!inRange(t)) return false
       const status = c.status || 'scheduled'
-      return inRange(t) && (status === 'scheduled' || status === 'pending')
+      const mine = c.studentId === studentId
+      if (mine) return status === 'scheduled' || status === 'pending' || status === 'completed'
+      return status === 'scheduled' || status === 'pending'
     })
-    .map(c => ({
-      id: c.id,
-      scheduledAt: c.scheduledAt,
-      duration: c.duration || 60,
-      mine: c.studentId === studentId,
-    }))
+    .map(c => {
+      const mine = c.studentId === studentId
+      return {
+        id: c.id,
+        scheduledAt: c.scheduledAt,
+        duration: c.duration || 60,
+        mine,
+        status: mine ? (c.status || 'scheduled') : 'busy',
+      }
+    })
 
   const blockedSlots = blockedSnap.docs
     .map(d => ({ id: d.id, ...d.data() }))

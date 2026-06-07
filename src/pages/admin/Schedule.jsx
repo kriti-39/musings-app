@@ -240,6 +240,21 @@ export default function AdminSchedule() {
         </div>
       </div>
 
+      {/* Floating confirm bar when a slot is selected */}
+      {pendingSlot && !showSchedule && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] px-4 py-3 flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-gray-800 truncate">
+            {format(pendingSlot, 'EEE, d MMM')} · {format(pendingSlot, 'h:mm a')}
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={() => setPendingSlot(null)}
+              className="px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>
+            <button onClick={() => { setClickedSlot(pendingSlot); setShowSchedule(true) }}
+              className="px-4 py-2 text-sm font-medium bg-amber-500 hover:bg-amber-600 text-white rounded-lg">Schedule here</button>
+          </div>
+        </div>
+      )}
+
       {showSchedule && (
         <ScheduleClassModal
           onClose={() => { setShowSchedule(false); setClickedSlot(null); setPendingSlot(null) }}

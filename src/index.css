@@ -113,15 +113,16 @@ html.dark .bg-amber-600.text-white {
   color: #0d1117;
 }
 
-/* ── Borders — GitHub style ── */
-/* All separators/borders use the same subtle tones in dark mode for consistency.
-   !important is needed because Tailwind's divide-* selector is more specific. */
-html.dark .border-gray-50  { border-color: #21262d !important; }
+/* ── Borders / separators — all use the same subtle box-border tone in dark ──
+   Uses Tailwind's exact divide selector + !important so it always wins. */
+html.dark .border-gray-50,
 html.dark .border-gray-100 { border-color: #21262d !important; }
 html.dark .border-gray-200 { border-color: #30363d !important; }
-html.dark .divide-gray-50  > * + * { border-color: #21262d !important; }
-html.dark .divide-gray-100 > * + * { border-color: #21262d !important; }
-html.dark .divide-gray-200 > * + * { border-color: #30363d !important; }
+html.dark .divide-gray-50 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #21262d !important; }
+html.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #30363d !important; }
+/* Catch-all: any divide-y in dark mode defaults to the subtle box-border tone */
+html.dark [class*="divide-"] > :not([hidden]) ~ :not([hidden]) { border-color: #21262d; }
 
 /* Cards get a very subtle gold shimmer on hover */
 html.dark .hover\:border-amber-200:hover { border-color: rgba(245, 197, 24, 0.35); }

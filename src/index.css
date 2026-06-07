@@ -114,13 +114,14 @@ html.dark .bg-amber-600.text-white {
 }
 
 /* ── Borders — GitHub style ── */
-/* All separators/borders use the same subtle tones in dark mode for consistency */
-html.dark .border-gray-50  { border-color: #21262d; }
-html.dark .border-gray-100 { border-color: #21262d; }
-html.dark .border-gray-200 { border-color: #30363d; }
-html.dark .divide-gray-50  > * + * { border-color: #21262d; }
-html.dark .divide-gray-100 > * + * { border-color: #21262d; }
-html.dark .divide-gray-200 > * + * { border-color: #30363d; }
+/* All separators/borders use the same subtle tones in dark mode for consistency.
+   !important is needed because Tailwind's divide-* selector is more specific. */
+html.dark .border-gray-50  { border-color: #21262d !important; }
+html.dark .border-gray-100 { border-color: #21262d !important; }
+html.dark .border-gray-200 { border-color: #30363d !important; }
+html.dark .divide-gray-50  > * + * { border-color: #21262d !important; }
+html.dark .divide-gray-100 > * + * { border-color: #21262d !important; }
+html.dark .divide-gray-200 > * + * { border-color: #30363d !important; }
 
 /* Cards get a very subtle gold shimmer on hover */
 html.dark .hover\:border-amber-200:hover { border-color: rgba(245, 197, 24, 0.35); }

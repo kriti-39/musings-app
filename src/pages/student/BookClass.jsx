@@ -91,10 +91,15 @@ export default function BookClass() {
   const [pendingSlot, setPendingSlot] = useState(null)
 
   useEffect(() => {
-    getTeacher().then(t => {
-      if (t) { setTeacherId(t.id); setTeacherTz(t.timezone || LOCAL_TZ) }
-      else getTeacherId().then(id => { if (id) setTeacherId(id) })
-    })
+    getTeacher()
+      .then(t => {
+        if (t) { setTeacherId(t.id); setTeacherTz(t.timezone || LOCAL_TZ) }
+        else getTeacherId().then(id => { if (id) setTeacherId(id) })
+      })
+      .catch(e => {
+        console.error('Teacher lookup failed:', e)
+        getTeacherId().then(id => { if (id) setTeacherId(id) }).catch(() => {})
+      })
   }, [])
 
   useEffect(() => {

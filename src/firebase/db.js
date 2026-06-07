@@ -118,12 +118,18 @@ export async function createBooking({
     updatedAt: serverTimestamp(),
   })
 
-  // Notify staff: overlaps need confirmation, free bookings are just a heads-up
-  const staffIds = await getStaffIds()
-  const [type, msg] = status === 'pending'
-    ? ['overlap_booking', 'A booking overlaps an existing class — please confirm.']
-    : ['class_booked', 'A student booked a new class.']
-  await Promise.all(staffIds.map(id => createNotification(id, type, msg, ref.id)))
+  // Notify staff: overlaps need confirmation, free bookings are just a heads-up.
+  // Wrapped so a notification failure can NEVER undo or hide a successful
+  // booking (which would cause the student to re-book → duplicate classes).
+  try {
+    const staffIds = await getStaffIds()
+    const [type, msg] = status === 'pending'
+      ? ['overlap_booking', 'A booking overlaps an existing class — please confirm.']
+      : ['class_booked', 'A student booked a new class.']
+    await Promise.all(staffIds.map(id => createNotification(id, type, msg, ref.id)))
+  } catch (e) {
+    console.error('Booking saved, but staff notification failed:', e)
+  }
 
   return { id: ref.id, status, overlap }
 }

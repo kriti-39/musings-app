@@ -13,7 +13,16 @@ service cloud.firestore {
     function isAdminOrTeacher() { return isAdmin() || isTeacher(); }
 
     match /users/{userId} {
-      allow read: if isAuth() && (request.auth.uid == userId || isAdminOrTeacher());
+      // A user can read their own profile; staff can read everyone; and ANY
+      // signed-in user can read staff (admin/teacher) profiles — students need
+      // this to discover the teacher (timezone, id) and to notify staff when
+      // they book. Queries are role-constrained, so students still cannot read
+      // other students' profiles.
+      allow read: if isAuth() && (
+        request.auth.uid == userId
+        || isAdminOrTeacher()
+        || resource.data.role in ['admin', 'teacher']
+      );
       allow create: if isAdminOrTeacher();
       allow update: if isAuth() && (request.auth.uid == userId || isAdminOrTeacher());
       allow delete: if isAdmin();

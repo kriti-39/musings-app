@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { RiCloseLine, RiUploadLine } from 'react-icons/ri'
-import { createPayment, updatePaymentScreenshot } from '../../firebase/db'
-import { uploadFeeReceipt } from '../../firebase/storage'
+import { createPayment, saveReceipt } from '../../firebase/db'
+import { compressImage } from '../../utils/image'
 import MonthPicker from './MonthPicker'
 
 // Staff records a payment (e.g. cash received). Saved as already-confirmed.
@@ -25,6 +25,11 @@ export default function MarkPaidModal({ studentId, selectedMonth, staffId, onClo
     if (form.months.length === 0) { setError('Select at least one month.'); return }
     setLoading(true)
     try {
+      // Compress receipt locally and store it in Firestore (no Storage dependency).
+      let dataUrl = null
+      if (file) {
+        try { dataUrl = await compressImage(file) } catch (e) { console.error('Compress failed:', e) }
+      }
       const newPayment = await createPayment({
         studentId,
         amount: Number(form.amount),
@@ -34,18 +39,11 @@ export default function MarkPaidModal({ studentId, selectedMonth, staffId, onClo
         submittedBy: 'staff',
         status: 'confirmed',
         confirmedBy: staffId,
+        hasReceipt: !!dataUrl,
       })
-      // Save & close immediately; upload the receipt in the background so a slow
-      // upload never freezes the dialog. The list refreshes again once it attaches.
-      const fileToUpload = file
+      if (dataUrl) await saveReceipt(newPayment.id, dataUrl)
       onSuccess()
       onClose()
-      if (fileToUpload) {
-        uploadFeeReceipt(fileToUpload, studentId)
-          .then(url => updatePaymentScreenshot(newPayment.id, url))
-          .then(() => onSuccess())
-          .catch(e => console.error('Receipt upload failed:', e))
-      }
     } catch (err) {
       console.error(err)
       setError('Could not save the payment. Please try again.')

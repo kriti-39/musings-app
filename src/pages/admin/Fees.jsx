@@ -25,7 +25,7 @@ export default function AdminFees() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr())
   const [loading, setLoading] = useState(true)
   const [addModal, setAddModal] = useState(null) // studentId
-  const [receiptUrl, setReceiptUrl] = useState(null)
+  const [receiptId, setReceiptId] = useState(null)
 
   async function fetchAll() {
     setLoading(true)
@@ -116,9 +116,9 @@ export default function AdminFees() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex gap-2">
-                          {monthPayment?.screenshotUrl ? (
+                          {(monthPayment?.hasReceipt || monthPayment?.screenshotUrl) ? (
                             <button
-                              onClick={() => setReceiptUrl(monthPayment.screenshotUrl)}
+                              onClick={() => setReceiptId({ id: monthPayment.id, url: monthPayment.screenshotUrl })}
                               className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-xs hover:bg-gray-100 transition-colors"
                             >
                               <RiImageLine size={13} /> Receipt
@@ -171,7 +171,7 @@ export default function AdminFees() {
         />
       )}
 
-      {receiptUrl && <ReceiptModal url={receiptUrl} onClose={() => setReceiptUrl(null)} />}
+      {receiptId && <ReceiptModal paymentId={receiptId.id} directUrl={receiptId.url} onClose={() => setReceiptId(null)} />}
     </AdminLayout>
   )
 }

@@ -44,7 +44,7 @@ export default function StudentDetail() {
   const [payments, setPayments] = useState([])
   const [recurring, setRecurring] = useState([])
   const [section, setSection] = useState('upcoming') // upcoming | done | payments
-  const [receiptUrl, setReceiptUrl] = useState(null)
+  const [receiptId, setReceiptId] = useState(null)
   const [showRecord, setShowRecord] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -211,8 +211,8 @@ export default function StudentDetail() {
                         </td>
                         <td className="px-5 py-3.5">
                           <div className="flex gap-2">
-                            {p.screenshotUrl ? (
-                              <button onClick={() => setReceiptUrl(p.screenshotUrl)}
+                            {(p.hasReceipt || p.screenshotUrl) ? (
+                              <button onClick={() => setReceiptId({ id: p.id, url: p.screenshotUrl })}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-xs hover:bg-gray-100 transition-colors">
                                 <RiImageLine size={13} /> Receipt
                               </button>
@@ -244,7 +244,7 @@ export default function StudentDetail() {
         )}
       </div>
 
-      {receiptUrl && <ReceiptModal url={receiptUrl} onClose={() => setReceiptUrl(null)} />}
+      {receiptId && <ReceiptModal paymentId={receiptId.id} directUrl={receiptId.url} onClose={() => setReceiptId(null)} />}
       {showRecord && (
         <MarkPaidModal
           studentId={id}

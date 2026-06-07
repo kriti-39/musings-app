@@ -505,6 +505,19 @@ export async function updatePaymentScreenshot(paymentId, url) {
   await updateDoc(doc(db, 'payments', paymentId), { screenshotUrl: url })
 }
 
+// ─── RECEIPTS (stored in Firestore, not Storage — reliable on any setup) ──────
+// The compressed image lives in its own doc so payment lists stay lightweight;
+// it's only fetched when staff actually open the receipt.
+export async function saveReceipt(paymentId, dataUrl) {
+  await setDoc(doc(db, 'receipts', paymentId), { dataUrl, createdAt: serverTimestamp() })
+  await updateDoc(doc(db, 'payments', paymentId), { hasReceipt: true })
+}
+
+export async function getReceipt(paymentId) {
+  const snap = await getDoc(doc(db, 'receipts', paymentId))
+  return snap.exists() ? snap.data().dataUrl : null
+}
+
 export async function getTeacherId() {
   const q = query(collection(db, 'users'), where('role', '==', 'teacher'))
   const snap = await getDocs(q)

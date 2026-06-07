@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getStudentPayments, createPayment, updatePaymentScreenshot } from '../../firebase/db'
-import { uploadFeeReceipt } from '../../firebase/storage'
+import { getStudentPayments, createPayment, saveReceipt } from '../../firebase/db'
+import { compressImage } from '../../utils/image'
 import MonthPicker from '../../components/shared/MonthPicker'
 import { RiAddLine, RiCloseLine, RiUploadLine } from 'react-icons/ri'
 
@@ -120,17 +120,15 @@ function SubmitPaymentModal({ studentId, onClose, onSuccess }) {
         submittedBy: 'student',
         status: 'pending',
       }
-      const newPayment = await createPayment(paymentData)
-      // Save & close instantly; upload the receipt in the background.
-      const fileToUpload = file
+      // Compress the receipt locally (no Storage dependency) and store it in Firestore.
+      let dataUrl = null
+      if (file) {
+        try { dataUrl = await compressImage(file) } catch (e) { console.error('Compress failed:', e) }
+      }
+      const newPayment = await createPayment({ ...paymentData, hasReceipt: !!dataUrl })
+      if (dataUrl) await saveReceipt(newPayment.id, dataUrl)
       onSuccess()
       onClose()
-      if (fileToUpload) {
-        uploadFeeReceipt(fileToUpload, studentId)
-          .then(url => updatePaymentScreenshot(newPayment.id, url))
-          .then(() => onSuccess())
-          .catch(e => console.error('Receipt upload failed:', e))
-      }
     } catch (e) {
       console.error(e)
       setError('Something went wrong. Please try again.')

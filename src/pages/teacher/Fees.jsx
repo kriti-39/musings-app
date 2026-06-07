@@ -25,7 +25,7 @@ export default function TeacherFees() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr())
   const [filter, setFilter] = useState('all') // all | paid | pending | unpaid
   const [markPaid, setMarkPaid] = useState(null) // studentId
-  const [receiptUrl, setReceiptUrl] = useState(null)
+  const [receiptId, setReceiptId] = useState(null)
   const [loading, setLoading] = useState(true)
 
   async function refreshPayments() {
@@ -165,8 +165,8 @@ export default function TeacherFees() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex gap-2">
-                          {payment?.screenshotUrl ? (
-                            <button onClick={() => setReceiptUrl(payment.screenshotUrl)}
+                          {(payment?.hasReceipt || payment?.screenshotUrl) ? (
+                            <button onClick={() => setReceiptId({ id: payment.id, url: payment.screenshotUrl })}
                               className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-xs hover:bg-gray-100 transition-colors">
                               <RiImageLine size={13} /> Receipt
                             </button>
@@ -212,7 +212,7 @@ export default function TeacherFees() {
         />
       )}
 
-      {receiptUrl && <ReceiptModal url={receiptUrl} onClose={() => setReceiptUrl(null)} />}
+      {receiptId && <ReceiptModal paymentId={receiptId.id} directUrl={receiptId.url} onClose={() => setReceiptId(null)} />}
     </TeacherLayout>
   )
 }

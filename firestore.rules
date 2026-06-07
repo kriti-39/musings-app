@@ -49,5 +49,13 @@ service cloud.firestore {
       allow update: if isAuth() && resource.data.userId == request.auth.uid;
       allow delete: if isAuth() && (isAdmin() || resource.data.userId == request.auth.uid);
     }
+
+    // Payment receipts (compressed images). Any signed-in user can read/create;
+    // only staff can modify/remove.
+    match /receipts/{paymentId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isAdminOrTeacher();
+    }
   }
 }

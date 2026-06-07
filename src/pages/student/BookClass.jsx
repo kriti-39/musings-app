@@ -122,7 +122,7 @@ export default function BookClass() {
       const start = slot.startAt?.toDate?.() ?? new Date()
       const end = slot.endAt?.toDate?.() ?? new Date()
       return {
-        id: slot.id, title: 'Unavailable',
+        id: slot.id, title: 'Busy',
         start: shiftToTz(start, displayTz),
         end: shiftToTz(end, displayTz),
         type: 'blocked',
@@ -270,7 +270,7 @@ export default function BookClass() {
               <span className="w-3 h-3 rounded-sm bg-green-200 border border-green-300" /> Your class
             </span>
             <span className="flex items-center gap-1.5 shrink-0">
-              <span className="w-3 h-3 rounded-sm bg-red-200 border border-red-300" /> Busy / unavailable
+              <span className="w-3 h-3 rounded-sm bg-red-200 border border-red-300" /> Busy
             </span>
           </div>
           <button

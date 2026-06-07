@@ -1,7 +1,7 @@
 {
-  "name": "Musings with Deva",
-  "short_name": "Musings",
-  "description": "Music class management for Musings with Deva",
+  "name": "Deva's Classes",
+  "short_name": "Deva's Classes",
+  "description": "Music class management for Deva's Classes",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

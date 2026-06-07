@@ -50,7 +50,7 @@ export default function AdminLayout({ children }) {
       `}>
         <div className="px-6 py-5 border-b border-gray-100">
           <p className="text-xs text-gray-400 uppercase tracking-widest">Admin</p>
-          <h1 className="text-base font-semibold text-gray-800 mt-0.5">Musings with Deva</h1>
+          <h1 className="text-base font-semibold text-gray-800 mt-0.5">Deva's Classes</h1>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-0.5">

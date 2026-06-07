@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AddStudentModal from '../../components/admin/AddStudentModal'
-import { getAllStudents, getAllStudentsIncludingInactive, deactivateStudent, reactivateStudent } from '../../firebase/db'
-import { RiAddLine, RiSearchLine, RiUserLine, RiUserUnfollowLine, RiUserFollowLine } from 'react-icons/ri'
+import { getAllStudentsIncludingInactive, deactivateStudent, reactivateStudent, deleteStudentCompletely } from '../../firebase/db'
+import { RiAddLine, RiSearchLine, RiUserLine, RiUserUnfollowLine, RiUserFollowLine, RiDeleteBinLine } from 'react-icons/ri'
 
 const SORT_OPTIONS = [
   { value: 'name', label: 'Name' },
@@ -53,6 +53,12 @@ export default function AdminStudents() {
 
   async function handleReactivate(uid) {
     await reactivateStudent(uid)
+    fetchStudents()
+  }
+
+  async function handleDelete(uid, name) {
+    if (!window.confirm(`Permanently delete ${name || 'this student'} and all their classes & payments? This cannot be undone.`)) return
+    await deleteStudentCompletely(uid)
     fetchStudents()
   }
 
@@ -145,10 +151,16 @@ export default function AdminStudents() {
                           <RiUserUnfollowLine size={13} /> Deactivate
                         </button>
                       ) : (
-                        <button onClick={() => handleReactivate(student.id)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-green-600 border border-green-100 rounded-lg hover:bg-green-50 transition-colors">
-                          <RiUserFollowLine size={13} /> Reactivate
-                        </button>
+                        <div className="flex gap-2">
+                          <button onClick={() => handleReactivate(student.id)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-green-600 border border-green-100 rounded-lg hover:bg-green-50 transition-colors">
+                            <RiUserFollowLine size={13} /> Reactivate
+                          </button>
+                          <button onClick={() => handleDelete(student.id, student.name)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
+                            <RiDeleteBinLine size={13} /> Delete
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

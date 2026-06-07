@@ -26,6 +26,16 @@ const STATUS_COLORS = {
   rejected:  '#f87171',
 }
 
+// Day-column header for week/day views — day name on top, date below
+function DayColumnHeader({ date }) {
+  return (
+    <div className="py-1 leading-tight text-center">
+      <div className="text-[10px] uppercase tracking-wide text-gray-400">{format(date, 'EEE')}</div>
+      <div className="text-sm font-semibold text-gray-700">{format(date, 'd')}</div>
+    </div>
+  )
+}
+
 function ScheduleToolbar({ label, onNavigate, onView, view }) {
   return (
     <div className="mb-4 px-1 space-y-2">
@@ -173,7 +183,7 @@ export default function TeacherSchedule() {
               if (isBefore(date, new Date())) return { style: { cursor: 'not-allowed' } }
               return {}
             }}
-            components={{ toolbar: ScheduleToolbar }}
+            components={{ toolbar: ScheduleToolbar, week: { header: DayColumnHeader }, day: { header: DayColumnHeader } }}
             eventPropGetter={e => ({
               style: {
                 backgroundColor: STATUS_COLORS[e.resource.status] || '#f59e0b',

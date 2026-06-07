@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import AddAdminModal from '../../components/teacher/AddAdminModal'
-import { getAllStudentsIncludingInactive, getAdmins, deactivateStudent, reactivateStudent } from '../../firebase/db'
-import { RiSearchLine, RiUserLine, RiAddLine, RiUserUnfollowLine, RiUserFollowLine } from 'react-icons/ri'
+import { getAllStudentsIncludingInactive, getAdmins, deactivateStudent, reactivateStudent, deleteStudentCompletely } from '../../firebase/db'
+import { RiSearchLine, RiUserLine, RiAddLine, RiUserUnfollowLine, RiUserFollowLine, RiDeleteBinLine } from 'react-icons/ri'
 
 const SORT_OPTIONS = [
   { value: 'name', label: 'Name' },
@@ -137,10 +137,16 @@ export default function TeacherStudents() {
                               <RiUserUnfollowLine size={13} /> Deactivate
                             </button>
                           ) : (
-                            <button onClick={async () => { await reactivateStudent(s.id); fetchAll() }}
-                              className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-green-600 border border-green-100 rounded-lg hover:bg-green-50 transition-colors">
-                              <RiUserFollowLine size={13} /> Reactivate
-                            </button>
+                            <div className="flex gap-2">
+                              <button onClick={async () => { await reactivateStudent(s.id); fetchAll() }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-green-600 border border-green-100 rounded-lg hover:bg-green-50 transition-colors">
+                                <RiUserFollowLine size={13} /> Reactivate
+                              </button>
+                              <button onClick={async () => { if (window.confirm(`Permanently delete ${s.name || 'this student'} and all their data? This cannot be undone.`)) { await deleteStudentCompletely(s.id); fetchAll() } }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
+                                <RiDeleteBinLine size={13} /> Delete
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>

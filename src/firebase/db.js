@@ -416,6 +416,25 @@ export async function reactivateStudent(uid) {
   await updateDoc(doc(db, 'users', uid), { isActive: true })
 }
 
+// Permanently delete a student and all their data (classes, payments, recurring,
+// notifications). Does NOT remove their Firebase Auth login — delete that in the
+// Firebase Console if needed. Use for cleaning up test accounts.
+export async function deleteStudentCompletely(uid) {
+  const [classesSnap, paymentsSnap, recurringSnap, notifsSnap] = await Promise.all([
+    getDocs(query(collection(db, 'classes'), where('studentId', '==', uid))),
+    getDocs(query(collection(db, 'payments'), where('studentId', '==', uid))),
+    getDocs(query(collection(db, 'recurringSchedules'), where('studentId', '==', uid))),
+    getDocs(query(collection(db, 'notifications'), where('userId', '==', uid))),
+  ])
+  await Promise.all([
+    ...classesSnap.docs.map(d => deleteDoc(doc(db, 'classes', d.id))),
+    ...paymentsSnap.docs.map(d => deleteDoc(doc(db, 'payments', d.id))),
+    ...recurringSnap.docs.map(d => deleteDoc(doc(db, 'recurringSchedules', d.id))),
+    ...notifsSnap.docs.map(d => deleteDoc(doc(db, 'notifications', d.id))),
+  ])
+  await deleteDoc(doc(db, 'users', uid))
+}
+
 export async function getTeacherAllClasses(teacherId) {
   // No orderBy → avoids composite index; sorted client-side
   const q = query(collection(db, 'classes'), where('teacherId', '==', teacherId))

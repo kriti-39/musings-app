@@ -156,10 +156,14 @@ export default function TeacherSchedule() {
         </div>
 
         <div className="flex gap-4 mb-4 flex-wrap">
-          {Object.entries(STATUS_COLORS).map(([status, color]) => (
-            <div key={status} className="flex items-center gap-1.5 text-xs text-gray-500">
+          {[
+            { label: 'Upcoming', color: '#f59e0b' },
+            { label: 'Busy', color: '#fb923c' },
+            { label: 'Done', color: '#9ca3af' },
+          ].map(({ label, color }) => (
+            <div key={label} className="flex items-center gap-1.5 text-xs text-gray-500">
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-              <span className="capitalize">{status}</span>
+              <span>{label}</span>
             </div>
           ))}
         </div>

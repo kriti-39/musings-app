@@ -113,7 +113,7 @@ export default function BookClass() {
       const completed = cls.status === 'completed'
       return {
         id: cls.id,
-        title: completed ? 'Completed' : cls.mine ? 'Scheduled' : 'Busy',
+        title: completed ? 'Done' : cls.mine ? 'Upcoming' : 'Busy',
         start: shiftToTz(start, displayTz),
         end: shiftToTz(end, displayTz),
         type: completed ? 'completed' : cls.mine ? 'mine' : 'booked',
@@ -264,17 +264,17 @@ export default function BookClass() {
           </div>
         )}
 
-        {/* Controls row — button + legend on same line */}
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3 text-xs text-gray-500 min-w-0 flex-wrap">
-            <span className="flex items-center gap-1.5 shrink-0">
-              <span className="w-3 h-3 rounded-sm bg-green-200 border border-green-300" /> Scheduled
+        {/* Controls row — compact 3-tag legend + Book Class button on one line */}
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2.5 text-[11px] text-gray-500 min-w-0 flex-wrap">
+            <span className="flex items-center gap-1 shrink-0">
+              <span className="w-2.5 h-2.5 rounded-sm bg-green-200 border border-green-300" /> Upcoming
             </span>
-            <span className="flex items-center gap-1.5 shrink-0">
-              <span className="w-3 h-3 rounded-sm bg-red-200 border border-red-300" /> Busy
+            <span className="flex items-center gap-1 shrink-0">
+              <span className="w-2.5 h-2.5 rounded-sm bg-red-200 border border-red-300" /> Busy
             </span>
-            <span className="flex items-center gap-1.5 shrink-0">
-              <span className="w-3 h-3 rounded-sm bg-gray-200 border border-gray-300" /> Completed
+            <span className="flex items-center gap-1 shrink-0">
+              <span className="w-2.5 h-2.5 rounded-sm bg-gray-200 border border-gray-300" /> Done
             </span>
           </div>
           <button
@@ -282,7 +282,7 @@ export default function BookClass() {
             className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors shrink-0"
           >
             <RiCalendarLine size={16} />
-            Pick a time
+            Book Class
           </button>
         </div>
 

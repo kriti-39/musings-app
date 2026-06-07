@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { RiCloseLine } from 'react-icons/ri'
-import { getAllStudents, createClass, createRecurringSchedule, getTeacherId, createNotification } from '../../firebase/db'
+import { RiCloseLine, RiErrorWarningLine } from 'react-icons/ri'
+import { getAllStudents, createClass, createRecurringSchedule, getTeacherId, createNotification, findOverlappingClasses } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 
 const DURATIONS = [30, 45, 60, 90, 120]
@@ -23,10 +23,24 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [teacherId, setTeacherId] = useState(null)
+  const [overlap, setOverlap] = useState(false)
 
   useEffect(() => {
     getAllStudents().then(setStudents)
+    getTeacherId().then(setTeacherId)
   }, [])
+
+  // Warn (non-blocking) if the chosen slot already has a class
+  useEffect(() => {
+    if (!teacherId || !form.date || !form.time) { setOverlap(false); return }
+    let active = true
+    const start = new Date(`${form.date}T${form.time}`)
+    findOverlappingClasses(teacherId, start, Number(form.duration))
+      .then(hits => { if (active) setOverlap(hits.length > 0) })
+      .catch(() => {})
+    return () => { active = false }
+  }, [teacherId, form.date, form.time, form.duration])
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target
@@ -43,14 +57,14 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
     try {
       const scheduledAt = Timestamp.fromDate(new Date(`${form.date}T${form.time}`))
       // Shared calendar: all classes belong to the single teacher, even if an admin schedules them
-      const teacherId = await getTeacherId()
-      if (!teacherId) { setError('No teacher account found.'); setLoading(false); return }
+      const tId = teacherId || await getTeacherId()
+      if (!tId) { setError('No teacher account found.'); setLoading(false); return }
       const studentId = form.studentId
 
       if (form.isRecurring) {
         const recurring = await createRecurringSchedule({
           studentId,
-          teacherId,
+          teacherId: tId,
           dayOfWeek: new Date(`${form.date}T${form.time}`).getDay(),
           time: form.time,
           duration: Number(form.duration),
@@ -69,7 +83,7 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
 
         await Promise.all(occurrences.map(date => createClass({
           studentId,
-          teacherId,
+          teacherId: tId,
           scheduledAt: Timestamp.fromDate(date),
           duration: Number(form.duration),
           lessonNotes: form.notes,
@@ -80,7 +94,7 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
       } else {
         await createClass({
           studentId,
-          teacherId,
+          teacherId: tId,
           scheduledAt,
           duration: Number(form.duration),
           lessonNotes: form.notes,
@@ -224,6 +238,13 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
               </div>
             )}
           </div>
+
+          {overlap && !form.isRecurring && (
+            <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+              <RiErrorWarningLine size={15} className="shrink-0 mt-0.5" />
+              <span>This time already has a class. You can still schedule it (e.g. a group lesson).</span>
+            </div>
+          )}
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
 

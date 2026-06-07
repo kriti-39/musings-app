@@ -59,10 +59,11 @@ service cloud.firestore {
       allow delete: if isAuth() && (isAdmin() || resource.data.userId == request.auth.uid);
     }
 
-    // Payment receipts (compressed images). Any signed-in user can read/create;
-    // only staff can modify/remove.
+    // Payment receipts (compressed images). A student can upload (create) their
+    // receipt, but only staff can READ them — students never read receipts back,
+    // so this keeps one student from seeing another's payment proof.
     match /receipts/{paymentId} {
-      allow read: if isAuth();
+      allow read: if isAdminOrTeacher();
       allow create: if isAuth();
       allow update, delete: if isAdminOrTeacher();
     }

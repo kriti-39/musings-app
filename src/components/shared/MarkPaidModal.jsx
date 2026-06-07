@@ -2,12 +2,7 @@ import { useState } from 'react'
 import { RiCloseLine, RiUploadLine } from 'react-icons/ri'
 import { createPayment, updatePaymentScreenshot } from '../../firebase/db'
 import { uploadFeeReceipt } from '../../firebase/storage'
-
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-function monthLabel(m) {
-  const [y, mo] = m.split('-')
-  return `${MONTHS[parseInt(mo) - 1]} ${y}`
-}
+import MonthPicker from './MonthPicker'
 
 // Staff records a payment (e.g. cash received). Saved as already-confirmed.
 export default function MarkPaidModal({ studentId, selectedMonth, staffId, onClose, onSuccess }) {
@@ -22,20 +17,6 @@ export default function MarkPaidModal({ studentId, selectedMonth, staffId, onClo
   const [error, setError] = useState('')
 
   const METHODS = ['cash', 'bank_transfer', 'upi', 'other']
-
-  const nearbyMonths = []
-  for (let i = -3; i <= 3; i++) {
-    const d = new Date()
-    d.setMonth(d.getMonth() + i)
-    nearbyMonths.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
-  }
-
-  function toggleMonth(m) {
-    setForm(f => ({
-      ...f,
-      months: f.months.includes(m) ? f.months.filter(x => x !== m) : [...f.months, m]
-    }))
-  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -77,18 +58,8 @@ export default function MarkPaidModal({ studentId, selectedMonth, staffId, onClo
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-2">Covers months</label>
-            <div className="flex flex-wrap gap-2">
-              {nearbyMonths.map(m => (
-                <button key={m} type="button" onClick={() => toggleMonth(m)}
-                  className={`px-3 py-1 rounded-lg text-xs border transition-colors ${
-                    form.months.includes(m) ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-200 text-gray-600 hover:border-amber-300'
-                  }`}
-                >
-                  {monthLabel(m)}
-                </button>
-              ))}
-            </div>
+            <label className="block text-xs font-medium text-gray-600 mb-2">Covers months (select one or more)</label>
+            <MonthPicker value={form.months} onChange={months => setForm(f => ({ ...f, months }))} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

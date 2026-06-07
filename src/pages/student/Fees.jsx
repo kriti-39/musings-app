@@ -3,6 +3,7 @@ import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
 import { getStudentPayments, createPayment, updatePaymentScreenshot } from '../../firebase/db'
 import { uploadFeeReceipt } from '../../firebase/storage'
+import MonthPicker from '../../components/shared/MonthPicker'
 import { RiAddLine, RiCloseLine, RiUploadLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -93,12 +94,6 @@ export default function StudentFees() {
 }
 
 function SubmitPaymentModal({ studentId, onClose, onSuccess }) {
-  const nearbyMonths = []
-  for (let i = -3; i <= 3; i++) {
-    const d = new Date(); d.setMonth(d.getMonth() + i)
-    nearbyMonths.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
-  }
-
   const [form, setForm] = useState({
     amount: '',
     method: 'bank_transfer',
@@ -108,13 +103,6 @@ function SubmitPaymentModal({ studentId, onClose, onSuccess }) {
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-
-  function toggleMonth(m) {
-    setForm(f => ({
-      ...f,
-      months: f.months.includes(m) ? f.months.filter(x => x !== m) : [...f.months, m]
-    }))
-  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -163,18 +151,8 @@ function SubmitPaymentModal({ studentId, onClose, onSuccess }) {
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-2">Paying for which months?</label>
-            <div className="flex flex-wrap gap-2">
-              {nearbyMonths.map(m => (
-                <button key={m} type="button" onClick={() => toggleMonth(m)}
-                  className={`px-3 py-1 rounded-lg text-xs border transition-colors ${
-                    form.months.includes(m) ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-200 text-gray-600 hover:border-amber-300'
-                  }`}
-                >
-                  {monthLabel(m)}
-                </button>
-              ))}
-            </div>
+            <label className="block text-xs font-medium text-gray-600 mb-2">Paying for which months? (select one or more)</label>
+            <MonthPicker value={form.months} onChange={months => setForm(f => ({ ...f, months }))} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

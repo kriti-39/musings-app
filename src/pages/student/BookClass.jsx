@@ -258,34 +258,33 @@ export default function BookClass() {
         {/* Calendar */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
           <style>{`
-            /* Consistent borders across both month and day views */
+            /* Subtle neutral borders that read well on both light and dark */
             .rbc-month-view,
-            .rbc-time-view             { border-color: rgba(0,0,0,0.07); }
-            .rbc-header                { border-color: rgba(0,0,0,0.07) !important; font-size: 12px; font-weight: 500; color: #6b7280; padding: 8px 4px; }
-            .rbc-day-bg + .rbc-day-bg  { border-color: rgba(0,0,0,0.07); }
-            .rbc-month-row + .rbc-month-row { border-color: rgba(0,0,0,0.07); }
-            .rbc-timeslot-group        { border-color: rgba(0,0,0,0.07); }
-            .rbc-time-slot             { border-color: rgba(0,0,0,0.07); }
-            .rbc-time-content          { border-color: rgba(0,0,0,0.07); }
-            .rbc-time-header-content   { border-color: rgba(0,0,0,0.07); }
-            .rbc-time-header-gutter    { border-color: rgba(0,0,0,0.07); }
-            .rbc-day-slot .rbc-time-slot { border-color: rgba(0,0,0,0.07); }
-            /* Today highlight */
-            .rbc-today                 { background-color: #fffbeb !important; }
+            .rbc-time-view             { border-color: rgba(128,128,128,0.2); }
+            .rbc-header                { border-color: rgba(128,128,128,0.2) !important; font-size: 12px; font-weight: 500; color: #9ca3af; padding: 6px 4px; }
+            .rbc-day-bg + .rbc-day-bg  { border-color: rgba(128,128,128,0.16) !important; }
+            .rbc-month-row + .rbc-month-row { border-color: rgba(128,128,128,0.16) !important; }
+            .rbc-timeslot-group        { border-color: rgba(128,128,128,0.14) !important; }
+            .rbc-time-slot             { border-color: transparent !important; }
+            .rbc-time-content          { border-top-color: rgba(128,128,128,0.2) !important; }
+            .rbc-time-content > * + *   { border-left-color: rgba(128,128,128,0.16) !important; }
+            .rbc-time-header-content   { border-left-color: rgba(128,128,128,0.2) !important; }
+            .rbc-time-header.rbc-overflowing { border-right-color: rgba(128,128,128,0.2) !important; }
+            /* Remove the empty all-day row */
+            .rbc-allday-cell           { display: none !important; }
+            /* Today highlight — subtle tint */
+            .rbc-today                 { background-color: rgba(245,158,11,0.07) !important; }
             /* Date cells in month view */
             .rbc-date-cell             { font-size: 12px; padding: 4px 6px; }
             .rbc-date-cell a           { cursor: pointer; }
             .rbc-date-cell a:hover     { color: #f59e0b; font-weight: 600; }
-            .rbc-off-range-bg          { background: rgba(0,0,0,0.02); }
+            .rbc-off-range-bg          { background: rgba(128,128,128,0.06); }
             .rbc-off-range .rbc-date-cell a { opacity: 0.35; pointer-events: none; }
             /* Clickable time slots in day view */
             .rbc-day-slot .rbc-time-slot:hover { background: rgba(245,158,11,0.07); cursor: pointer; }
-            .rbc-slot-selection        { background: rgba(245,158,11,0.15) !important; }
-            /* Time labels */
+            .rbc-slot-selection        { background: rgba(245,158,11,0.18) !important; }
             .rbc-label                 { font-size: 11px; color: #9ca3af; }
-            .rbc-time-gutter .rbc-timeslot-group { border-color: rgba(0,0,0,0.07); }
-            /* Day column header */
-            .rbc-time-header-content .rbc-header { border-bottom: 1px solid rgba(0,0,0,0.07); }
+            .rbc-current-time-indicator { background: #f59e0b; height: 2px; }
           `}</style>
           <Calendar
             localizer={localizer}

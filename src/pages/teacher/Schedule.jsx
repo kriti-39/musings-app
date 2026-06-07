@@ -142,22 +142,31 @@ export default function TeacherSchedule() {
 
         <div className="bg-white rounded-xl border border-gray-100 p-4">
           <style>{`
-            .rbc-month-view, .rbc-time-view { border-color: rgba(0,0,0,0.07); }
-            .rbc-header { border-color: rgba(0,0,0,0.07) !important; font-size: 12px; font-weight: 500; color: #6b7280; padding: 8px 4px; }
-            .rbc-day-bg + .rbc-day-bg { border-color: rgba(0,0,0,0.07); }
-            .rbc-month-row + .rbc-month-row { border-color: rgba(0,0,0,0.07); }
-            .rbc-timeslot-group { border-color: rgba(0,0,0,0.07); }
-            .rbc-time-slot { border-color: rgba(0,0,0,0.07); }
-            .rbc-time-content { border-color: rgba(0,0,0,0.07); }
-            .rbc-time-header-content { border-color: rgba(0,0,0,0.07); }
-            .rbc-today { background-color: #fffbeb !important; }
-            .rbc-off-range-bg { background: rgba(0,0,0,0.02); }
+            /* Subtle neutral borders that read well on both light and dark */
+            .rbc-time-view, .rbc-month-view { border-color: rgba(128,128,128,0.2); }
+            .rbc-header { border-color: rgba(128,128,128,0.2) !important; font-weight: 500; color: #9ca3af; padding: 4px; }
+            .rbc-header + .rbc-header { border-color: rgba(128,128,128,0.2) !important; }
+            .rbc-day-bg + .rbc-day-bg { border-color: rgba(128,128,128,0.16) !important; }
+            .rbc-month-row + .rbc-month-row { border-color: rgba(128,128,128,0.16) !important; }
+            .rbc-timeslot-group { border-color: rgba(128,128,128,0.14) !important; }
+            .rbc-time-slot { border-color: transparent !important; }
+            .rbc-time-content { border-top-color: rgba(128,128,128,0.2) !important; }
+            .rbc-time-content > * + * { border-left-color: rgba(128,128,128,0.16) !important; }
+            .rbc-time-header-content { border-left-color: rgba(128,128,128,0.2) !important; }
+            .rbc-time-header.rbc-overflowing { border-right-color: rgba(128,128,128,0.2) !important; }
+            .rbc-day-slot .rbc-time-slot { border-top: none !important; }
+            /* Remove the empty all-day row (we don't use all-day events) */
+            .rbc-allday-cell { display: none !important; }
+            /* Today highlight — subtle tint, not a bright block */
+            .rbc-today { background-color: rgba(245,158,11,0.07) !important; }
+            .rbc-off-range-bg { background: rgba(128,128,128,0.06); }
             .rbc-date-cell a { cursor: pointer; }
             .rbc-date-cell a:hover { color: #f59e0b; font-weight: 600; }
             .rbc-day-slot .rbc-time-slot:hover { background: rgba(245,158,11,0.07); cursor: pointer; }
-            .rbc-slot-selection { background: rgba(245,158,11,0.15) !important; }
+            .rbc-slot-selection { background: rgba(245,158,11,0.18) !important; }
             .rbc-event { cursor: pointer; }
             .rbc-label { font-size: 11px; color: #9ca3af; }
+            .rbc-current-time-indicator { background: #f59e0b; height: 2px; }
           `}</style>
           <Calendar
             localizer={localizer}

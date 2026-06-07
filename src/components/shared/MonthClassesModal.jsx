@@ -61,12 +61,12 @@ export default function MonthClassesModal({ classes = [], students = {}, monthLa
                     {g.date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
                   </p>
                 </div>
-                <div className="divide-y divide-gray-50">
+                <div>
                   {g.items.map(cls => {
                     const d = cls.scheduledAt?.toDate?.() ?? new Date()
                     const b = statusBadge(cls.status)
                     return (
-                      <div key={cls.id} className="px-5 py-3 flex items-center justify-between">
+                      <div key={cls.id} className="px-5 py-3 flex items-center justify-between border-t border-gray-100 first:border-t-0">
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-800 truncate">{students[cls.studentId]?.name || 'Student'}</p>
                           <p className="text-xs text-gray-400 mt-0.5">

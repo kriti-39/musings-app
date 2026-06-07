@@ -12,6 +12,7 @@ service cloud.firestore {
     function isTeacher() { return isAuth() && role() == 'teacher'; }
     function isAdminOrTeacher() { return isAdmin() || isTeacher(); }
 
+    // Users — students read only their own; staff read all
     match /users/{userId} {
       allow read: if isAuth() && (request.auth.uid == userId || isAdminOrTeacher());
       allow create: if isAdminOrTeacher();
@@ -19,23 +20,29 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Classes — any signed-in user can READ times (needed for the booking calendar
+    // and overlap detection; the app strips names/notes before display).
+    // Writes are restricted: a student may only create/modify their OWN class.
     match /classes/{classId} {
-      allow read: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
+      allow read: if isAuth();
       allow create: if isAuth() && (isAdminOrTeacher() || request.resource.data.studentId == request.auth.uid);
       allow update: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
       allow delete: if isAdminOrTeacher();
     }
 
+    // Recurring schedules — staff manage; a student may read their own
     match /recurringSchedules/{id} {
       allow read: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
       allow write: if isAdminOrTeacher();
     }
 
+    // Availability (teacher blocked slots) — anyone signed in can read; staff write
     match /availability/{id} {
       allow read: if isAuth();
       allow write: if isAdminOrTeacher();
     }
 
+    // Payments — students read/create only their own; only staff confirm
     match /payments/{id} {
       allow read: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
       allow create: if isAuth() && (isAdminOrTeacher() || request.resource.data.studentId == request.auth.uid);
@@ -43,11 +50,12 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Notifications — a user only sees, updates, and clears their OWN
     match /notifications/{id} {
       allow read: if isAuth() && (isAdminOrTeacher() || resource.data.userId == request.auth.uid);
       allow create: if isAuth();
       allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAdmin();
+      allow delete: if isAuth() && (isAdmin() || resource.data.userId == request.auth.uid);
     }
   }
 }

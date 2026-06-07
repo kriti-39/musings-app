@@ -262,14 +262,15 @@ export default function BookClass() {
             .rbc-month-view,
             .rbc-time-view             { border-color: rgba(128,128,128,0.2); }
             .rbc-header                { border-color: rgba(128,128,128,0.2) !important; font-size: 12px; font-weight: 500; color: #9ca3af; padding: 6px 4px; }
-            .rbc-day-bg + .rbc-day-bg  { border-color: rgba(128,128,128,0.16) !important; }
-            .rbc-month-row + .rbc-month-row { border-color: rgba(128,128,128,0.16) !important; }
+            .rbc-day-bg + .rbc-day-bg  { border-color: rgba(128,128,128,0.14) !important; }
+            .rbc-month-row + .rbc-month-row { border-color: rgba(128,128,128,0.14) !important; }
             .rbc-timeslot-group        { border-color: rgba(128,128,128,0.14) !important; }
             .rbc-time-slot             { border-color: transparent !important; }
-            .rbc-time-content          { border-top-color: rgba(128,128,128,0.2) !important; }
-            .rbc-time-content > * + *   { border-left-color: rgba(128,128,128,0.16) !important; }
-            .rbc-time-header-content   { border-left-color: rgba(128,128,128,0.2) !important; }
-            .rbc-time-header.rbc-overflowing { border-right-color: rgba(128,128,128,0.2) !important; }
+            .rbc-time-content          { border-top-color: rgba(128,128,128,0.14) !important; }
+            .rbc-time-content > * + *   { border-left-color: rgba(128,128,128,0.14) !important; }
+            .rbc-time-header-content   { border-left-color: rgba(128,128,128,0.14) !important; }
+            .rbc-time-header-content > * + * { border-left-color: rgba(128,128,128,0.14) !important; }
+            .rbc-time-header.rbc-overflowing { border-right-color: rgba(128,128,128,0.14) !important; }
             /* Remove the empty all-day row */
             .rbc-allday-cell           { display: none !important; }
             /* Today highlight — subtle tint */

@@ -147,15 +147,16 @@ export default function AdminSchedule() {
             /* Subtle neutral borders that read well on both light and dark */
             .rbc-time-view, .rbc-month-view { border-color: rgba(128,128,128,0.2); }
             .rbc-header { border-color: rgba(128,128,128,0.2) !important; font-weight: 500; color: #9ca3af; padding: 4px; }
-            .rbc-header + .rbc-header { border-color: rgba(128,128,128,0.2) !important; }
-            .rbc-day-bg + .rbc-day-bg { border-color: rgba(128,128,128,0.16) !important; }
-            .rbc-month-row + .rbc-month-row { border-color: rgba(128,128,128,0.16) !important; }
+            .rbc-header + .rbc-header { border-color: rgba(128,128,128,0.14) !important; }
+            .rbc-day-bg + .rbc-day-bg { border-color: rgba(128,128,128,0.14) !important; }
+            .rbc-month-row + .rbc-month-row { border-color: rgba(128,128,128,0.14) !important; }
             .rbc-timeslot-group { border-color: rgba(128,128,128,0.14) !important; }
             .rbc-time-slot { border-color: transparent !important; }
-            .rbc-time-content { border-top-color: rgba(128,128,128,0.2) !important; }
-            .rbc-time-content > * + * { border-left-color: rgba(128,128,128,0.16) !important; }
-            .rbc-time-header-content { border-left-color: rgba(128,128,128,0.2) !important; }
-            .rbc-time-header.rbc-overflowing { border-right-color: rgba(128,128,128,0.2) !important; }
+            .rbc-time-content { border-top-color: rgba(128,128,128,0.14) !important; }
+            .rbc-time-content > * + * { border-left-color: rgba(128,128,128,0.14) !important; }
+            .rbc-time-header-content { border-left-color: rgba(128,128,128,0.14) !important; }
+            .rbc-time-header-content > * + * { border-left-color: rgba(128,128,128,0.14) !important; }
+            .rbc-time-header.rbc-overflowing { border-right-color: rgba(128,128,128,0.14) !important; }
             .rbc-day-slot .rbc-time-slot { border-top: none !important; }
             /* Remove the empty all-day row (we don't use all-day events) */
             .rbc-allday-cell { display: none !important; }

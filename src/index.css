@@ -1,5 +1,26 @@
 @import "tailwindcss";
 
+/* ─── Immediate tap feedback on mobile ──────────────────────────────────────
+   Native amber flash on tap + buttons press in + clickable rows/cards
+   highlight the moment you touch them (before the action completes).
+   ─────────────────────────────────────────────────────────────────────────── */
+* {
+  -webkit-tap-highlight-color: rgba(245, 158, 11, 0.2);
+}
+button, [role="button"], a {
+  transition: transform 0.08s ease, background-color 0.12s ease, opacity 0.12s ease;
+}
+button:not(:disabled):active,
+[role="button"]:active,
+a:active {
+  transform: scale(0.97);
+}
+/* Clickable table rows / cards (anything with cursor-pointer) tint on press */
+.cursor-pointer { transition: background-color 0.12s ease; }
+.cursor-pointer:active {
+  background-color: rgba(245, 158, 11, 0.1);
+}
+
 /* ─── Custom dropdown arrow — sits with a margin from the edge, not flush ──── */
 select {
   appearance: none;

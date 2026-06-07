@@ -87,6 +87,9 @@ export default function BookClass() {
   const [teacherTz, setTeacherTz] = useState(null)
   const [displayTz, setDisplayTz] = useState(studentTz)
 
+  // Two-click booking: 1st click highlights a slot, 2nd click opens the modal
+  const [pendingSlot, setPendingSlot] = useState(null)
+
   useEffect(() => {
     getTeacher().then(t => {
       if (t) { setTeacherId(t.id); setTeacherTz(t.timezone || LOCAL_TZ) }
@@ -125,6 +128,11 @@ export default function BookClass() {
         type: 'blocked',
       }
     }),
+    // Highlighted slot the student tapped once (tap again to book)
+    ...(pendingSlot ? [{
+      id: '__sel__', title: 'Tap again to book',
+      start: pendingSlot, end: addMinutes(pendingSlot, duration), type: 'selection',
+    }] : []),
   ]
 
   // Overlaps a teacher-blocked (unavailable) time → cannot book at all
@@ -153,23 +161,42 @@ export default function BookClass() {
 
   const minDate = format(new Date(), 'yyyy-MM-dd')
 
-  // Called when a date number is clicked in month view
+  // Date number clicked in month view → open that day
   function handleDrillDown(date) {
     const today = new Date(); today.setHours(0, 0, 0, 0)
-    if (date < today) return // block past dates
+    if (date < today) return
+    setPendingSlot(null)
     setCurrentDate(date)
     setCurrentView('day')
   }
 
-  // Called when a time slot is clicked in day view (slot is in display-tz wall clock)
+  // Slot clicked. Month view: open that whole day. Day view: first click highlights.
   function handleSelectSlot({ start }) {
-    if (currentView !== 'day') return
+    if (currentView === 'month') {
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      if (start < today) return
+      setPendingSlot(null)
+      setCurrentDate(start)
+      setCurrentView('day')
+      return
+    }
+    // Day view — first tap highlights the slot
     if (isBefore(unshiftFromTz(start, displayTz), new Date())) return // block past
+    setPendingSlot(start)
+  }
+
+  // Open the booking modal for the highlighted slot (second tap on it)
+  function openBookingFor(start) {
     setSelectedDate(format(start, 'yyyy-MM-dd'))
     setSelectedTime(format(start, 'HH:mm'))
     setConflict(false)
     handleDateTimeChange(format(start, 'yyyy-MM-dd'), format(start, 'HH:mm'))
     setShowPicker(true)
+  }
+
+  function handleSelectEvent(event) {
+    if (event.type === 'selection') openBookingFor(event.start)
+    // taps on busy/own blocks do nothing for students
   }
 
   // The real (absolute) instant for the picked wall-clock in the display timezone
@@ -293,14 +320,15 @@ export default function BookClass() {
             startAccessor="start"
             endAccessor="end"
             style={{ height: 540 }}
-            onNavigate={date => setCurrentDate(date)}
+            onNavigate={date => { setPendingSlot(null); setCurrentDate(date) }}
             view={currentView}
-            onView={setCurrentView}
+            onView={v => { setPendingSlot(null); setCurrentView(v) }}
             onDrillDown={handleDrillDown}
             drilldownView="day"
             selectable
             longPressThreshold={10}
             onSelectSlot={handleSelectSlot}
+            onSelectEvent={handleSelectEvent}
             dayPropGetter={date => {
               const today = new Date(); today.setHours(0, 0, 0, 0)
               if (date < today) return { style: { opacity: 0.45, cursor: 'not-allowed' } }
@@ -312,7 +340,13 @@ export default function BookClass() {
             }}
             components={{ toolbar: CalendarToolbar }}
             eventPropGetter={(event) => {
-              // Student's own class → green; everything else (busy / blocked) → red
+              // Highlighted selection → amber; own class → green; busy/blocked → red
+              if (event.type === 'selection') {
+                return { style: {
+                  backgroundColor: '#f59e0b', border: '2px solid #d97706', color: '#fff',
+                  borderRadius: '6px', fontSize: '11px', fontWeight: 600, padding: '2px 6px',
+                } }
+              }
               const isMine = event.title === 'Your class'
               return {
                 style: isMine ? {

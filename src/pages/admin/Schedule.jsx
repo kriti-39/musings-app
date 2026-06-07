@@ -79,6 +79,7 @@ export default function AdminSchedule() {
   const [showDetail, setShowDetail] = useState(null)
   const [showAvailability, setShowAvailability] = useState(false)
   const [clickedSlot, setClickedSlot] = useState(null)
+  const [pendingSlot, setPendingSlot] = useState(null)
 
   async function fetchData(date) {
     if (!user?.id) return
@@ -96,21 +97,45 @@ export default function AdminSchedule() {
 
   useEffect(() => { fetchData(currentDate) }, [user, currentDate])
 
-  const events = classes.map(cls => {
-    const start = cls.scheduledAt?.toDate?.() ?? new Date()
-    return {
-      id: cls.id,
-      title: students[cls.studentId]?.name || 'Student',
-      start,
-      end: new Date(start.getTime() + (cls.duration || 60) * 60000),
-      resource: cls,
-    }
-  })
+  const events = [
+    ...classes.map(cls => {
+      const start = cls.scheduledAt?.toDate?.() ?? new Date()
+      return {
+        id: cls.id,
+        title: students[cls.studentId]?.name || 'Student',
+        start,
+        end: new Date(start.getTime() + (cls.duration || 60) * 60000),
+        resource: cls,
+      }
+    }),
+    // Highlighted slot (tap again to schedule)
+    ...(pendingSlot ? [{
+      id: '__sel__', title: 'Tap again to schedule',
+      start: pendingSlot, end: new Date(pendingSlot.getTime() + 60 * 60000), type: 'selection',
+    }] : []),
+  ]
 
+  // Month: whole cell → open that day. Week/Day: 1st tap highlights, 2nd opens modal.
   function handleSelectSlot({ start }) {
+    if (currentView === 'month') {
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      if (start < today) return
+      setPendingSlot(null)
+      setCurrentDate(start)
+      setCurrentView('day')
+      return
+    }
     if (isBefore(start, new Date())) return
-    setClickedSlot(start)
-    setShowSchedule(true)
+    setPendingSlot(start)
+  }
+
+  function handleSelectEvent(event) {
+    if (event.type === 'selection') {
+      setClickedSlot(event.start)
+      setShowSchedule(true)
+      return
+    }
+    setShowDetail(event.resource)
   }
 
   return (
@@ -178,14 +203,14 @@ export default function AdminSchedule() {
             endAccessor="end"
             style={{ height: 600 }}
             view={currentView}
-            onView={setCurrentView}
-            onNavigate={date => setCurrentDate(date)}
-            onDrillDown={(date) => { setCurrentDate(date); setCurrentView('day') }}
+            onView={v => { setPendingSlot(null); setCurrentView(v) }}
+            onNavigate={date => { setPendingSlot(null); setCurrentDate(date) }}
+            onDrillDown={(date) => { setPendingSlot(null); setCurrentDate(date); setCurrentView('day') }}
             drilldownView="day"
             selectable
             longPressThreshold={10}
             onSelectSlot={handleSelectSlot}
-            onSelectEvent={e => setShowDetail(e.resource)}
+            onSelectEvent={handleSelectEvent}
             dayPropGetter={date => {
               const today = new Date(); today.setHours(0,0,0,0)
               if (date < today) return { style: { opacity: 0.45 } }
@@ -196,13 +221,19 @@ export default function AdminSchedule() {
               return {}
             }}
             components={{ toolbar: ScheduleToolbar, week: { header: DayColumnHeader }, day: { header: DayColumnHeader } }}
-            eventPropGetter={e => ({
-              style: {
+            eventPropGetter={e => {
+              if (e.type === 'selection') {
+                return { style: {
+                  backgroundColor: '#f59e0b', border: '2px solid #d97706', color: '#fff',
+                  borderRadius: '6px', fontSize: '12px', fontWeight: 600, padding: '2px 6px',
+                } }
+              }
+              return { style: {
                 backgroundColor: STATUS_COLORS[e.resource.status] || '#f59e0b',
                 borderRadius: '6px', border: 'none', color: '#fff',
                 fontSize: '12px', padding: '2px 6px',
-              }
-            })}
+              } }
+            }}
             views={['month', 'week', 'day']}
             popup
           />
@@ -211,8 +242,8 @@ export default function AdminSchedule() {
 
       {showSchedule && (
         <ScheduleClassModal
-          onClose={() => { setShowSchedule(false); setClickedSlot(null) }}
-          onSuccess={() => fetchData(currentDate)}
+          onClose={() => { setShowSchedule(false); setClickedSlot(null); setPendingSlot(null) }}
+          onSuccess={() => { fetchData(currentDate); setPendingSlot(null) }}
           defaultDate={clickedSlot}
         />
       )}

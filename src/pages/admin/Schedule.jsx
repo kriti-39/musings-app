@@ -142,7 +142,7 @@ export default function AdminSchedule() {
           ))}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 p-4">
+        <div className="bg-white rounded-xl border border-gray-100 p-2 sm:p-3">
           <style>{`
             /* Subtle neutral borders that read well on both light and dark */
             .rbc-time-view, .rbc-month-view { border-color: rgba(128,128,128,0.2); }

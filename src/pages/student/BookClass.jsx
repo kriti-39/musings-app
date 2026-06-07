@@ -256,7 +256,7 @@ export default function BookClass() {
         </div>
 
         {/* Calendar */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 p-2 sm:p-3 shadow-sm">
           <style>{`
             /* Subtle neutral borders that read well on both light and dark */
             .rbc-month-view,

@@ -113,6 +113,7 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
         <ClassDetailModal
           cls={detail}
           studentName={students[detail.studentId]?.name || 'Student'}
+          studentTimezone={students[detail.studentId]?.timezone}
           onClose={() => setDetail(null)}
           onUpdate={fetchAll}
         />

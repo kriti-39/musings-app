@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { RiCloseLine, RiCalendarLine, RiTimeLine, RiUserLine } from 'react-icons/ri'
+import { RiCloseLine, RiCalendarLine, RiTimeLine, RiUserLine, RiGlobalLine } from 'react-icons/ri'
 import {
   cancelClass, rescheduleClass, markClassDone,
   confirmClass, rejectClass, updateClass, deleteClass
 } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext'
+import { fmtTime, tzCity } from '../../utils/timezone'
 
 const STATUS_STYLES = {
   scheduled:  'bg-green-50 text-green-700',
@@ -15,7 +16,7 @@ const STATUS_STYLES = {
   rejected:   'bg-red-50 text-red-500',
 }
 
-export default function ClassDetailModal({ cls, studentName, onClose, onUpdate }) {
+export default function ClassDetailModal({ cls, studentName, studentTimezone, onClose, onUpdate }) {
   const { user } = useAuth()
   const [view, setView] = useState('detail') // detail | reschedule | notes
   const [newDate, setNewDate] = useState('')
@@ -71,6 +72,12 @@ export default function ClassDetailModal({ cls, studentName, onClose, onUpdate }
               <RiTimeLine size={16} className="text-gray-400" />
               {scheduledDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {cls.duration || 60} min
             </div>
+            {studentTimezone && studentTimezone !== Intl.DateTimeFormat().resolvedOptions().timeZone && (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <RiGlobalLine size={16} className="text-gray-400" />
+                Student's time: {fmtTime(scheduledDate, studentTimezone)} ({tzCity(studentTimezone)})
+              </div>
+            )}
           </div>
 
           {/* Pending: confirm / reject */}

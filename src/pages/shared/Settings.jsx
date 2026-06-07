@@ -55,14 +55,20 @@ export default function Settings() {
           )}
         </div>
 
-        {/* Timezone — students only */}
-        {role === 'student' && (
+        {/* Timezone — students set their own; teacher sets the studio timezone */}
+        {(role === 'student' || role === 'teacher') && (
           <form onSubmit={handleTimezoneSave} className="bg-white rounded-xl border border-gray-100 p-6">
             <div className="flex items-center gap-2 mb-4">
               <RiGlobalLine size={18} className="text-gray-400" />
-              <h2 className="text-sm font-semibold text-gray-800">Your Timezone</h2>
+              <h2 className="text-sm font-semibold text-gray-800">
+                {role === 'teacher' ? 'Studio Timezone' : 'Your Timezone'}
+              </h2>
             </div>
-            <p className="text-xs text-gray-400 mb-3">Class times are shown in this timezone.</p>
+            <p className="text-xs text-gray-400 mb-3">
+              {role === 'teacher'
+                ? 'Your local timezone. Students see this as the teacher’s time when booking.'
+                : 'Class times are shown in this timezone.'}
+            </p>
             <select value={tz} onChange={e => setTz(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 mb-3">
               {TIMEZONES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}

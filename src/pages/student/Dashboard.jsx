@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getStudentAllClasses, markClassDone, cancelClass, requestReschedule } from '../../firebase/db'
+import { getStudentAllClasses, markClassDone, cancelClass, requestReschedule, getTeacher } from '../../firebase/db'
 import { RiCalendarLine, RiAddLine, RiCloseLine } from 'react-icons/ri'
+import { LOCAL_TZ, tzCity, fmtTime, fmtLongDate } from '../../utils/timezone'
 
 const STATUS_STYLES = {
   scheduled: 'bg-green-50 text-green-700',
@@ -25,6 +26,7 @@ export default function StudentDashboard() {
   const [all, setAll] = useState([])
   const [tab, setTab] = useState('upcoming')
   const [loading, setLoading] = useState(true)
+  const [teacherTz, setTeacherTz] = useState(null)
 
   async function fetchClasses() {
     try {
@@ -39,6 +41,7 @@ export default function StudentDashboard() {
   useEffect(() => {
     if (user?.id) fetchClasses()
     else if (user !== undefined) setLoading(false)
+    getTeacher().then(t => { if (t) setTeacherTz(t.timezone || LOCAL_TZ) })
   }, [user])
 
   const now = new Date()
@@ -51,7 +54,7 @@ export default function StudentDashboard() {
   }
   const visible = lists[tab]
   const completedCount = lists.completed.length
-  const tz = user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+  const tz = user?.timezone || LOCAL_TZ
 
   return (
     <StudentLayout>
@@ -60,7 +63,7 @@ export default function StudentDashboard() {
           <div>
             <h1 className="text-xl font-semibold text-gray-800">My Classes</h1>
             <p className="text-sm text-gray-400 mt-0.5">
-              {completedCount} completed · times in {tz.replace('_', ' ')}
+              {completedCount} completed · times in {tzCity(tz)}
             </p>
           </div>
           <button
@@ -98,7 +101,7 @@ export default function StudentDashboard() {
           </div>
         ) : (
           <div className="space-y-3">
-            {visible.map(cls => <ClassCard key={cls.id} cls={cls} onAction={fetchClasses} tz={tz} />)}
+            {visible.map(cls => <ClassCard key={cls.id} cls={cls} onAction={fetchClasses} tz={tz} teacherTz={teacherTz} />)}
           </div>
         )}
       </div>
@@ -106,13 +109,13 @@ export default function StudentDashboard() {
   )
 }
 
-function ClassCard({ cls, onAction, tz }) {
+function ClassCard({ cls, onAction, tz, teacherTz }) {
   const [loading, setLoading] = useState(false)
   const [reschedule, setReschedule] = useState(false)
   const [newDate, setNewDate] = useState('')
   const [newTime, setNewTime] = useState('')
   const date = cls.scheduledAt?.toDate?.() ?? new Date()
-  const tzOpt = tz ? { timeZone: tz } : {}
+  const showTeacher = teacherTz && teacherTz !== tz
 
   async function handle(fn) {
     setLoading(true)
@@ -132,11 +135,16 @@ function ClassCard({ cls, onAction, tz }) {
       <div className="flex items-start justify-between">
         <div>
           <p className="font-medium text-gray-800">
-            {date.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', ...tzOpt })}
+            {fmtLongDate(date, tz)}
           </p>
           <p className="text-sm text-gray-400 mt-0.5">
-            {date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', ...tzOpt })} · {cls.duration || 60} min
+            {fmtTime(date, tz)} <span className="text-gray-300">({tzCity(tz)})</span> · {cls.duration || 60} min
           </p>
+          {showTeacher && (
+            <p className="text-xs text-gray-400 mt-0.5">
+              Teacher's time: {fmtTime(date, teacherTz)} ({tzCity(teacherTz)})
+            </p>
+          )}
           {cls.lessonNotes && <p className="text-xs text-gray-500 mt-2 italic">"{cls.lessonNotes}"</p>}
         </div>
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[cls.status]}`}>

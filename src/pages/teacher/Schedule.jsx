@@ -202,6 +202,7 @@ export default function TeacherSchedule() {
         <ClassDetailModal
           cls={showDetail}
           studentName={students[showDetail.studentId]?.name || 'Student'}
+          studentTimezone={students[showDetail.studentId]?.timezone}
           onClose={() => setShowDetail(null)}
           onUpdate={() => fetchData(currentDate)}
         />

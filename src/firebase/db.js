@@ -481,6 +481,13 @@ export async function getTeacherId() {
   return snap.empty ? null : snap.docs[0].id
 }
 
+// The teacher's profile, incl. their timezone (the "studio" timezone)
+export async function getTeacher() {
+  const q = query(collection(db, 'users'), where('role', '==', 'teacher'))
+  const snap = await getDocs(q)
+  return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() }
+}
+
 // ─── STATS ────────────────────────────────────────────────────────────────────
 
 // Admin dashboard stats — no compound queries, all client-side filtering

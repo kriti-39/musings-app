@@ -6,12 +6,13 @@ import { enUS } from 'date-fns/locale/en-US'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getStudentBookingCalendar, createBooking, getTeacherId } from '../../firebase/db'
+import { getStudentBookingCalendar, createBooking, getTeacherId, getTeacher } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 import {
   RiCloseLine, RiCalendarLine,
   RiArrowLeftSLine, RiArrowRightSLine
 } from 'react-icons/ri'
+import { LOCAL_TZ, tzCity, shiftToTz, unshiftFromTz, fmtTime, fmtLongDate } from '../../utils/timezone'
 
 const localizer = dateFnsLocalizer({
   format, parse,
@@ -81,8 +82,16 @@ export default function BookClass() {
   const [bookingError, setBookingError] = useState('')
   const [currentView, setCurrentView] = useState('month')
 
+  // Timezones
+  const studentTz = user?.timezone || LOCAL_TZ
+  const [teacherTz, setTeacherTz] = useState(null)
+  const [displayTz, setDisplayTz] = useState(studentTz)
+
   useEffect(() => {
-    getTeacherId().then(id => { if (id) setTeacherId(id) })
+    getTeacher().then(t => {
+      if (t) { setTeacherId(t.id); setTeacherTz(t.timezone || LOCAL_TZ) }
+      else getTeacherId().then(id => { if (id) setTeacherId(id) })
+    })
   }, [])
 
   useEffect(() => {
@@ -93,21 +102,28 @@ export default function BookClass() {
     }
   }, [teacherId, user, currentDate])
 
+  // Events are shifted so the calendar visually shows the chosen display timezone
   const events = [
     ...calendarData.bookedSlots.map(cls => {
       const start = cls.scheduledAt?.toDate?.() ?? new Date()
+      const end = new Date(start.getTime() + (cls.duration || 60) * 60000)
       return {
         id: cls.id,
         title: cls.mine ? 'Your class' : 'Busy',
-        start,
-        end: new Date(start.getTime() + (cls.duration || 60) * 60000),
+        start: shiftToTz(start, displayTz),
+        end: shiftToTz(end, displayTz),
         type: 'booked',
       }
     }),
     ...calendarData.blockedSlots.map(slot => {
       const start = slot.startAt?.toDate?.() ?? new Date()
       const end = slot.endAt?.toDate?.() ?? new Date()
-      return { id: slot.id, title: 'Unavailable', start, end, type: 'blocked' }
+      return {
+        id: slot.id, title: 'Unavailable',
+        start: shiftToTz(start, displayTz),
+        end: shiftToTz(end, displayTz),
+        type: 'blocked',
+      }
     }),
   ]
 
@@ -145,10 +161,10 @@ export default function BookClass() {
     setCurrentView('day')
   }
 
-  // Called when a time slot is clicked in day view
+  // Called when a time slot is clicked in day view (slot is in display-tz wall clock)
   function handleSelectSlot({ start }) {
     if (currentView !== 'day') return
-    if (isBefore(start, new Date())) return // block past slots
+    if (isBefore(unshiftFromTz(start, displayTz), new Date())) return // block past
     setSelectedDate(format(start, 'yyyy-MM-dd'))
     setSelectedTime(format(start, 'HH:mm'))
     setConflict(false)
@@ -156,25 +172,33 @@ export default function BookClass() {
     setShowPicker(true)
   }
 
+  // The real (absolute) instant for the picked wall-clock in the display timezone
+  function realInstant() {
+    if (!selectedDate || !selectedTime) return null
+    const [h, m] = selectedTime.split(':').map(Number)
+    const local = new Date(selectedDate)
+    local.setHours(h, m, 0, 0)
+    return unshiftFromTz(local, displayTz)
+  }
+
   async function handleBook() {
     if (!selectedDate || !selectedTime || !teacherId) return
-    const [h, m] = selectedTime.split(':').map(Number)
-    const slotStart = new Date(selectedDate)
-    slotStart.setHours(h, m, 0, 0)
-    if (isBefore(slotStart, new Date())) return
+    const instant = realInstant()
+    if (isBefore(instant, new Date())) return
     // Teacher-blocked times can't be booked at all
+    const [h, m] = selectedTime.split(':').map(Number)
+    const slotStart = new Date(selectedDate); slotStart.setHours(h, m, 0, 0)
     if (hitsBlocked(slotStart)) { setConflict('blocked'); return }
     setBookingLoading(true)
     setBookingError('')
     try {
-      const res = await createBooking({
+      await createBooking({
         studentId: user.id,
         teacherId,
-        scheduledAt: Timestamp.fromDate(slotStart),
+        scheduledAt: Timestamp.fromDate(instant),
         duration,
         lessonNotes: note,
       })
-      // res.status: 'scheduled' (instant) or 'pending' (overlap → needs confirm)
       navigate('/student/dashboard')
     } catch (e) {
       console.error(e)
@@ -194,6 +218,23 @@ export default function BookClass() {
             Tap a date, then a free time slot to book instantly. Taken slots need teacher confirmation.
           </p>
         </div>
+
+        {/* Timezone view toggle */}
+        {teacherTz && teacherTz !== studentTz && (
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs text-gray-400">Show times in:</span>
+            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+              <button onClick={() => setDisplayTz(studentTz)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${displayTz === studentTz ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>
+                My time ({tzCity(studentTz)})
+              </button>
+              <button onClick={() => setDisplayTz(teacherTz)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${displayTz === teacherTz ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>
+                Teacher's time ({tzCity(teacherTz)})
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Controls row — button + legend on same line */}
         <div className="flex items-center justify-between gap-3 mb-4">
@@ -351,6 +392,23 @@ export default function BookClass() {
                   placeholder="What you'd like to learn..."
                 />
               </div>
+
+              {/* Dual-timezone preview — so the student picks a slot that works for the teacher too */}
+              {selectedDate && selectedTime && realInstant() && (
+                <div className="bg-amber-50 rounded-lg px-3 py-2.5 space-y-1">
+                  <p className="text-xs font-medium text-amber-800">{fmtLongDate(realInstant(), studentTz)}</p>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">Your time ({tzCity(studentTz)})</span>
+                    <span className="font-medium text-gray-800">{fmtTime(realInstant(), studentTz)}</span>
+                  </div>
+                  {teacherTz && teacherTz !== studentTz && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">Teacher's time ({tzCity(teacherTz)})</span>
+                      <span className="font-medium text-gray-800">{fmtTime(realInstant(), teacherTz)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {conflict === 'blocked' && (
                 <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">

@@ -116,14 +116,16 @@ export default function AdminFees() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex gap-2">
-                          {monthPayment?.screenshotUrl && (
+                          {monthPayment?.screenshotUrl ? (
                             <button
                               onClick={() => setReceiptUrl(monthPayment.screenshotUrl)}
                               className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-xs hover:bg-gray-100 transition-colors"
                             >
                               <RiImageLine size={13} /> Receipt
                             </button>
-                          )}
+                          ) : monthPayment && monthPayment.method !== 'cash' ? (
+                            <span className="text-xs text-gray-400 self-center">No receipt</span>
+                          ) : null}
                           {status === 'pending' && monthPayment && (
                             <>
                               <button

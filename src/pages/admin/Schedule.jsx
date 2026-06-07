@@ -100,11 +100,12 @@ export default function AdminSchedule() {
   const events = [
     ...classes.map(cls => {
       const start = cls.scheduledAt?.toDate?.() ?? new Date()
+      const dur = Math.min(Math.max(Number(cls.duration) || 60, 15), 180) // clamp to sane range
       return {
         id: cls.id,
         title: students[cls.studentId]?.name || 'Student',
         start,
-        end: new Date(start.getTime() + (cls.duration || 60) * 60000),
+        end: new Date(start.getTime() + dur * 60000),
         resource: cls,
       }
     }),
@@ -206,6 +207,7 @@ export default function AdminSchedule() {
             startAccessor="start"
             endAccessor="end"
             style={{ height: 600 }}
+            date={currentDate}
             view={currentView}
             onView={v => { setPendingSlot(null); setCurrentView(v) }}
             onNavigate={date => { setPendingSlot(null); setCurrentDate(date) }}

@@ -35,16 +35,20 @@ export default function MarkPaidModal({ studentId, selectedMonth, staffId, onClo
         status: 'confirmed',
         confirmedBy: staffId,
       })
-      if (file) {
-        const url = await uploadFeeReceipt(file, studentId)
-        await updatePaymentScreenshot(newPayment.id, url)
-      }
+      // Save & close immediately; upload the receipt in the background so a slow
+      // upload never freezes the dialog. The list refreshes again once it attaches.
+      const fileToUpload = file
       onSuccess()
       onClose()
+      if (fileToUpload) {
+        uploadFeeReceipt(fileToUpload, studentId)
+          .then(url => updatePaymentScreenshot(newPayment.id, url))
+          .then(() => onSuccess())
+          .catch(e => console.error('Receipt upload failed:', e))
+      }
     } catch (err) {
       console.error(err)
       setError('Could not save the payment. Please try again.')
-    } finally {
       setLoading(false)
     }
   }

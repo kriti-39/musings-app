@@ -55,6 +55,7 @@ export async function createAdmin(uid, data) {
 export async function createClass(data) {
   const ref = await addDoc(collection(db, 'classes'), {
     ...data,
+    duration: Math.min(Math.max(Number(data.duration) || 60, 15), 180),
     markedDoneBy: null,
     lessonNotes: data.lessonNotes || '',
     createdAt: serverTimestamp(),
@@ -95,11 +96,12 @@ export async function createBooking({
   lessonNotes = '', isRecurring = false, recurringId = null, forceStatus = null,
 }) {
   const startDate = scheduledAt?.toDate ? scheduledAt.toDate() : new Date(scheduledAt)
+  const dur = Math.min(Math.max(Number(duration) || 60, 15), 180) // always a clean number
   let overlap = false
   let status = forceStatus
 
   if (!status) {
-    const overlaps = await findOverlappingClasses(teacherId, startDate, duration)
+    const overlaps = await findOverlappingClasses(teacherId, startDate, dur)
     overlap = overlaps.length > 0
     status = overlap ? 'pending' : 'scheduled'
   }
@@ -107,7 +109,7 @@ export async function createBooking({
   const ref = await addDoc(collection(db, 'classes'), {
     studentId, teacherId,
     scheduledAt: scheduledAt?.toDate ? scheduledAt : Timestamp.fromDate(startDate),
-    duration, lessonNotes,
+    duration: dur, lessonNotes,
     isRecurring, recurringId,
     status,
     isOverlap: overlap,

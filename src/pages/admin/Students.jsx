@@ -129,10 +129,10 @@ export default function AdminStudents() {
               <tbody>
                 {filtered.map((student, i) => (
                   <tr key={student.id}
+                    onClick={() => tab === 'active' && navigate(`/admin/students/${student.id}`)}
                     className={`transition-colors ${tab === 'active' ? 'hover:bg-amber-50 cursor-pointer' : 'opacity-60'} ${i !== filtered.length - 1 ? 'border-b border-gray-50' : ''}`}
                   >
-                    <td className="px-5 py-3.5 font-medium text-gray-800"
-                      onClick={() => tab === 'active' && navigate(`/admin/students/${student.id}`)}>
+                    <td className="px-5 py-3.5 font-medium text-gray-800">
                       {student.name}
                     </td>
                     <td className="px-5 py-3.5 text-gray-500">{student.email}</td>
@@ -145,7 +145,7 @@ export default function AdminStudents() {
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
                       {tab === 'active' ? (
                         <button onClick={() => handleDeactivate(student.id)}
                           className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">

@@ -118,9 +118,10 @@ export default function TeacherStudents() {
                   </thead>
                   <tbody>
                     {filteredStudents.map((s, i) => (
-                      <tr key={s.id} className={`${tab === 'deactivated' ? 'opacity-60' : 'hover:bg-amber-50'} transition-colors ${i !== filteredStudents.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                        <td className="px-5 py-3.5 font-medium text-gray-800 cursor-pointer"
-                          onClick={() => navigate(`/teacher/students/${s.id}`)}>
+                      <tr key={s.id}
+                        onClick={() => navigate(`/teacher/students/${s.id}`)}
+                        className={`cursor-pointer ${tab === 'deactivated' ? 'opacity-60' : 'hover:bg-amber-50'} transition-colors ${i !== filteredStudents.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                        <td className="px-5 py-3.5 font-medium text-gray-800">
                           {s.name}
                         </td>
                         <td className="px-5 py-3.5 text-gray-500">{s.email}</td>
@@ -130,7 +131,7 @@ export default function TeacherStudents() {
                           {s.feeAmount ? `₹${s.feeAmount}` : '—'}
                           {s.feeType && <span className="ml-1 text-xs text-gray-400">({s.feeType === 'monthly' ? '/mo' : s.feeType === 'per_class' ? '/class' : 'flexible'})</span>}
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
                           {tab === 'students' ? (
                             <button onClick={async () => { await deactivateStudent(s.id); fetchAll() }}
                               className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">

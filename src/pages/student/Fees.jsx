@@ -120,17 +120,20 @@ function SubmitPaymentModal({ studentId, onClose, onSuccess }) {
         submittedBy: 'student',
         status: 'pending',
       }
-      const ref = await createPayment(paymentData)
-      if (file) {
-        const url = await uploadFeeReceipt(file, studentId)
-        await updatePaymentScreenshot(ref.id, url)
-      }
-      await onSuccess()
+      const newPayment = await createPayment(paymentData)
+      // Save & close instantly; upload the receipt in the background.
+      const fileToUpload = file
+      onSuccess()
       onClose()
+      if (fileToUpload) {
+        uploadFeeReceipt(fileToUpload, studentId)
+          .then(url => updatePaymentScreenshot(newPayment.id, url))
+          .then(() => onSuccess())
+          .catch(e => console.error('Receipt upload failed:', e))
+      }
     } catch (e) {
       console.error(e)
       setError('Something went wrong. Please try again.')
-    } finally {
       setLoading(false)
     }
   }

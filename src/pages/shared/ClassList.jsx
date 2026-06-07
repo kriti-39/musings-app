@@ -53,6 +53,10 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
     if (tab === 'completed') return status === 'completed'
     if (tab === 'cancelled') return status === 'cancelled' || status === 'rejected'
     return false
+  }).sort((a, b) => {
+    const ta = a.scheduledAt?.seconds ?? 0, tb = b.scheduledAt?.seconds ?? 0
+    // Upcoming: soonest first (ascending). Past tabs: most recent first (descending).
+    return tab === 'upcoming' ? ta - tb : tb - ta
   })
 
   return (

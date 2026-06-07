@@ -12,7 +12,7 @@ import {
   RiCloseLine, RiCalendarLine,
   RiArrowLeftSLine, RiArrowRightSLine
 } from 'react-icons/ri'
-import { LOCAL_TZ, tzCity, shiftToTz, unshiftFromTz, fmtTime, fmtLongDate } from '../../utils/timezone'
+import { LOCAL_TZ, tzCity, shiftToTz, unshiftFromTz, tzOffsetMinutes, fmtTime, fmtLongDate } from '../../utils/timezone'
 
 const localizer = dateFnsLocalizer({
   format, parse,
@@ -147,14 +147,20 @@ export default function BookClass() {
     return events.some(e => e.type === 'booked' && slotStart < e.end && slotEnd > e.start)
   }
 
+  // Build a LOCAL Date from date+time strings (matches the shifted calendar space).
+  // Avoids `new Date("yyyy-mm-dd")` which parses as UTC and shifts the day/time.
+  function displayWallClock(dateStr, timeStr) {
+    const [y, mo, d] = dateStr.split('-').map(Number)
+    const [h, m] = timeStr.split(':').map(Number)
+    return new Date(y, mo - 1, d, h, m, 0, 0)
+  }
+
   function handleDateTimeChange(date, time) {
     const d = date !== undefined ? date : selectedDate
     const t = time !== undefined ? time : selectedTime
     setConflict(false)
     if (d && t) {
-      const [h, m] = t.split(':').map(Number)
-      const slotStart = new Date(d)
-      slotStart.setHours(h, m, 0, 0)
+      const slotStart = displayWallClock(d, t)
       if (hitsBlocked(slotStart)) setConflict('blocked')
       else if (hitsBusy(slotStart)) setConflict('busy')
     }
@@ -200,13 +206,17 @@ export default function BookClass() {
     // taps on busy/own blocks do nothing for students
   }
 
-  // The real (absolute) instant for the picked wall-clock in the display timezone
+  // The real (absolute) instant for the picked wall-clock in the display timezone.
+  // Robust + device-independent: treat (date,time) as a wall clock IN displayTz,
+  // then subtract that timezone's offset to get the true UTC instant.
   function realInstant() {
     if (!selectedDate || !selectedTime) return null
-    const [h, m] = selectedTime.split(':').map(Number)
-    const local = new Date(selectedDate)
-    local.setHours(h, m, 0, 0)
-    return unshiftFromTz(local, displayTz)
+    const [y, mo, d] = selectedDate.split('-').map(Number)
+    const [h, mi] = selectedTime.split(':').map(Number)
+    if ([y, mo, d, h, mi].some(n => Number.isNaN(n))) return null
+    const utcGuess = Date.UTC(y, mo - 1, d, h, mi)
+    const offset = tzOffsetMinutes(displayTz, new Date(utcGuess))
+    return new Date(utcGuess - offset * 60000)
   }
 
   async function handleBook() {
@@ -214,9 +224,7 @@ export default function BookClass() {
     const instant = realInstant()
     if (isBefore(instant, new Date())) return
     // Teacher-blocked times can't be booked at all
-    const [h, m] = selectedTime.split(':').map(Number)
-    const slotStart = new Date(selectedDate); slotStart.setHours(h, m, 0, 0)
-    if (hitsBlocked(slotStart)) { setConflict('blocked'); return }
+    if (hitsBlocked(displayWallClock(selectedDate, selectedTime))) { setConflict('blocked'); return }
     setBookingLoading(true)
     setBookingError('')
     try {
@@ -324,6 +332,7 @@ export default function BookClass() {
             startAccessor="start"
             endAccessor="end"
             style={{ height: 540 }}
+            date={currentDate}
             onNavigate={date => { setPendingSlot(null); setCurrentDate(date) }}
             view={currentView}
             onView={v => { setPendingSlot(null); setCurrentView(v) }}

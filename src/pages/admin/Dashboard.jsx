@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
+import MonthClassesModal from '../../components/shared/MonthClassesModal'
 import { useAuth } from '../../context/AuthContext'
 import {
   getAdminDashboardStats, getAllClassesForMonth,
@@ -8,13 +9,17 @@ import {
 } from '../../firebase/db'
 import { RiCheckLine, RiCloseLine, RiCalendarLine } from 'react-icons/ri'
 
+const MONTH_LABEL = new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+
 export default function AdminDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [stats, setStats] = useState(null)
   const [todayClasses, setTodayClasses] = useState([])
+  const [monthClasses, setMonthClasses] = useState([])
   const [pending, setPending] = useState([])
   const [students, setStudents] = useState({})
+  const [showMonth, setShowMonth] = useState(false)
 
   async function fetchAll() {
     if (!user?.id) return
@@ -29,6 +34,7 @@ export default function AdminDashboard() {
         getAllStudentsIncludingInactive(),
       ])
       setStats(s)
+      setMonthClasses(allClasses)
       const t = allClasses.filter(c => {
         const d = c.scheduledAt?.toDate?.() ?? new Date()
         return d >= todayStart && d <= todayEnd && (c.status === 'scheduled' || !c.status)
@@ -46,10 +52,10 @@ export default function AdminDashboard() {
   useEffect(() => { fetchAll() }, [user])
 
   const cards = [
-    { label: 'Total Students', value: stats?.totalStudents ?? '—', link: '/admin/students' },
-    { label: "Today's Classes", value: stats?.todayClasses ?? '—', link: '/admin/schedule' },
-    { label: 'Pending Requests', value: stats?.pendingRequests ?? '—', link: null },
-    { label: 'Classes This Month', value: stats?.monthClasses ?? '—', link: '/admin/schedule' },
+    { label: 'Total Students', value: stats?.totalStudents ?? '—', onClick: () => navigate('/admin/students') },
+    { label: "Today's Classes", value: stats?.todayClasses ?? '—', onClick: () => navigate('/admin/schedule') },
+    { label: 'Pending Requests', value: stats?.pendingRequests ?? '—', onClick: null },
+    { label: 'Classes This Month', value: stats?.monthClasses ?? '—', onClick: () => setShowMonth(true) },
   ]
 
   return (
@@ -65,9 +71,9 @@ export default function AdminDashboard() {
           {cards.map(card => (
             <button
               key={card.label}
-              onClick={() => card.link && navigate(card.link)}
+              onClick={() => card.onClick && card.onClick()}
               className={`bg-white rounded-xl border border-gray-100 px-5 py-4 text-left transition-all
-                ${card.link ? 'hover:border-amber-200 hover:shadow-sm cursor-pointer' : 'cursor-default'}`}
+                ${card.onClick ? 'hover:border-amber-200 hover:shadow-sm cursor-pointer' : 'cursor-default'}`}
             >
               <p className="text-xs text-gray-400">{card.label}</p>
               <p className="text-2xl font-semibold text-gray-800 mt-1">{card.value}</p>
@@ -145,6 +151,16 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {showMonth && (
+        <MonthClassesModal
+          classes={monthClasses}
+          students={students}
+          monthLabel={MONTH_LABEL}
+          onClose={() => setShowMonth(false)}
+          onViewCalendar={() => { setShowMonth(false); navigate('/admin/schedule') }}
+        />
+      )}
     </AdminLayout>
   )
 }

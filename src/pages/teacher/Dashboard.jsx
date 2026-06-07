@@ -1,28 +1,36 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
+import MonthClassesModal from '../../components/shared/MonthClassesModal'
 import { useAuth } from '../../context/AuthContext'
-import { getDashboardStats, getTeacherClassesForDay, getAllStudentsIncludingInactive, getPendingRequests, confirmClass, rejectClass } from '../../firebase/db'
+import { getDashboardStats, getTeacherClassesForDay, getTeacherClassesForMonth, getAllStudentsIncludingInactive, getPendingRequests, confirmClass, rejectClass } from '../../firebase/db'
 import { RiCheckLine, RiCloseLine, RiCalendarLine } from 'react-icons/ri'
+
+const MONTH_LABEL = new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
 
 export default function TeacherDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [stats, setStats] = useState(null)
   const [todayClasses, setTodayClasses] = useState([])
+  const [monthClasses, setMonthClasses] = useState([])
   const [pending, setPending] = useState([])
   const [students, setStudents] = useState({})
+  const [showMonth, setShowMonth] = useState(false)
 
   async function fetchAll() {
     if (!user?.id) return
-    const [s, t, p, allStudents] = await Promise.all([
+    const now = new Date()
+    const [s, t, m, p, allStudents] = await Promise.all([
       getDashboardStats(user.id),
-      getTeacherClassesForDay(user.id, new Date()),
+      getTeacherClassesForDay(user.id, now),
+      getTeacherClassesForMonth(user.id, now.getFullYear(), now.getMonth()),
       getPendingRequests(user.id),
       getAllStudentsIncludingInactive(),
     ])
     setStats(s)
     setTodayClasses(t)
+    setMonthClasses(m)
     setPending(p)
     const map = {}
     allStudents.forEach(st => { map[st.id] = st })
@@ -42,15 +50,15 @@ export default function TeacherDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: 'Total Students', value: stats?.totalStudents ?? '—', link: '/teacher/students' },
-            { label: "Today's Classes", value: stats?.todayClasses ?? '—', link: '/teacher/schedule' },
-            { label: 'Pending Requests', value: stats?.pendingRequests ?? '—', link: null },
-            { label: 'This Month', value: stats?.monthClasses ?? '—', link: '/teacher/schedule' },
+            { label: 'Total Students', value: stats?.totalStudents ?? '—', onClick: () => navigate('/teacher/students') },
+            { label: "Today's Classes", value: stats?.todayClasses ?? '—', onClick: () => navigate('/teacher/schedule') },
+            { label: 'Pending Requests', value: stats?.pendingRequests ?? '—', onClick: null },
+            { label: 'This Month', value: stats?.monthClasses ?? '—', onClick: () => setShowMonth(true) },
           ].map(c => (
             <button key={c.label}
-              onClick={() => c.link && navigate(c.link)}
+              onClick={() => c.onClick && c.onClick()}
               className={`bg-white rounded-xl border border-gray-100 px-5 py-4 text-left transition-all
-                ${c.link ? 'hover:border-amber-200 hover:shadow-sm cursor-pointer' : 'cursor-default'}`}
+                ${c.onClick ? 'hover:border-amber-200 hover:shadow-sm cursor-pointer' : 'cursor-default'}`}
             >
               <p className="text-xs text-gray-400">{c.label}</p>
               <p className="text-2xl font-semibold text-gray-800 mt-1">{c.value}</p>
@@ -128,6 +136,16 @@ export default function TeacherDashboard() {
           )}
         </div>
       </div>
+
+      {showMonth && (
+        <MonthClassesModal
+          classes={monthClasses}
+          students={students}
+          monthLabel={MONTH_LABEL}
+          onClose={() => setShowMonth(false)}
+          onViewCalendar={() => { setShowMonth(false); navigate('/teacher/schedule') }}
+        />
+      )}
     </TeacherLayout>
   )
 }

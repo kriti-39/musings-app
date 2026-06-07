@@ -38,7 +38,7 @@ function DayColumnHeader({ date }) {
 
 function ScheduleToolbar({ label, onNavigate, onView, view }) {
   return (
-    <div className="mb-4 px-1 space-y-2">
+    <div className="mb-3 px-3 pt-3 space-y-2">
       <p className="text-base font-semibold text-gray-800">{label}</p>
       <div className="flex items-center gap-1">
         <button onClick={() => onNavigate('PREV')}
@@ -142,7 +142,7 @@ export default function AdminSchedule() {
           ))}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 p-2 sm:p-3">
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
           <style>{`
             /* Subtle neutral borders that read well on both light and dark */
             .rbc-time-view, .rbc-month-view { border-color: rgba(128,128,128,0.2); }

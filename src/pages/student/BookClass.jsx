@@ -24,7 +24,7 @@ const localizer = dateFnsLocalizer({
 // ── Custom calendar toolbar — Month + Day only for students ─────────────────
 function CalendarToolbar({ label, onNavigate, onView, view }) {
   return (
-    <div className="flex items-center justify-between gap-3 mb-4 px-1">
+    <div className="flex items-center justify-between gap-3 mb-3 px-3 pt-3">
       {/* Period label — month name or selected day */}
       <span className="text-sm font-semibold text-gray-800">{label}</span>
 
@@ -256,7 +256,7 @@ export default function BookClass() {
         </div>
 
         {/* Calendar */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-2 sm:p-3 shadow-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
           <style>{`
             /* Subtle neutral borders that read well on both light and dark */
             .rbc-month-view,

@@ -4,6 +4,7 @@ import TeacherLayout from '../../components/teacher/TeacherLayout'
 import AddAdminModal from '../../components/teacher/AddAdminModal'
 import { getAllStudentsIncludingInactive, getAdmins, deactivateStudent, reactivateStudent, deleteStudentCompletely } from '../../firebase/db'
 import { RiSearchLine, RiUserLine, RiAddLine, RiUserUnfollowLine, RiUserFollowLine, RiDeleteBinLine } from 'react-icons/ri'
+import ConfirmDialog from '../../components/shared/ConfirmDialog'
 
 const SORT_OPTIONS = [
   { value: 'name', label: 'Name' },
@@ -20,6 +21,16 @@ export default function TeacherStudents() {
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('name')
   const [showAddAdmin, setShowAddAdmin] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try { await deleteStudentCompletely(deleteTarget.id); await fetchAll() }
+    catch (e) { console.error('Delete failed:', e) }
+    finally { setDeleting(false); setDeleteTarget(null) }
+  }
 
   async function fetchAll() {
     setLoading(true)
@@ -143,7 +154,7 @@ export default function TeacherStudents() {
                                 className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-green-600 border border-green-100 rounded-lg hover:bg-green-50 transition-colors">
                                 <RiUserFollowLine size={13} /> Reactivate
                               </button>
-                              <button onClick={async () => { if (window.confirm(`Permanently delete ${s.name || 'this student'} and all their data? This cannot be undone.`)) { await deleteStudentCompletely(s.id); fetchAll() } }}
+                              <button onClick={() => setDeleteTarget(s)}
                                 className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
                                 <RiDeleteBinLine size={13} /> Delete
                               </button>
@@ -193,6 +204,18 @@ export default function TeacherStudents() {
 
       {showAddAdmin && (
         <AddAdminModal onClose={() => setShowAddAdmin(false)} onSuccess={fetchAll} />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title={`Delete ${deleteTarget.name || 'this student'}?`}
+          message="This permanently removes the student and all their data (classes, payments). This cannot be undone."
+          confirmLabel="Delete Student"
+          variant="danger"
+          loading={deleting}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </TeacherLayout>
   )

@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { getStudentAllClasses, markClassDone, cancelClass, requestReschedule, getTeacher } from '../../firebase/db'
 import { RiCalendarLine, RiAddLine, RiCloseLine } from 'react-icons/ri'
 import { LOCAL_TZ, tzCity, fmtTime, fmtLongDate } from '../../utils/timezone'
+import ConfirmDialog from '../../components/shared/ConfirmDialog'
 
 const STATUS_STYLES = {
   scheduled: 'bg-green-50 text-green-700',
@@ -114,6 +115,7 @@ function ClassCard({ cls, onAction, tz, teacherTz }) {
   const [reschedule, setReschedule] = useState(false)
   const [newDate, setNewDate] = useState('')
   const [newTime, setNewTime] = useState('')
+  const [confirm, setConfirm] = useState(null)
   const date = cls.scheduledAt?.toDate?.() ?? new Date()
   const showTeacher = teacherTz && teacherTz !== tz
 
@@ -123,9 +125,23 @@ function ClassCard({ cls, onAction, tz, teacherTz }) {
     finally { setLoading(false) }
   }
 
-  async function handleReschedule() {
+  async function runConfirm() {
+    if (!confirm) return
+    const action = confirm.action
+    setConfirm(null)
+    await handle(action)
+  }
+
+  function askReschedule() {
     if (!newDate || !newTime) return
-    await handle(() => requestReschedule(cls.id, `${newDate}T${newTime}`))
+    const when = new Date(`${newDate}T${newTime}`).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    setConfirm({
+      title: 'Send reschedule request?',
+      message: `You're asking to move this class to ${when}. Your teacher will need to confirm it.`,
+      confirmLabel: 'Send Request',
+      variant: 'primary',
+      action: () => requestReschedule(cls.id, `${newDate}T${newTime}`),
+    })
   }
 
   const minDate = new Date().toISOString().split('T')[0]
@@ -165,7 +181,7 @@ function ClassCard({ cls, onAction, tz, teacherTz }) {
           <p className="text-xs text-gray-400">Your teacher will need to re-confirm the new time.</p>
           <div className="flex gap-2">
             <button onClick={() => setReschedule(false)} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-xs hover:bg-gray-50">Back</button>
-            <button onClick={handleReschedule} disabled={loading || !newDate || !newTime}
+            <button onClick={askReschedule} disabled={loading || !newDate || !newTime}
               className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2 text-xs font-medium disabled:opacity-50">
               {loading ? 'Sending...' : 'Request Reschedule'}
             </button>
@@ -174,7 +190,13 @@ function ClassCard({ cls, onAction, tz, teacherTz }) {
       ) : (cls.status === 'scheduled' || cls.status === 'pending') && (
         <div className="flex gap-2 mt-4 flex-wrap">
           {cls.status === 'scheduled' && (
-            <button onClick={() => handle(() => markClassDone(cls.id, 'student'))} disabled={loading}
+            <button onClick={() => setConfirm({
+              title: 'Mark this class as done?',
+              message: 'This marks the class completed.',
+              confirmLabel: 'Mark Done',
+              variant: 'primary',
+              action: () => markClassDone(cls.id, 'student'),
+            })} disabled={loading}
               className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors disabled:opacity-50">
               Mark Done
             </button>
@@ -185,11 +207,31 @@ function ClassCard({ cls, onAction, tz, teacherTz }) {
               Reschedule
             </button>
           )}
-          <button onClick={() => handle(() => cancelClass(cls.id))} disabled={loading}
+          <button onClick={() => setConfirm({
+            title: cls.status === 'pending' ? 'Cancel this request?' : 'Cancel this class?',
+            message: cls.status === 'pending'
+              ? 'Your booking request will be withdrawn.'
+              : 'This will cancel your scheduled class.',
+            confirmLabel: cls.status === 'pending' ? 'Cancel Request' : 'Cancel Class',
+            variant: 'danger',
+            action: () => cancelClass(cls.id),
+          })} disabled={loading}
             className="px-3 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors disabled:opacity-50">
             {cls.status === 'pending' ? 'Cancel Request' : 'Cancel'}
           </button>
         </div>
+      )}
+
+      {confirm && (
+        <ConfirmDialog
+          title={confirm.title}
+          message={confirm.message}
+          confirmLabel={confirm.confirmLabel}
+          variant={confirm.variant}
+          loading={loading}
+          onConfirm={runConfirm}
+          onCancel={() => setConfirm(null)}
+        />
       )}
     </div>
   )

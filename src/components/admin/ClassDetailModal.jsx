@@ -7,6 +7,7 @@ import {
 import { Timestamp } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext'
 import { fmtTime, tzCity } from '../../utils/timezone'
+import ConfirmDialog from '../shared/ConfirmDialog'
 
 const STATUS_STYLES = {
   scheduled:  'bg-green-50 text-green-700',
@@ -23,6 +24,7 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
   const [newTime, setNewTime] = useState('')
   const [notes, setNotes] = useState(cls.lessonNotes || '')
   const [loading, setLoading] = useState(false)
+  const [confirm, setConfirm] = useState(null) // { title, message, confirmLabel, variant, action }
 
   const scheduledDate = cls.scheduledAt?.toDate?.() ?? new Date(cls.scheduledAt)
 
@@ -33,9 +35,22 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
     finally { setLoading(false) }
   }
 
-  async function handleReschedule() {
+  async function runConfirm() {
+    if (!confirm) return
+    await handle(confirm.action)
+    setConfirm(null)
+  }
+
+  function askReschedule() {
     if (!newDate || !newTime) return
-    await handle(() => rescheduleClass(cls.id, `${newDate}T${newTime}`, cls.studentId))
+    const when = new Date(`${newDate}T${newTime}`).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    setConfirm({
+      title: 'Reschedule this class?',
+      message: `The class will move to ${when} and the student will be notified to re-confirm.`,
+      confirmLabel: 'Reschedule',
+      variant: 'primary',
+      action: () => rescheduleClass(cls.id, `${newDate}T${newTime}`, cls.studentId),
+    })
   }
 
   async function handleSaveNotes() {
@@ -137,7 +152,7 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setView('detail')} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-sm hover:bg-gray-50">Back</button>
-                <button onClick={handleReschedule} disabled={loading || !newDate || !newTime}
+                <button onClick={askReschedule} disabled={loading || !newDate || !newTime}
                   className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
                 >
                   {loading ? 'Saving...' : 'Confirm Reschedule'}
@@ -150,7 +165,13 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
           {view === 'detail' && cls.status !== 'cancelled' && cls.status !== 'rejected' && (
             <div className="grid grid-cols-2 gap-2 pt-1">
               {cls.status === 'scheduled' && (
-                <button onClick={() => handle(() => markClassDone(cls.id, user.role))}
+                <button onClick={() => setConfirm({
+                  title: 'Mark this class as done?',
+                  message: 'This marks the class completed for both you and the student.',
+                  confirmLabel: 'Mark as Done',
+                  variant: 'primary',
+                  action: () => markClassDone(cls.id, user.role),
+                })}
                   disabled={loading}
                   className="col-span-2 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
                 >
@@ -170,14 +191,26 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
                 </button>
               )}
               {cls.status !== 'completed' && (
-                <button onClick={() => handle(() => cancelClass(cls.id, cls.studentId))} disabled={loading}
+                <button onClick={() => setConfirm({
+                  title: 'Cancel this class?',
+                  message: 'The student will be notified that the class is cancelled.',
+                  confirmLabel: 'Cancel Class',
+                  variant: 'danger',
+                  action: () => cancelClass(cls.id, cls.studentId),
+                })} disabled={loading}
                   className="col-span-2 border border-red-200 text-red-500 rounded-lg py-2.5 text-sm hover:bg-red-50 transition-colors disabled:opacity-50"
                 >
                   Cancel Class
                 </button>
               )}
               <button
-                onClick={() => { if (window.confirm('Permanently delete this class? This cannot be undone.')) handle(() => deleteClass(cls.id)) }}
+                onClick={() => setConfirm({
+                  title: 'Permanently delete this class?',
+                  message: 'This cannot be undone.',
+                  confirmLabel: 'Delete',
+                  variant: 'danger',
+                  action: () => deleteClass(cls.id),
+                })}
                 disabled={loading}
                 className="col-span-2 text-xs text-gray-400 hover:text-red-500 transition-colors py-1 disabled:opacity-50"
               >
@@ -187,6 +220,18 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
           )}
         </div>
       </div>
+
+      {confirm && (
+        <ConfirmDialog
+          title={confirm.title}
+          message={confirm.message}
+          confirmLabel={confirm.confirmLabel}
+          variant={confirm.variant}
+          loading={loading}
+          onConfirm={runConfirm}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
     </div>
   )
 }

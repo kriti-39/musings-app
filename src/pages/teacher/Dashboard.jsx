@@ -73,12 +73,12 @@ export default function TeacherDashboard() {
               <h2 className="text-sm font-semibold text-gray-800">Needs Confirmation</h2>
               <p className="text-xs text-gray-400 mt-0.5">Overlapping bookings or reschedule requests.</p>
             </div>
-            <div className="divide-y divide-gray-50">
+            <div>
               {pending.map(cls => {
                 const date = cls.scheduledAt?.toDate?.() ?? new Date()
                 const studentName = students[cls.studentId]?.name || 'Student'
                 return (
-                  <div key={cls.id} className="px-5 py-4 flex items-center justify-between">
+                  <div key={cls.id} className="px-5 py-4 flex items-center justify-between border-t border-gray-100 first:border-t-0">
                     <div>
                       <p className="text-sm font-medium text-gray-800">{studentName}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
@@ -116,11 +116,11 @@ export default function TeacherDashboard() {
               <p className="text-sm">No classes scheduled for today.</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-50">
+            <div>
               {todayClasses.map(cls => {
                 const date = cls.scheduledAt?.toDate?.() ?? new Date()
                 return (
-                  <div key={cls.id} className="px-5 py-4 flex items-center justify-between">
+                  <div key={cls.id} className="px-5 py-4 flex items-center justify-between border-t border-gray-100 first:border-t-0">
                     <div>
                       <p className="text-sm font-medium text-gray-800">{students[cls.studentId]?.name || 'Student'}</p>
                       <p className="text-xs text-gray-400 mt-0.5">

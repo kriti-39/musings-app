@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { getStudentBookingCalendar, createBooking, getTeacherId, getTeacher } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 import {
-  RiCloseLine, RiCalendarLine,
+  RiCloseLine, RiCalendarLine, RiCheckLine,
   RiArrowLeftSLine, RiArrowRightSLine
 } from 'react-icons/ri'
 import { LOCAL_TZ, tzCity, shiftToTz, unshiftFromTz, tzOffsetMinutes, fmtTime, fmtLongDate } from '../../utils/timezone'
@@ -81,12 +81,17 @@ export default function BookClass() {
   const [bookingLoading, setBookingLoading] = useState(false)
   const [conflict, setConflict] = useState(false)
   const [bookingError, setBookingError] = useState('')
+  const [bookingSuccess, setBookingSuccess] = useState(null) // { status }
   const [currentView, setCurrentView] = useState('month')
 
   // Timezones
   const studentTz = user?.timezone || LOCAL_TZ
   const [teacherTz, setTeacherTz] = useState(null)
   const [displayTz, setDisplayTz] = useState(studentTz)
+
+  // Keep the calendar's display timezone in sync with the student's own tz
+  // (covers the profile loading/changing after first render — no refresh needed)
+  useEffect(() => { setDisplayTz(studentTz) }, [studentTz])
 
   // Two-click booking: 1st click highlights a slot, 2nd click opens the modal
   const [pendingSlot, setPendingSlot] = useState(null)
@@ -107,12 +112,17 @@ export default function BookClass() {
     resolveTeacher()
   }, [])
 
-  useEffect(() => {
+  function loadCalendar() {
     if (teacherId && user?.id) {
       getStudentBookingCalendar(teacherId, user.id, currentDate.getFullYear(), currentDate.getMonth())
         .then(setCalendarData)
         .catch(e => console.error('Calendar load failed:', e))
     }
+  }
+
+  useEffect(() => {
+    loadCalendar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherId, user, currentDate])
 
   // Events are shifted so the calendar visually shows the chosen display timezone
@@ -238,14 +248,17 @@ export default function BookClass() {
     setBookingLoading(true)
     setBookingError('')
     try {
-      await createBooking({
+      const result = await createBooking({
         studentId: user.id,
         teacherId,
         scheduledAt: Timestamp.fromDate(instant),
         duration,
         lessonNotes: note,
       })
-      navigate('/student/dashboard')
+      setShowPicker(false)
+      setPendingSlot(null)
+      setBookingSuccess({ status: result?.status || 'scheduled' })
+      loadCalendar() // reflect the new class on the calendar right away
     } catch (e) {
       console.error(e)
       setBookingError('Failed to book. Please try again.')
@@ -403,6 +416,41 @@ export default function BookClass() {
               className="px-4 py-2 text-sm font-medium bg-amber-500 hover:bg-amber-600 text-white rounded-lg">
               Book this slot
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Booking success popup */}
+      {bookingSuccess && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
+            <div className={`mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-4 ${
+              bookingSuccess.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'
+            }`}>
+              <RiCheckLine size={30} />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-800">
+              {bookingSuccess.status === 'pending' ? 'Request sent!' : 'Class booked!'}
+            </h2>
+            <p className="text-sm text-gray-500 mt-2">
+              {bookingSuccess.status === 'pending'
+                ? 'This time overlaps another class, so your teacher will confirm it shortly. You’ll get a notification once it’s confirmed.'
+                : 'Your class is confirmed and added to your schedule. See you there!'}
+            </p>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setBookingSuccess(null); setNote('') }}
+                className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50"
+              >
+                Book another
+              </button>
+              <button
+                onClick={() => navigate('/student/dashboard')}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium"
+              >
+                View my classes
+              </button>
+            </div>
           </div>
         </div>
       )}

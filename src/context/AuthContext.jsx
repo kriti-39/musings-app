@@ -10,13 +10,17 @@ export function AuthProvider({ children }) {
   const [role, setRole] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  async function loadUserDoc(firebaseUser) {
+    const snap = await getDoc(doc(db, 'users', firebaseUser.uid))
+    const data = snap.data()
+    setUser({ ...firebaseUser, ...data, id: firebaseUser.uid })
+    setRole(data?.role ?? null)
+  }
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const snap = await getDoc(doc(db, 'users', firebaseUser.uid))
-        const data = snap.data()
-        setUser({ ...firebaseUser, ...data, id: firebaseUser.uid })
-        setRole(data?.role ?? null)
+        await loadUserDoc(firebaseUser)
       } else {
         setUser(null)
         setRole(null)
@@ -24,6 +28,18 @@ export function AuthProvider({ children }) {
       setLoading(false)
     })
     return unsubscribe
+  }, [])
+
+  // Re-fetch the profile when the app regains focus, so changes like timezone
+  // reflect without needing a full refresh or re-login.
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === 'visible' && auth.currentUser) {
+        loadUserDoc(auth.currentUser).catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
 
   return (

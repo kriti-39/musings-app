@@ -8,9 +8,10 @@ import {
   cancelRecurringSchedule, confirmPayment, rejectPayment,
 } from '../../firebase/db'
 import {
-  RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine, RiImageLine,
+  RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine, RiImageLine, RiAddLine,
 } from 'react-icons/ri'
 import ReceiptModal from '../../components/shared/ReceiptModal'
+import MarkPaidModal from '../../components/shared/MarkPaidModal'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -44,7 +45,10 @@ export default function StudentDetail() {
   const [recurring, setRecurring] = useState([])
   const [section, setSection] = useState('upcoming') // upcoming | done | payments
   const [receiptUrl, setReceiptUrl] = useState(null)
+  const [showRecord, setShowRecord] = useState(false)
   const [loading, setLoading] = useState(true)
+
+  const thisMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
 
   async function fetchAll() {
     const [s, c, p, r] = await Promise.all([
@@ -167,9 +171,16 @@ export default function StudentDetail() {
 
         {/* Payments — with inline Confirm / Decline */}
         {section === 'payments' && (
+          <>
+          <div className="flex justify-end mb-3">
+            <button onClick={() => setShowRecord(true)}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              <RiAddLine size={16} /> Record Payment
+            </button>
+          </div>
           <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
             {payments.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-10">No payment records.</p>
+              <p className="text-sm text-gray-400 text-center py-10">No payment records yet.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
@@ -227,10 +238,20 @@ export default function StudentDetail() {
               </table>
             )}
           </div>
+          </>
         )}
       </div>
 
       {receiptUrl && <ReceiptModal url={receiptUrl} onClose={() => setReceiptUrl(null)} />}
+      {showRecord && (
+        <MarkPaidModal
+          studentId={id}
+          selectedMonth={thisMonth}
+          staffId={user.id}
+          onClose={() => setShowRecord(false)}
+          onSuccess={fetchAll}
+        />
+      )}
     </Layout>
   )
 }

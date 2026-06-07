@@ -435,6 +435,15 @@ export async function deleteStudentCompletely(uid) {
   await deleteDoc(doc(db, 'users', uid))
 }
 
+// Delete EVERY student (and their data). Keeps teacher/admin accounts. One-time reset.
+export async function deleteAllStudents() {
+  const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student')))
+  for (const d of snap.docs) {
+    await deleteStudentCompletely(d.id)
+  }
+  return snap.size
+}
+
 export async function getTeacherAllClasses(teacherId) {
   // No orderBy → avoids composite index; sorted client-side
   const q = query(collection(db, 'classes'), where('teacherId', '==', teacherId))

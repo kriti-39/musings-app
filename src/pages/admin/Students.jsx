@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AddStudentModal from '../../components/admin/AddStudentModal'
-import { getAllStudentsIncludingInactive, deactivateStudent, reactivateStudent, deleteStudentCompletely } from '../../firebase/db'
+import { getAllStudentsIncludingInactive, deactivateStudent, reactivateStudent, deleteStudentCompletely, deleteAllStudents } from '../../firebase/db'
 import { RiAddLine, RiSearchLine, RiUserLine, RiUserUnfollowLine, RiUserFollowLine, RiDeleteBinLine } from 'react-icons/ri'
 
 const SORT_OPTIONS = [
@@ -62,6 +62,20 @@ export default function AdminStudents() {
     fetchStudents()
   }
 
+  const [clearing, setClearing] = useState(false)
+  async function handleClearAll() {
+    const typed = window.prompt('This will PERMANENTLY delete ALL students and their data (teacher & admins are kept). Type DELETE to confirm.')
+    if (typed !== 'DELETE') return
+    setClearing(true)
+    try {
+      const n = await deleteAllStudents()
+      alert(`Removed ${n} student${n === 1 ? '' : 's'} and all their data.`)
+      fetchStudents()
+    } finally {
+      setClearing(false)
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="max-w-5xl mx-auto">
@@ -77,6 +91,17 @@ export default function AdminStudents() {
             </button>
           )}
         </div>
+
+        {/* One-time reset for clearing test data */}
+        {students.length > 0 && (
+          <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-lg px-4 py-2.5 mb-5">
+            <p className="text-xs text-red-600">Clear all test students &amp; their data (keeps teacher/admin).</p>
+            <button onClick={handleClearAll} disabled={clearing}
+              className="flex items-center gap-1.5 text-xs text-red-600 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-100 transition-colors disabled:opacity-50">
+              <RiDeleteBinLine size={13} /> {clearing ? 'Clearing...' : 'Clear all students'}
+            </button>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-5">

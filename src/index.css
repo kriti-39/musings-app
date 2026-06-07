@@ -204,7 +204,24 @@ html.dark .rbc-toolbar button.rbc-active {
   border-color: transparent !important;
   color: #0d1117 !important;
 }
-html.dark .rbc-current-time-indicator { background: #f5c518; }
+/* "Current time" marker — a thin subtle line with a small dot on the left,
+   so it clearly reads as a time indicator rather than a stray bright streak. */
+.rbc-current-time-indicator {
+  height: 1px !important;
+  background-color: rgba(245, 197, 24, 0.5) !important;
+  position: relative;
+}
+.rbc-current-time-indicator::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f5c518;
+}
+html.dark .rbc-current-time-indicator { background-color: rgba(245, 197, 24, 0.45) !important; }
 html.dark .rbc-date-cell          { color: #adbac7; }
 html.dark .rbc-date-cell.rbc-now  { color: #f5c518; }
 html.dark .rbc-show-more          { color: #f5c518; }

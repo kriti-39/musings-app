@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { RiCloseLine } from 'react-icons/ri'
-import { getAllStudents, createClass, createRecurringSchedule, getTeacherId } from '../../firebase/db'
+import { getAllStudents, createClass, createRecurringSchedule, getTeacherId, createNotification } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 
 const DURATIONS = [30, 45, 60, 90, 120]
@@ -89,6 +89,14 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
           status: 'scheduled',
         })
       }
+
+      // Let the student know a class was scheduled for them
+      await createNotification(
+        studentId,
+        'class_scheduled',
+        form.isRecurring ? 'Recurring classes have been scheduled for you.' : 'A new class has been scheduled for you.',
+        null
+      )
 
       onSuccess?.()
       onClose()

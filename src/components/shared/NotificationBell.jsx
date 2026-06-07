@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RiBellLine } from 'react-icons/ri'
-import { getUserNotifications, markNotificationRead } from '../../firebase/db'
+import { RiBellLine, RiCheckDoubleLine, RiDeleteBinLine } from 'react-icons/ri'
+import { getUserNotifications, markNotificationRead, markAllNotificationsRead, clearAllNotifications } from '../../firebase/db'
 import { useAuth } from '../../context/AuthContext'
 
 // Where each notification type should take the user, per role
@@ -58,6 +58,16 @@ export default function NotificationBell() {
     navigate(destinationFor(n.type, role))
   }
 
+  async function handleMarkAllRead() {
+    setNotifications(prev => prev.map(x => ({ ...x, isRead: true })))
+    await markAllNotificationsRead(user.id)
+  }
+
+  async function handleClearAll() {
+    setNotifications([])
+    await clearAllNotifications(user.id)
+  }
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -74,8 +84,22 @@ export default function NotificationBell() {
 
       {open && (
         <div className="absolute right-0 top-10 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50 max-h-96 overflow-y-auto">
-          <div className="px-4 py-3 border-b border-gray-100">
+          <div className="sticky top-0 bg-white px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <p className="text-sm font-medium text-gray-800">Notifications</p>
+            {notifications.length > 0 && (
+              <div className="flex items-center gap-3">
+                {unread > 0 && (
+                  <button onClick={handleMarkAllRead} title="Mark all read"
+                    className="text-gray-400 hover:text-amber-600 transition-colors">
+                    <RiCheckDoubleLine size={16} />
+                  </button>
+                )}
+                <button onClick={handleClearAll} title="Clear all"
+                  className="text-gray-400 hover:text-red-500 transition-colors">
+                  <RiDeleteBinLine size={16} />
+                </button>
+              </div>
+            )}
           </div>
           {notifications.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8">No notifications yet.</p>

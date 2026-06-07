@@ -457,6 +457,20 @@ export async function markNotificationRead(notificationId) {
   await updateDoc(doc(db, 'notifications', notificationId), { isRead: true })
 }
 
+export async function markAllNotificationsRead(userId) {
+  const snap = await getDocs(query(collection(db, 'notifications'), where('userId', '==', userId)))
+  await Promise.all(
+    snap.docs
+      .filter(d => d.data().isRead !== true)
+      .map(d => updateDoc(doc(db, 'notifications', d.id), { isRead: true }))
+  )
+}
+
+export async function clearAllNotifications(userId) {
+  const snap = await getDocs(query(collection(db, 'notifications'), where('userId', '==', userId)))
+  await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'notifications', d.id))))
+}
+
 export async function updatePaymentScreenshot(paymentId, url) {
   await updateDoc(doc(db, 'payments', paymentId), { screenshotUrl: url })
 }

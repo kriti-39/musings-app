@@ -3,10 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getUser, getStudentAllClasses, getStudentPayments, getStudentRecurringSchedules, cancelRecurringSchedule } from '../../firebase/db'
-import { RiArrowLeftLine, RiCalendarLine, RiMoneyDollarCircleLine, RiRepeatLine } from 'react-icons/ri'
+import {
+  getUser, getStudentAllClasses, getStudentPayments, getStudentRecurringSchedules,
+  cancelRecurringSchedule, confirmPayment, rejectPayment,
+} from '../../firebase/db'
+import {
+  RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine,
+} from 'react-icons/ri'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 const STATUS_STYLES = {
   scheduled:  'bg-green-50 text-green-700',
@@ -16,18 +22,26 @@ const STATUS_STYLES = {
   rejected:   'bg-red-50 text-red-500',
 }
 
+function monthsLabel(months) {
+  return (months || []).map(m => {
+    const [y, mo] = m.split('-')
+    return `${MONTHS[parseInt(mo) - 1]} ${y}`
+  }).join(', ')
+}
+
 export default function StudentDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { role } = useAuth()
+  const { role, user } = useAuth()
   const isTeacher = role === 'teacher'
   const Layout = isTeacher ? TeacherLayout : AdminLayout
   const backPath = isTeacher ? '/teacher/students' : '/admin/students'
+
   const [student, setStudent] = useState(null)
   const [classes, setClasses] = useState([])
   const [payments, setPayments] = useState([])
   const [recurring, setRecurring] = useState([])
-  const [tab, setTab] = useState('classes')
+  const [section, setSection] = useState('upcoming') // upcoming | done | payments
   const [loading, setLoading] = useState(true)
 
   async function fetchAll() {
@@ -52,11 +66,29 @@ export default function StudentDetail() {
     fetchAll()
   }
 
-  const completedCount = classes.filter(c => c.status === 'completed').length
-  const scheduledCount = classes.filter(c => c.status === 'scheduled').length
+  async function handleConfirmPayment(paymentId) {
+    await confirmPayment(paymentId, user.id, id)
+    fetchAll()
+  }
+  async function handleDeclinePayment(paymentId) {
+    await rejectPayment(paymentId, id)
+    fetchAll()
+  }
+
+  const now = new Date()
+  const completed = classes.filter(c => c.status === 'completed')
+  const upcoming = classes
+    .filter(c => c.status === 'pending' || (c.status === 'scheduled' && (c.scheduledAt?.toDate?.() ?? new Date()) >= now))
+    .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
   const confirmedPayments = payments.filter(p => p.status === 'confirmed')
 
   if (loading) return <Layout><p className="text-gray-400 text-sm">Loading...</p></Layout>
+
+  const cards = [
+    { key: 'upcoming', label: 'Upcoming', value: upcoming.length },
+    { key: 'done', label: 'Classes Done', value: completed.length },
+    { key: 'payments', label: 'Payments', value: confirmedPayments.length },
+  ]
 
   return (
     <Layout>
@@ -67,38 +99,33 @@ export default function StudentDetail() {
 
         {/* Profile */}
         <div className="bg-white rounded-xl border border-gray-100 p-6 mb-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-800">{student?.name}</h1>
-              <p className="text-sm text-gray-400 mt-0.5">{student?.email}</p>
-              <div className="flex gap-x-6 gap-y-3 mt-4 flex-wrap">
-                {[
-                  { label: 'Country', value: student?.country || '—' },
-                  { label: 'Timezone', value: student?.timezone || '—' },
-                  { label: 'Phone', value: student?.phone || '—' },
-                  { label: 'Fee', value: student?.feeAmount ? `₹${student.feeAmount}` : '—' },
-                ].map(item => (
-                  <div key={item.label}>
-                    <p className="text-xs text-gray-400">{item.label}</p>
-                    <p className="text-sm text-gray-700 font-medium">{item.value}</p>
-                  </div>
-                ))}
+          <h1 className="text-xl font-semibold text-gray-800">{student?.name}</h1>
+          <p className="text-sm text-gray-400 mt-0.5">{student?.email}</p>
+          <div className="flex gap-x-6 gap-y-3 mt-4 flex-wrap">
+            {[
+              { label: 'Country', value: student?.country || '—' },
+              { label: 'Timezone', value: student?.timezone || '—' },
+              { label: 'Phone', value: student?.phone || '—' },
+              { label: 'Fee', value: student?.feeAmount ? `₹${student.feeAmount}` : '—' },
+            ].map(item => (
+              <div key={item.label}>
+                <p className="text-xs text-gray-400">{item.label}</p>
+                <p className="text-sm text-gray-700 font-medium">{item.value}</p>
               </div>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Clickable mini-dashboard — also acts as the section selector */}
         <div className="grid grid-cols-3 gap-4 mb-5">
-          {[
-            { label: 'Classes Done', value: completedCount, icon: RiCalendarLine },
-            { label: 'Upcoming', value: scheduledCount, icon: RiCalendarLine },
-            { label: 'Payments', value: confirmedPayments.length, icon: RiMoneyDollarCircleLine },
-          ].map(s => (
-            <div key={s.label} className="bg-white rounded-xl border border-gray-100 px-5 py-4">
-              <p className="text-xs text-gray-400">{s.label}</p>
-              <p className="text-2xl font-semibold text-gray-800 mt-1">{s.value}</p>
-            </div>
+          {cards.map(c => (
+            <button key={c.key} onClick={() => setSection(c.key)}
+              className={`bg-white rounded-xl border px-5 py-4 text-left transition-all ${
+                section === c.key ? 'border-amber-400 shadow-sm' : 'border-gray-100 hover:border-amber-200'
+              }`}>
+              <p className="text-xs text-gray-400">{c.label}</p>
+              <p className="text-2xl font-semibold text-gray-800 mt-1">{c.value}</p>
+            </button>
           ))}
         </div>
 
@@ -128,63 +155,16 @@ export default function StudentDetail() {
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
-          {['classes', 'payments'].map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize ${
-                tab === t ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+        {/* ── Section content ── */}
 
-        {/* Classes */}
-        {tab === 'classes' && (
-          <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
-            {classes.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-10">No classes yet.</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Date & Time</th>
-                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Duration</th>
-                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Status</th>
-                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {classes.map((c, i) => {
-                    const date = c.scheduledAt?.toDate?.() ?? new Date()
-                    return (
-                      <tr key={c.id} className={i !== classes.length - 1 ? 'border-b border-gray-50' : ''}>
-                        <td className="px-5 py-3.5 text-gray-700">
-                          {date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          <span className="text-gray-400 ml-2 text-xs">
-                            {date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 text-gray-500">{c.duration || 60}m</td>
-                        <td className="px-5 py-3.5">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[c.status] || ''}`}>
-                            {c.status}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 text-gray-400 text-xs">{c.lessonNotes || '—'}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+        {/* Class lists (Upcoming or Done) */}
+        {(section === 'upcoming' || section === 'done') && (
+          <ClassTable classes={section === 'upcoming' ? upcoming : completed}
+            emptyText={section === 'upcoming' ? 'No upcoming classes.' : 'No completed classes yet.'} />
         )}
 
-        {/* Payments */}
-        {tab === 'payments' && (
+        {/* Payments — with inline Confirm / Decline */}
+        {section === 'payments' && (
           <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
             {payments.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-10">No payment records.</p>
@@ -196,28 +176,43 @@ export default function StudentDetail() {
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Amount</th>
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Method</th>
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Status</th>
+                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {payments.map((p, i) => (
-                    <tr key={p.id} className={i !== payments.length - 1 ? 'border-b border-gray-50' : ''}>
-                      <td className="px-5 py-3.5 text-gray-700">
-                        {(p.months || []).map(m => {
-                          const [y, mo] = m.split('-')
-                          return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1]} ${y}`
-                        }).join(', ')}
-                      </td>
-                      <td className="px-5 py-3.5 text-gray-700 font-medium">₹{p.amount}</td>
-                      <td className="px-5 py-3.5 text-gray-500 capitalize">{p.method?.replace('_', ' ')}</td>
-                      <td className="px-5 py-3.5">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          p.status === 'confirmed' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
-                        }`}>
-                          {p.status === 'confirmed' ? 'Confirmed' : 'Pending'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {payments.map((p, i) => {
+                    const isPending = p.status !== 'confirmed' && p.status !== 'rejected'
+                    return (
+                      <tr key={p.id} className={i !== payments.length - 1 ? 'border-b border-gray-50' : ''}>
+                        <td className="px-5 py-3.5 text-gray-700">{monthsLabel(p.months)}</td>
+                        <td className="px-5 py-3.5 text-gray-700 font-medium">₹{p.amount}</td>
+                        <td className="px-5 py-3.5 text-gray-500 capitalize">{p.method?.replace('_', ' ')}</td>
+                        <td className="px-5 py-3.5">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            p.status === 'confirmed' ? 'bg-green-50 text-green-700'
+                            : p.status === 'rejected' ? 'bg-red-50 text-red-500'
+                            : 'bg-amber-50 text-amber-700'
+                          }`}>
+                            {p.status === 'confirmed' ? 'Confirmed' : p.status === 'rejected' ? 'Declined' : 'Pending'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {isPending && (
+                            <div className="flex gap-2">
+                              <button onClick={() => handleConfirmPayment(p.id)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
+                                <RiCheckLine size={13} /> Confirm
+                              </button>
+                              <button onClick={() => handleDeclinePayment(p.id)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors">
+                                <RiCloseLine size={13} /> Decline
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             )}
@@ -225,5 +220,51 @@ export default function StudentDetail() {
         )}
       </div>
     </Layout>
+  )
+}
+
+function ClassTable({ classes, emptyText }) {
+  if (classes.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-100">
+        <p className="text-sm text-gray-400 text-center py-10">{emptyText}</p>
+      </div>
+    )
+  }
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-gray-50 border-b border-gray-100">
+            <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Date & Time</th>
+            <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Duration</th>
+            <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Status</th>
+            <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {classes.map((c, i) => {
+            const date = c.scheduledAt?.toDate?.() ?? new Date()
+            return (
+              <tr key={c.id} className={i !== classes.length - 1 ? 'border-b border-gray-50' : ''}>
+                <td className="px-5 py-3.5 text-gray-700">
+                  {date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  <span className="text-gray-400 ml-2 text-xs">
+                    {date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </td>
+                <td className="px-5 py-3.5 text-gray-500">{c.duration || 60}m</td>
+                <td className="px-5 py-3.5">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[c.status] || ''}`}>
+                    {c.status === 'pending' ? 'Awaiting confirmation' : c.status}
+                  </span>
+                </td>
+                <td className="px-5 py-3.5 text-gray-400 text-xs">{c.lessonNotes || '—'}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }

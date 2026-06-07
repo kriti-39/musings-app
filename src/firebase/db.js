@@ -509,8 +509,9 @@ export async function updatePaymentScreenshot(paymentId, url) {
 // The compressed image lives in its own doc so payment lists stay lightweight;
 // it's only fetched when staff actually open the receipt.
 export async function saveReceipt(paymentId, dataUrl) {
+  // hasReceipt is already set when the payment is created, so we only write the
+  // receipt doc here (students can't update the payment doc, but can create this).
   await setDoc(doc(db, 'receipts', paymentId), { dataUrl, createdAt: serverTimestamp() })
-  await updateDoc(doc(db, 'payments', paymentId), { hasReceipt: true })
 }
 
 export async function getReceipt(paymentId) {

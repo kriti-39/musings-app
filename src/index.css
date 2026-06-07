@@ -136,6 +136,10 @@ html.dark .bg-amber-50 {
 /* ── Hover states ── */
 html.dark .hover\:bg-gray-50:hover  { background: #1c2128; }
 html.dark .hover\:bg-gray-100:hover { background: #21262d; }
+/* Clickable rows use hover:bg-amber-50 — in dark mode give them a subtle gold
+   tint over the dark surface (NOT Tailwind's pale cream, which hides the text). */
+html.dark .hover\:bg-amber-50:hover  { background: rgba(245, 197, 24, 0.1); }
+html.dark .hover\:bg-amber-100:hover { background: rgba(245, 197, 24, 0.16); }
 html.dark .hover\:border-amber-200:hover { border-color: rgba(240, 192, 64, 0.4); }
 
 /* ── Text — GitHub palette ── */

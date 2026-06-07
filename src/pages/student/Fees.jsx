@@ -165,7 +165,7 @@ function SubmitPaymentModal({ studentId, onClose, onSuccess }) {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Payment Method</label>
-              <select value={form.method} onChange={e => setForm(f => ({ ...f, method: e.target.value }))}
+              <select value={form.method} onChange={e => { if (e.target.value === 'cash') setFile(null); setForm(f => ({ ...f, method: e.target.value })) }}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
               >
                 {METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
@@ -183,14 +183,16 @@ function SubmitPaymentModal({ studentId, onClose, onSuccess }) {
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Upload Screenshot (optional)</label>
-            <label className="flex items-center gap-2 border border-dashed border-gray-200 rounded-lg px-3 py-3 cursor-pointer hover:border-amber-300 transition-colors">
-              <RiUploadLine size={16} className="text-gray-400" />
-              <span className="text-sm text-gray-500">{file ? file.name : 'Attach payment proof'}</span>
-              <input type="file" accept="image/*" className="hidden" onChange={e => setFile(e.target.files[0])} />
-            </label>
-          </div>
+          {form.method !== 'cash' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Upload Screenshot (optional)</label>
+              <label className="flex items-center gap-2 border border-dashed border-gray-200 rounded-lg px-3 py-3 cursor-pointer hover:border-amber-300 transition-colors">
+                <RiUploadLine size={16} className="text-gray-400" />
+                <span className="text-sm text-gray-500">{file ? file.name : 'Attach payment proof'}</span>
+                <input type="file" accept="image/*" className="hidden" onChange={e => setFile(e.target.files[0])} />
+              </label>
+            </div>
+          )}
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
 

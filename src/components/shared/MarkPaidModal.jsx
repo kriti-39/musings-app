@@ -71,7 +71,7 @@ export default function MarkPaidModal({ studentId, selectedMonth, staffId, onClo
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Method</label>
-              <select value={form.method} onChange={e => setForm(f => ({ ...f, method: e.target.value }))}
+              <select value={form.method} onChange={e => { if (e.target.value === 'cash') setFile(null); setForm(f => ({ ...f, method: e.target.value })) }}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
               >
                 {METHODS.map(m => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
@@ -85,14 +85,16 @@ export default function MarkPaidModal({ studentId, selectedMonth, staffId, onClo
               placeholder="e.g. Cash received in person"
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Receipt (optional)</label>
-            <label className="flex items-center gap-2 border border-dashed border-gray-200 rounded-lg px-3 py-3 cursor-pointer hover:border-amber-300 transition-colors">
-              <RiUploadLine size={16} className="text-gray-400" />
-              <span className="text-sm text-gray-500">{file ? file.name : 'Upload screenshot'}</span>
-              <input type="file" accept="image/*" className="hidden" onChange={e => setFile(e.target.files[0])} />
-            </label>
-          </div>
+          {form.method !== 'cash' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Receipt (optional)</label>
+              <label className="flex items-center gap-2 border border-dashed border-gray-200 rounded-lg px-3 py-3 cursor-pointer hover:border-amber-300 transition-colors">
+                <RiUploadLine size={16} className="text-gray-400" />
+                <span className="text-sm text-gray-500">{file ? file.name : 'Upload screenshot'}</span>
+                <input type="file" accept="image/*" className="hidden" onChange={e => setFile(e.target.files[0])} />
+              </label>
+            </div>
+          )}
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50">Cancel</button>

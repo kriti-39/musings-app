@@ -71,7 +71,7 @@ export default function NotificationBell() {
   return (
     <div className="relative" ref={ref}>
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => { setOpen(o => { if (!o) fetch(); return !o }) }}
         className="relative p-2 text-gray-400 hover:text-gray-700 transition-colors"
       >
         <RiBellLine size={20} />

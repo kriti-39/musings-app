@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
+import ReceiptModal from '../../components/shared/ReceiptModal'
 import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment } from '../../firebase/db'
 import { useAuth } from '../../context/AuthContext'
-import { RiCheckLine, RiAddLine, RiCloseLine } from 'react-icons/ri'
+import { RiCheckLine, RiAddLine, RiCloseLine, RiImageLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -24,7 +25,7 @@ export default function AdminFees() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr())
   const [loading, setLoading] = useState(true)
   const [addModal, setAddModal] = useState(null) // studentId
-  const [receiptModal, setReceiptModal] = useState(null) // { paymentId, studentId }
+  const [receiptUrl, setReceiptUrl] = useState(null)
 
   async function fetchAll() {
     setLoading(true)
@@ -110,6 +111,14 @@ export default function AdminFees() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex gap-2">
+                          {monthPayment?.screenshotUrl && (
+                            <button
+                              onClick={() => setReceiptUrl(monthPayment.screenshotUrl)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-xs hover:bg-gray-100 transition-colors"
+                            >
+                              <RiImageLine size={13} /> Receipt
+                            </button>
+                          )}
                           {status === 'pending' && monthPayment && (
                             <>
                               <button
@@ -154,6 +163,8 @@ export default function AdminFees() {
           onSuccess={fetchAll}
         />
       )}
+
+      {receiptUrl && <ReceiptModal url={receiptUrl} onClose={() => setReceiptUrl(null)} />}
     </AdminLayout>
   )
 }

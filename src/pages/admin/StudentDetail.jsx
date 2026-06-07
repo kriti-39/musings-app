@@ -8,8 +8,9 @@ import {
   cancelRecurringSchedule, confirmPayment, rejectPayment,
 } from '../../firebase/db'
 import {
-  RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine,
+  RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine, RiImageLine,
 } from 'react-icons/ri'
+import ReceiptModal from '../../components/shared/ReceiptModal'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -42,6 +43,7 @@ export default function StudentDetail() {
   const [payments, setPayments] = useState([])
   const [recurring, setRecurring] = useState([])
   const [section, setSection] = useState('upcoming') // upcoming | done | payments
+  const [receiptUrl, setReceiptUrl] = useState(null)
   const [loading, setLoading] = useState(true)
 
   async function fetchAll() {
@@ -197,18 +199,26 @@ export default function StudentDetail() {
                           </span>
                         </td>
                         <td className="px-5 py-3.5">
-                          {isPending && (
-                            <div className="flex gap-2">
-                              <button onClick={() => handleConfirmPayment(p.id)}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
-                                <RiCheckLine size={13} /> Confirm
+                          <div className="flex gap-2">
+                            {p.screenshotUrl && (
+                              <button onClick={() => setReceiptUrl(p.screenshotUrl)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-xs hover:bg-gray-100 transition-colors">
+                                <RiImageLine size={13} /> Receipt
                               </button>
-                              <button onClick={() => handleDeclinePayment(p.id)}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors">
-                                <RiCloseLine size={13} /> Decline
-                              </button>
-                            </div>
-                          )}
+                            )}
+                            {isPending && (
+                              <>
+                                <button onClick={() => handleConfirmPayment(p.id)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
+                                  <RiCheckLine size={13} /> Confirm
+                                </button>
+                                <button onClick={() => handleDeclinePayment(p.id)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors">
+                                  <RiCloseLine size={13} /> Decline
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )
@@ -219,6 +229,8 @@ export default function StudentDetail() {
           </div>
         )}
       </div>
+
+      {receiptUrl && <ReceiptModal url={receiptUrl} onClose={() => setReceiptUrl(null)} />}
     </Layout>
   )
 }

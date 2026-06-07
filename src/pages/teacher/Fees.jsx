@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
+import ReceiptModal from '../../components/shared/ReceiptModal'
 import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment } from '../../firebase/db'
 import { useAuth } from '../../context/AuthContext'
-import { RiCheckLine, RiAddLine, RiCloseLine } from 'react-icons/ri'
+import { RiCheckLine, RiAddLine, RiCloseLine, RiImageLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -24,6 +25,7 @@ export default function TeacherFees() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr())
   const [filter, setFilter] = useState('all') // all | paid | pending | unpaid
   const [markPaid, setMarkPaid] = useState(null) // studentId
+  const [receiptUrl, setReceiptUrl] = useState(null)
   const [loading, setLoading] = useState(true)
 
   async function refreshPayments() {
@@ -157,18 +159,26 @@ export default function TeacherFees() {
                         </span>
                       </td>
                       <td className="px-5 py-3.5">
-                        {status === 'pending' && payment && (
-                          <div className="flex gap-2">
-                            <button onClick={() => handleConfirm(payment.id, s.id)}
-                              className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
-                              <RiCheckLine size={13} /> Confirm
+                        <div className="flex gap-2">
+                          {payment?.screenshotUrl && (
+                            <button onClick={() => setReceiptUrl(payment.screenshotUrl)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-xs hover:bg-gray-100 transition-colors">
+                              <RiImageLine size={13} /> Receipt
                             </button>
-                            <button onClick={() => handleDecline(payment.id, s.id)}
-                              className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors">
-                              <RiCloseLine size={13} /> Decline
-                            </button>
-                          </div>
-                        )}
+                          )}
+                          {status === 'pending' && payment && (
+                            <>
+                              <button onClick={() => handleConfirm(payment.id, s.id)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
+                                <RiCheckLine size={13} /> Confirm
+                              </button>
+                              <button onClick={() => handleDecline(payment.id, s.id)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors">
+                                <RiCloseLine size={13} /> Decline
+                              </button>
+                            </>
+                          )}
+                        </div>
                         {status === 'unpaid' && (
                           <button onClick={() => setMarkPaid(s.id)}
                             className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs hover:bg-amber-100 transition-colors">
@@ -194,6 +204,8 @@ export default function TeacherFees() {
           onSuccess={refreshPayments}
         />
       )}
+
+      {receiptUrl && <ReceiptModal url={receiptUrl} onClose={() => setReceiptUrl(null)} />}
     </TeacherLayout>
   )
 }

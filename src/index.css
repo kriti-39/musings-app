@@ -67,7 +67,7 @@ html.dark body::after {
   left: -120px;
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, rgba(240, 192, 64, 0.1) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(56, 139, 253, 0.13) 0%, transparent 65%);
   border-radius: 50%;
   pointer-events: none;
 }

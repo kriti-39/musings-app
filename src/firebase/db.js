@@ -1,6 +1,6 @@
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, Timestamp, serverTimestamp
+  query, where, orderBy, limit, Timestamp, serverTimestamp
 } from 'firebase/firestore'
 import { db } from './config'
 
@@ -525,17 +525,39 @@ export async function getReceipt(paymentId) {
   return snap.exists() ? snap.data().dataUrl : null
 }
 
-export async function getTeacherId() {
-  const q = query(collection(db, 'users'), where('role', '==', 'teacher'))
-  const snap = await getDocs(q)
-  return snap.empty ? null : snap.docs[0].id
+// Resolve the (single) teacher's id WITHOUT depending on the student being able
+// to query the users collection. Students can always read `classes`, so if the
+// users query is blocked (strict rules) or empty, we derive the teacherId from
+// any existing class. This keeps booking working even if rules aren't perfect.
+async function deriveTeacherIdFromClasses() {
+  try {
+    const csnap = await getDocs(query(collection(db, 'classes'), limit(20)))
+    for (const d of csnap.docs) {
+      const tid = d.data().teacherId
+      if (tid) return tid
+    }
+  } catch { /* ignore */ }
+  return null
 }
 
-// The teacher's profile, incl. their timezone (the "studio" timezone)
+export async function getTeacherId() {
+  try {
+    const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'teacher')))
+    if (!snap.empty) return snap.docs[0].id
+  } catch { /* student may be blocked from users — fall back below */ }
+  return await deriveTeacherIdFromClasses()
+}
+
+// The teacher's profile, incl. their timezone (the "studio" timezone).
+// Falls back to a minimal { id } (no timezone) if the users query is blocked,
+// so the student can still book — the dual-timezone view just won't show.
 export async function getTeacher() {
-  const q = query(collection(db, 'users'), where('role', '==', 'teacher'))
-  const snap = await getDocs(q)
-  return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() }
+  try {
+    const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'teacher')))
+    if (!snap.empty) return { id: snap.docs[0].id, ...snap.docs[0].data() }
+  } catch { /* fall back below */ }
+  const tid = await deriveTeacherIdFromClasses()
+  return tid ? { id: tid } : null
 }
 
 // ─── STATS ────────────────────────────────────────────────────────────────────

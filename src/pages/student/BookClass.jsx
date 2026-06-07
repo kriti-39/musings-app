@@ -70,6 +70,7 @@ export default function BookClass() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [teacherId, setTeacherId] = useState(null)
+  const [teacherLoadFailed, setTeacherLoadFailed] = useState(false)
   const [calendarData, setCalendarData] = useState({ bookedSlots: [], blockedSlots: [] })
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showPicker, setShowPicker] = useState(false)
@@ -91,15 +92,19 @@ export default function BookClass() {
   const [pendingSlot, setPendingSlot] = useState(null)
 
   useEffect(() => {
-    getTeacher()
-      .then(t => {
-        if (t) { setTeacherId(t.id); setTeacherTz(t.timezone || LOCAL_TZ) }
-        else getTeacherId().then(id => { if (id) setTeacherId(id) })
-      })
-      .catch(e => {
-        console.error('Teacher lookup failed:', e)
-        getTeacherId().then(id => { if (id) setTeacherId(id) }).catch(() => {})
-      })
+    let done = false
+    async function resolveTeacher() {
+      try {
+        const t = await getTeacher()
+        if (t?.id) { setTeacherId(t.id); setTeacherTz(t.timezone || LOCAL_TZ); done = true; return }
+      } catch (e) { console.error('Teacher lookup failed:', e) }
+      try {
+        const id = await getTeacherId()
+        if (id) { setTeacherId(id); done = true; return }
+      } catch (e) { console.error('Teacher id fallback failed:', e) }
+      if (!done) setTeacherLoadFailed(true)
+    }
+    resolveTeacher()
   }, [])
 
   useEffect(() => {
@@ -259,6 +264,12 @@ export default function BookClass() {
             Tap a date, then a free time slot to book instantly. Taken slots need teacher confirmation.
           </p>
         </div>
+
+        {teacherLoadFailed && (
+          <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3">
+            Couldn't load the teacher's calendar right now. Please pull to refresh or try again in a moment.
+          </div>
+        )}
 
         {/* Timezone view toggle */}
         {teacherTz && teacherTz !== studentTz && (

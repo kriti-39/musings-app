@@ -22,6 +22,8 @@ export default function AdminStudents() {
   const [sortBy, setSortBy] = useState('name')
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [deactivateTarget, setDeactivateTarget] = useState(null)
+  const [deactivating, setDeactivating] = useState(false)
 
   async function fetchStudents() {
     setLoading(true)
@@ -49,9 +51,12 @@ export default function AdminStudents() {
       return 0
     })
 
-  async function handleDeactivate(uid) {
-    await deactivateStudent(uid)
-    fetchStudents()
+  async function confirmDeactivate() {
+    if (!deactivateTarget) return
+    setDeactivating(true)
+    try { await deactivateStudent(deactivateTarget.id); await fetchStudents() }
+    catch (e) { console.error('Deactivate failed:', e) }
+    finally { setDeactivating(false); setDeactivateTarget(null) }
   }
 
   async function handleReactivate(uid) {
@@ -152,7 +157,7 @@ export default function AdminStudents() {
                     </td>
                     <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
                       {tab === 'active' ? (
-                        <button onClick={() => handleDeactivate(student.id)}
+                        <button onClick={() => setDeactivateTarget(student)}
                           className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
                           <RiUserUnfollowLine size={13} /> Deactivate
                         </button>
@@ -190,6 +195,18 @@ export default function AdminStudents() {
           loading={deleting}
           onConfirm={confirmDelete}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {deactivateTarget && (
+        <ConfirmDialog
+          title={`Deactivate ${deactivateTarget.name || 'this student'}?`}
+          message="They won't be able to log in, and their upcoming classes will be cancelled and removed from the schedule. Completed classes and payment history are kept. You can reactivate them later."
+          confirmLabel="Deactivate"
+          variant="danger"
+          loading={deactivating}
+          onConfirm={confirmDeactivate}
+          onCancel={() => setDeactivateTarget(null)}
         />
       )}
     </AdminLayout>

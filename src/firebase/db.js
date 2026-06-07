@@ -435,7 +435,19 @@ export async function getAllStudentsIncludingInactive() {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }
 
+// Deactivate (pause) a student: blocks their access and CANCELS their upcoming
+// classes (scheduled/pending) so they leave the schedule. Completed-class
+// history and all payment records are kept for your accounts. Reversible via
+// reactivateStudent (their cancelled classes are not auto-restored).
 export async function deactivateStudent(uid) {
+  const snap = await getDocs(query(collection(db, 'classes'), where('studentId', '==', uid)))
+  const active = snap.docs.filter(d => {
+    const s = d.data().status || 'scheduled'
+    return s === 'scheduled' || s === 'pending'
+  })
+  await Promise.all(active.map(d =>
+    updateDoc(doc(db, 'classes', d.id), { status: 'cancelled', updatedAt: serverTimestamp() })
+  ))
   await updateDoc(doc(db, 'users', uid), { isActive: false })
 }
 

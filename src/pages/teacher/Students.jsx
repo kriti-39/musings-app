@@ -23,6 +23,8 @@ export default function TeacherStudents() {
   const [showAddAdmin, setShowAddAdmin] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [deactivateTarget, setDeactivateTarget] = useState(null)
+  const [deactivating, setDeactivating] = useState(false)
 
   async function confirmDelete() {
     if (!deleteTarget) return
@@ -30,6 +32,14 @@ export default function TeacherStudents() {
     try { await deleteStudentCompletely(deleteTarget.id); await fetchAll() }
     catch (e) { console.error('Delete failed:', e) }
     finally { setDeleting(false); setDeleteTarget(null) }
+  }
+
+  async function confirmDeactivate() {
+    if (!deactivateTarget) return
+    setDeactivating(true)
+    try { await deactivateStudent(deactivateTarget.id); await fetchAll() }
+    catch (e) { console.error('Deactivate failed:', e) }
+    finally { setDeactivating(false); setDeactivateTarget(null) }
   }
 
   async function fetchAll() {
@@ -144,7 +154,7 @@ export default function TeacherStudents() {
                         </td>
                         <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
                           {tab === 'students' ? (
-                            <button onClick={async () => { await deactivateStudent(s.id); fetchAll() }}
+                            <button onClick={() => setDeactivateTarget(s)}
                               className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
                               <RiUserUnfollowLine size={13} /> Deactivate
                             </button>
@@ -215,6 +225,18 @@ export default function TeacherStudents() {
           loading={deleting}
           onConfirm={confirmDelete}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {deactivateTarget && (
+        <ConfirmDialog
+          title={`Deactivate ${deactivateTarget.name || 'this student'}?`}
+          message="They won't be able to log in, and their upcoming classes will be cancelled and removed from the schedule. Completed classes and payment history are kept. You can reactivate them later."
+          confirmLabel="Deactivate"
+          variant="danger"
+          loading={deactivating}
+          onConfirm={confirmDeactivate}
+          onCancel={() => setDeactivateTarget(null)}
         />
       )}
     </TeacherLayout>

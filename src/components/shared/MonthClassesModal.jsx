@@ -56,28 +56,28 @@ export default function MonthClassesModal({ classes = [], students = {}, monthLa
           ) : (
             groups.map(g => (
               <div key={g.key}>
-                <div className="px-5 py-2 bg-gray-50 sticky top-0">
-                  <p className="text-xs font-medium text-gray-500">
+                {/* Sticky day header — solid surface + z-index so rows can't bleed
+                    through it while scrolling. */}
+                <div className="px-5 py-2.5 sticky top-0 z-10 bg-white border-b border-gray-100">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                     {g.date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
                   </p>
                 </div>
-                <div>
-                  {g.items.map(cls => {
-                    const d = cls.scheduledAt?.toDate?.() ?? new Date()
-                    const b = statusBadge(cls.status)
-                    return (
-                      <div key={cls.id} className="px-5 py-3 flex items-center justify-between border-t border-gray-100 first:border-t-0">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-800 truncate">{students[cls.studentId]?.name || 'Student'}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {cls.duration || 60}m
-                          </p>
-                        </div>
-                        <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${b.cls}`}>{b.label}</span>
+                {g.items.map(cls => {
+                  const d = cls.scheduledAt?.toDate?.() ?? new Date()
+                  const b = statusBadge(cls.status)
+                  return (
+                    <div key={cls.id} className="px-5 py-3 flex items-center justify-between border-b border-gray-100">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{students[cls.studentId]?.name || 'Student'}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {cls.duration || 60}m
+                        </p>
                       </div>
-                    )
-                  })}
-                </div>
+                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${b.cls}`}>{b.label}</span>
+                    </div>
+                  )
+                })}
               </div>
             ))
           )}

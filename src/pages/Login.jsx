@@ -35,6 +35,11 @@ export default function Login() {
   return (
     <div className="min-h-dvh flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-md p-8">
+        <img
+          src="/heroLogin.jpg"
+          alt="Deva's Classes"
+          className="w-full h-40 object-cover rounded-xl mb-6"
+        />
         <h1 className="text-2xl font-semibold text-gray-800 mb-1 text-center">Deva's Classes</h1>
         <p className="text-sm text-gray-400 text-center mb-8">Music Classes Portal</p>
 

@@ -27,3 +27,7 @@ dist-ssr
 SOP.md
 Musings_with_Deva_SOP.pdf
 Musings_with_Deva_SOP.docx
+
+# Local-only generated technical doc (do not push)
+Devas_Classes_Technical_Documentation.pdf
+build_techdoc.py

@@ -3,6 +3,7 @@ import TeacherLayout from '../../components/teacher/TeacherLayout'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
 import ReceiptModal from '../../components/shared/ReceiptModal'
 import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment } from '../../firebase/db'
+import { paymentCoverage } from '../../utils/payment'
 import { useAuth } from '../../context/AuthContext'
 import { RiCheckLine, RiAddLine, RiCloseLine, RiImageLine } from 'react-icons/ri'
 
@@ -160,6 +161,11 @@ export default function TeacherFees() {
                         {payment && (
                           <span className="block text-xs text-gray-400 mt-1 capitalize">
                             ₹{payment.amount} · {payment.method?.replace('_', ' ')}
+                          </span>
+                        )}
+                        {payment?.months?.length > 1 && (
+                          <span className="block text-[11px] text-amber-600 mt-0.5">
+                            covers {paymentCoverage(payment.months)}
                           </span>
                         )}
                       </td>

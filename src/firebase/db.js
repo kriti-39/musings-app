@@ -386,10 +386,21 @@ export async function deleteBlockedSlot(slotId) {
 // ─── PAYMENTS ─────────────────────────────────────────────────────────────────
 
 export async function createPayment(data) {
-  return await addDoc(collection(db, 'payments'), {
+  const ref = await addDoc(collection(db, 'payments'), {
     ...data,
     submittedAt: serverTimestamp(),
   })
+  // When a STUDENT submits a payment, alert the teacher + all admins to review.
+  // (Staff "Mark Paid" entries are already confirmed, so they don't notify.)
+  if (data.submittedBy === 'student') {
+    try {
+      const staffIds = await getStaffIds()
+      await Promise.all(staffIds.map(id =>
+        createNotification(id, 'payment_submitted', 'A student submitted a payment for review.', null)
+      ))
+    } catch (e) { console.error('Payment saved, staff notify failed:', e) }
+  }
+  return ref
 }
 
 export async function getStudentPayments(studentId) {

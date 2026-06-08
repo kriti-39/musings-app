@@ -66,8 +66,8 @@ export default function StudentDashboard() {
   return (
     <StudentLayout>
       <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="text-xl font-semibold text-gray-800">My Classes</h1>
             <p className="text-sm text-gray-400 mt-0.5">
               {completedCount} completed · times in {tzCity(tz)}
@@ -75,9 +75,9 @@ export default function StudentDashboard() {
           </div>
           <button
             onClick={() => navigate('/student/book')}
-            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="shrink-0 inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap shadow-sm transition-colors"
           >
-            <RiAddLine size={18} /> Book a Class
+            <RiAddLine size={18} className="shrink-0" /> Book a Class
           </button>
         </div>
 

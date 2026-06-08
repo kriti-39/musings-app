@@ -43,7 +43,7 @@ export default function TeacherDashboard() {
     <TeacherLayout>
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-xl font-semibold text-gray-800">Good to see you, {user?.name || 'Deva'}</h1>
+          <h1 className="text-xl font-semibold text-gray-800">Good to see you, Guru ji</h1>
           <p className="text-sm text-gray-400 mt-1">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         </div>
 

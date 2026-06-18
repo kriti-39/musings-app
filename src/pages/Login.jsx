@@ -4,9 +4,10 @@ import { auth } from '../firebase/config'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import PasswordInput from '../components/shared/PasswordInput'
+import { idToEmail } from '../utils/auth'
 
 export default function Login() {
-  const [email, setEmail] = useState('')
+  const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -24,9 +25,9 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      await signInWithEmailAndPassword(auth, idToEmail(loginId), password)
     } catch {
-      setError('Invalid email or password.')
+      setError('Invalid User ID or password.')
     } finally {
       setLoading(false)
     }
@@ -45,14 +46,16 @@ export default function Login() {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Email</label>
+            <label className="block text-sm text-gray-600 mb-1">User ID</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              autoCapitalize="none"
+              autoCorrect="off"
+              value={loginId}
+              onChange={(e) => setLoginId(e.target.value)}
               required
               className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-              placeholder="you@example.com"
+              placeholder="your user id"
             />
           </div>
           <div>

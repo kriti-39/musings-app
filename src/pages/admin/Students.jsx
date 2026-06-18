@@ -5,6 +5,7 @@ import AddStudentModal from '../../components/admin/AddStudentModal'
 import { getAllStudentsIncludingInactive, deactivateStudent, reactivateStudent, deleteStudentCompletely } from '../../firebase/db'
 import { RiAddLine, RiSearchLine, RiUserLine, RiUserUnfollowLine, RiUserFollowLine, RiDeleteBinLine } from 'react-icons/ri'
 import ConfirmDialog from '../../components/shared/ConfirmDialog'
+import { displayId } from '../../utils/auth'
 
 const SORT_OPTIONS = [
   { value: 'name', label: 'Name' },
@@ -42,6 +43,7 @@ export default function AdminStudents() {
     .filter(s =>
       s.name?.toLowerCase().includes(search.toLowerCase()) ||
       s.email?.toLowerCase().includes(search.toLowerCase()) ||
+      s.userId?.toLowerCase().includes(search.toLowerCase()) ||
       s.country?.toLowerCase().includes(search.toLowerCase())
     )
     .sort((a, b) => {
@@ -130,7 +132,7 @@ export default function AdminStudents() {
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Name</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Email</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">User ID</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Country</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Fee</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500"></th>
@@ -145,7 +147,7 @@ export default function AdminStudents() {
                     <td className="px-5 py-3.5 font-medium text-gray-800">
                       {student.name}
                     </td>
-                    <td className="px-5 py-3.5 text-gray-500">{student.email}</td>
+                    <td className="px-5 py-3.5 text-gray-500">{displayId(student)}</td>
                     <td className="px-5 py-3.5 text-gray-500">{student.country || '—'}</td>
                     <td className="px-5 py-3.5 text-gray-500">
                       {student.feeAmount ? `₹${student.feeAmount}` : '—'}

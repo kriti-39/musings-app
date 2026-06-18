@@ -5,6 +5,7 @@ import AddAdminModal from '../../components/teacher/AddAdminModal'
 import { getAllStudentsIncludingInactive, getAdmins, deactivateStudent, reactivateStudent, deleteStudentCompletely } from '../../firebase/db'
 import { RiSearchLine, RiUserLine, RiAddLine, RiUserUnfollowLine, RiUserFollowLine, RiDeleteBinLine } from 'react-icons/ri'
 import ConfirmDialog from '../../components/shared/ConfirmDialog'
+import { displayId } from '../../utils/auth'
 
 const SORT_OPTIONS = [
   { value: 'name', label: 'Name' },
@@ -59,6 +60,7 @@ export default function TeacherStudents() {
     .filter(s =>
       s.name?.toLowerCase().includes(search.toLowerCase()) ||
       s.email?.toLowerCase().includes(search.toLowerCase()) ||
+      s.userId?.toLowerCase().includes(search.toLowerCase()) ||
       s.country?.toLowerCase().includes(search.toLowerCase())
     )
     .sort((a, b) => {
@@ -130,7 +132,7 @@ export default function TeacherStudents() {
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
                       <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Name</th>
-                      <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Email</th>
+                      <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">User ID</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Country</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Timezone</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Fee</th>
@@ -145,7 +147,7 @@ export default function TeacherStudents() {
                         <td className="px-5 py-3.5 font-medium text-gray-800">
                           {s.name}
                         </td>
-                        <td className="px-5 py-3.5 text-gray-500">{s.email}</td>
+                        <td className="px-5 py-3.5 text-gray-500">{displayId(s)}</td>
                         <td className="px-5 py-3.5 text-gray-500">{s.country || '—'}</td>
                         <td className="px-5 py-3.5 text-gray-500">{s.timezone || '—'}</td>
                         <td className="px-5 py-3.5 text-gray-500">
@@ -202,7 +204,7 @@ export default function TeacherStudents() {
                   {admins.map((a, i) => (
                     <tr key={a.id} className={i !== admins.length - 1 ? 'border-b border-gray-50' : ''}>
                       <td className="px-5 py-3.5 font-medium text-gray-800">{a.name}</td>
-                      <td className="px-5 py-3.5 text-gray-500">{a.email}</td>
+                      <td className="px-5 py-3.5 text-gray-500">{displayId(a)}</td>
                     </tr>
                   ))}
                 </tbody>

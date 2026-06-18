@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { secondaryAuth } from '../../firebase/config'
 import { createStudent } from '../../firebase/db'
+import { idToEmail, idToStored } from '../../utils/auth'
 import PasswordInput from '../shared/PasswordInput'
 import { RiCloseLine } from 'react-icons/ri'
 
@@ -30,7 +31,7 @@ const FEE_TYPES = [
 export default function AddStudentModal({ onClose, onSuccess }) {
   const [form, setForm] = useState({
     name: '',
-    email: '',
+    userId: '',
     password: '',
     phone: '',
     country: '',
@@ -51,14 +52,16 @@ export default function AddStudentModal({ onClose, onSuccess }) {
     setLoading(true)
 
     try {
-      // Create Firebase Auth account using secondary app (doesn't sign out admin)
-      const cred = await createUserWithEmailAndPassword(secondaryAuth, form.email, form.password)
+      // Create Firebase Auth account using secondary app (doesn't sign out admin).
+      // The User ID is mapped to an internal email Firebase can store.
+      const cred = await createUserWithEmailAndPassword(secondaryAuth, idToEmail(form.userId), form.password)
       await secondaryAuth.signOut()
 
       // Create Firestore document
       await createStudent(cred.user.uid, {
         name: form.name,
-        email: form.email,
+        userId: idToStored(form.userId),
+        email: idToEmail(form.userId),
         phone: form.phone,
         country: form.country,
         timezone: form.timezone,
@@ -70,7 +73,7 @@ export default function AddStudentModal({ onClose, onSuccess }) {
       onClose()
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
-        setError('An account with this email already exists.')
+        setError('That User ID is already taken. Choose another.')
       } else if (err.code === 'auth/weak-password') {
         setError('Password must be at least 6 characters.')
       } else {
@@ -103,11 +106,12 @@ export default function AddStudentModal({ onClose, onSuccess }) {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Email *</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">User ID *</label>
               <input
-                name="email" type="email" value={form.email} onChange={handleChange} required
+                name="userId" type="text" autoCapitalize="none" autoCorrect="off"
+                value={form.userId} onChange={handleChange} required
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                placeholder="rohit@example.com"
+                placeholder="rohit01"
               />
             </div>
           </div>
@@ -120,7 +124,7 @@ export default function AddStudentModal({ onClose, onSuccess }) {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
               placeholder="Share this with the student"
             />
-            <p className="text-xs text-gray-400 mt-1">Student can change this after first login.</p>
+            <p className="text-xs text-gray-400 mt-1">Share the User ID and this password with the student.</p>
           </div>
 
           {/* Phone + Country */}

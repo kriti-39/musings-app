@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { secondaryAuth } from '../../firebase/config'
 import { createAdmin } from '../../firebase/db'
+import { idToEmail, idToStored } from '../../utils/auth'
 import PasswordInput from '../shared/PasswordInput'
 import { RiCloseLine } from 'react-icons/ri'
 
 export default function AddAdminModal({ onClose, onSuccess }) {
-  const [form, setForm] = useState({ name: '', email: '', password: '' })
+  const [form, setForm] = useState({ name: '', userId: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -17,12 +18,12 @@ export default function AddAdminModal({ onClose, onSuccess }) {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (!form.name || !form.email || !form.password) return
+    if (!form.name || !form.userId || !form.password) return
     if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return }
     setLoading(true)
     try {
-      const cred = await createUserWithEmailAndPassword(secondaryAuth, form.email, form.password)
-      await createAdmin(cred.user.uid, { name: form.name, email: form.email })
+      const cred = await createUserWithEmailAndPassword(secondaryAuth, idToEmail(form.userId), form.password)
+      await createAdmin(cred.user.uid, { name: form.name, userId: idToStored(form.userId), email: idToEmail(form.userId) })
       await secondaryAuth.signOut()
       onSuccess?.()
       onClose()
@@ -49,9 +50,10 @@ export default function AddAdminModal({ onClose, onSuccess }) {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
-            <input name="email" type="email" value={form.email} onChange={handleChange} required
-              placeholder="admin@example.com"
+            <label className="block text-xs font-medium text-gray-600 mb-1">User ID</label>
+            <input name="userId" type="text" autoCapitalize="none" autoCorrect="off"
+              value={form.userId} onChange={handleChange} required
+              placeholder="admin01"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
           </div>
           <div>

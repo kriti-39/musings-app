@@ -10,6 +10,7 @@ import {
 import {
   RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine, RiImageLine, RiAddLine,
 } from 'react-icons/ri'
+import { displayId } from '../../utils/auth'
 import ReceiptModal from '../../components/shared/ReceiptModal'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
 
@@ -106,7 +107,7 @@ export default function StudentDetail() {
         {/* Profile */}
         <div className="bg-white rounded-xl border border-gray-100 p-6 mb-5">
           <h1 className="text-xl font-semibold text-gray-800">{student?.name}</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{student?.email}</p>
+          <p className="text-sm text-gray-400 mt-0.5">{displayId(student)}</p>
           <div className="flex gap-x-6 gap-y-3 mt-4 flex-wrap">
             {[
               { label: 'Country', value: student?.country || '—' },

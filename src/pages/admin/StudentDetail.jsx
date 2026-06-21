@@ -8,11 +8,12 @@ import {
   cancelRecurringSchedule, confirmPayment, rejectPayment,
 } from '../../firebase/db'
 import {
-  RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine, RiImageLine, RiAddLine,
+  RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine, RiImageLine, RiAddLine, RiEdit2Line,
 } from 'react-icons/ri'
 import { displayId } from '../../utils/auth'
 import ReceiptModal from '../../components/shared/ReceiptModal'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
+import EditStudentModal from '../../components/shared/EditStudentModal'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -47,6 +48,7 @@ export default function StudentDetail() {
   const [section, setSection] = useState('upcoming') // upcoming | done | payments
   const [receiptId, setReceiptId] = useState(null)
   const [showRecord, setShowRecord] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const thisMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
@@ -106,8 +108,16 @@ export default function StudentDetail() {
 
         {/* Profile */}
         <div className="bg-white rounded-xl border border-gray-100 p-6 mb-5">
-          <h1 className="text-xl font-semibold text-gray-800">{student?.name}</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{displayId(student)}</p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold text-gray-800">{student?.name}</h1>
+              <p className="text-sm text-gray-400 mt-0.5">{displayId(student)}</p>
+            </div>
+            <button onClick={() => setShowEdit(true)}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors">
+              <RiEdit2Line size={14} /> Edit
+            </button>
+          </div>
           <div className="flex gap-x-6 gap-y-3 mt-4 flex-wrap">
             {[
               { label: 'Country', value: student?.country || '—' },
@@ -252,6 +262,13 @@ export default function StudentDetail() {
           selectedMonth={thisMonth}
           staffId={user.id}
           onClose={() => setShowRecord(false)}
+          onSuccess={fetchAll}
+        />
+      )}
+      {showEdit && student && (
+        <EditStudentModal
+          student={student}
+          onClose={() => setShowEdit(false)}
           onSuccess={fetchAll}
         />
       )}

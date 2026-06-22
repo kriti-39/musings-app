@@ -4,6 +4,7 @@ import { auth } from '../firebase/config'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import PasswordInput from '../components/shared/PasswordInput'
+import InstallButton from '../components/shared/InstallButton'
 import { idToEmail } from '../utils/auth'
 
 export default function Login() {
@@ -79,6 +80,11 @@ export default function Login() {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+
+        {/* One-tap install — shows only when installable and not already installed */}
+        <div className="mt-5">
+          <InstallButton />
+        </div>
       </div>
     </div>
   )

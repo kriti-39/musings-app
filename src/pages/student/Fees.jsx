@@ -47,7 +47,7 @@ export default function StudentFees() {
         {loading ? (
           <p className="text-sm text-gray-400 text-center py-10">Loading...</p>
         ) : payments.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-10">No payment records yet.</p>
+          <p className="text-sm text-gray-400 text-center py-10">Your submitted payments will appear here.</p>
         ) : (
           <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
             <table className="w-full text-sm">

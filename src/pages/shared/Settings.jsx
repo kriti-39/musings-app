@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { updateUser } from '../../firebase/db'
+import { displayId } from '../../utils/auth'
 import AdminLayout from '../../components/admin/AdminLayout'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import StudentLayout from '../../components/student/StudentLayout'
@@ -47,7 +48,7 @@ export default function Settings() {
           </div>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-gray-400">Name</span><span className="text-gray-700 font-medium">{user?.name || '—'}</span></div>
-            <div className="flex justify-between"><span className="text-gray-400">Email</span><span className="text-gray-700 font-medium">{user?.email}</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">{role === 'student' ? 'User ID' : 'Email'}</span><span className="text-gray-700 font-medium">{displayId(user)}</span></div>
             <div className="flex justify-between"><span className="text-gray-400">Role</span><span className="text-gray-700 font-medium capitalize">{role}</span></div>
           </div>
           {role === 'student' && (

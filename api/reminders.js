@@ -35,10 +35,14 @@ export default async function handler(req, res) {
     const db = admin.firestore()
     const now = new Date()
     const horizon = new Date(now.getTime() + LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000)
+    // Look slightly into the past too: a short lead time (e.g. "2 min before")
+    // can fall entirely between two cron runs — the next run still sends a
+    // "your class started" note instead of silently skipping it.
+    const grace = new Date(now.getTime() - 10 * 60 * 1000)
 
     // Range-only query (no composite index needed); status filtered in code.
     const snap = await db.collection('classes')
-      .where('scheduledAt', '>', now)
+      .where('scheduledAt', '>', grace)
       .where('scheduledAt', '<=', horizon)
       .get()
 
@@ -74,8 +78,10 @@ export default async function handler(req, res) {
         await docSnap.ref.update({ [`remindersSent.${uid}`]: true })
         if (!tokens.length) continue
 
-        const remaining = Math.max(1, Math.round((start.getTime() - now.getTime()) / 60000))
-        const body = `Your class starts at ${fmtTimeIn(start, user.timezone)} — in about ${leadLabel(remaining)}.`
+        const remaining = Math.round((start.getTime() - now.getTime()) / 60000)
+        const body = remaining >= 1
+          ? `Your class starts at ${fmtTimeIn(start, user.timezone)} — in about ${leadLabel(remaining)}.`
+          : `Your class started at ${fmtTimeIn(start, user.timezone)}.`
         const link = user.role === 'teacher' ? '/teacher/schedule' : '/student/dashboard'
         const result = await sendToTokens(admin, tokens, { title: 'Upcoming class', body, link })
         sent += result.sent

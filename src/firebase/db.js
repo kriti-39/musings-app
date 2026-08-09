@@ -202,6 +202,39 @@ export async function markClassDone(classId, markedBy) {
   })
 }
 
+// ─── AUTO-COMPLETE ────────────────────────────────────────────────────────────
+// A class whose scheduled end time (start + duration) has passed is considered
+// done. There's no server to do this on a schedule (free plan), so every app
+// load "sweeps" the classes it just fetched: past scheduled classes are flipped
+// to completed directly in Firestore — one person's sweep fixes it for everyone.
+// Returns the array with the flips already applied so the UI renders the
+// corrected statuses immediately, without waiting for the writes.
+export function sweepPastClasses(classes) {
+  const now = Date.now()
+  const past = classes.filter(c => {
+    if ((c.status || 'scheduled') !== 'scheduled') return false
+    const start = c.scheduledAt?.toDate?.()
+    if (!start) return false
+    const dur = Math.min(Math.max(Number(c.duration) || 60, 15), 180)
+    return start.getTime() + dur * 60000 <= now
+  })
+  if (past.length === 0) return classes
+
+  // Fire-and-forget: rendering must never wait on (or fail because of) these.
+  past.forEach(c => {
+    updateDoc(doc(db, 'classes', c.id), {
+      status: 'completed',
+      markedDoneBy: 'auto',
+      updatedAt: serverTimestamp(),
+    }).catch(e => console.error('Auto-complete failed for class', c.id, e))
+  })
+
+  const flipped = new Set(past.map(c => c.id))
+  return classes.map(c =>
+    flipped.has(c.id) ? { ...c, status: 'completed', markedDoneBy: 'auto' } : c
+  )
+}
+
 export async function cancelClass(classId, notifyStudentId = null) {
   await updateDoc(doc(db, 'classes', classId), {
     status: 'cancelled',

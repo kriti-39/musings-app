@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import MonthClassesModal from '../../components/shared/MonthClassesModal'
 import { useAuth } from '../../context/AuthContext'
-import { getDashboardStats, getTeacherClassesForDay, getTeacherClassesForMonth, getAllStudentsIncludingInactive, getPendingRequests, confirmClass, rejectClass } from '../../firebase/db'
+import { getDashboardStats, getTeacherClassesForDay, getTeacherClassesForMonth, getAllStudentsIncludingInactive, getPendingRequests, confirmClass, rejectClass, sweepPastClasses } from '../../firebase/db'
 import { RiCheckLine, RiCloseLine, RiCalendarLine } from 'react-icons/ri'
 
 const MONTH_LABEL = new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
@@ -29,8 +29,12 @@ export default function TeacherDashboard() {
       getAllStudentsIncludingInactive(),
     ])
     setStats(s)
-    setTodayClasses(t)
-    setMonthClasses(m)
+    // Sweep once on the month list (today's classes are inside the same month),
+    // then mirror the corrected statuses onto today's list without re-writing.
+    const sweptMonth = sweepPastClasses(m)
+    const byId = new Map(sweptMonth.map(c => [c.id, c]))
+    setTodayClasses(t.map(c => byId.get(c.id) || c))
+    setMonthClasses(sweptMonth)
     setPending(p)
     const map = {}
     allStudents.forEach(st => { map[st.id] = st })

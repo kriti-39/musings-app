@@ -5,7 +5,8 @@ import MonthClassesModal from '../../components/shared/MonthClassesModal'
 import { useAuth } from '../../context/AuthContext'
 import {
   getAdminDashboardStats, getAllClassesForMonth,
-  getAllStudentsIncludingInactive, getAllPendingRequests, confirmClass, rejectClass
+  getAllStudentsIncludingInactive, getAllPendingRequests, confirmClass, rejectClass,
+  sweepPastClasses
 } from '../../firebase/db'
 import { RiCheckLine, RiCloseLine, RiCalendarLine } from 'react-icons/ri'
 
@@ -34,8 +35,9 @@ export default function AdminDashboard() {
         getAllStudentsIncludingInactive(),
       ])
       setStats(s)
-      setMonthClasses(allClasses)
-      const t = allClasses.filter(c => {
+      const swept = sweepPastClasses(allClasses)
+      setMonthClasses(swept)
+      const t = swept.filter(c => {
         const d = c.scheduledAt?.toDate?.() ?? new Date()
         return d >= todayStart && d <= todayEnd && (c.status === 'scheduled' || !c.status)
       })

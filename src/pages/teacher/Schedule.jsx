@@ -6,7 +6,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import ScheduleClassModal from '../../components/admin/ScheduleClassModal'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
-import { getTeacherClassesForMonth, getAllStudents, getPendingRequests } from '../../firebase/db'
+import { getTeacherClassesForMonth, getAllStudents, getPendingRequests, sweepPastClasses } from '../../firebase/db'
 import { useAuth } from '../../context/AuthContext'
 import ManageAvailabilityModal from '../../components/shared/ManageAvailabilityModal'
 import { RiAddLine, RiArrowLeftSLine, RiArrowRightSLine, RiCalendarCheckLine } from 'react-icons/ri'
@@ -91,7 +91,7 @@ export default function TeacherSchedule() {
     const map = {}
     allStudents.forEach(s => { map[s.id] = s })
     setStudents(map)
-    setClasses(allClasses)
+    setClasses(sweepPastClasses(allClasses))
     setPendingCount(pending.length)
   }
 

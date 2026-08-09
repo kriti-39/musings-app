@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getTeacherAllClasses, getAllClassesDesc, getAllStudentsIncludingInactive } from '../../firebase/db'
+import { getTeacherAllClasses, getAllClassesDesc, getAllStudentsIncludingInactive, sweepPastClasses } from '../../firebase/db'
 import { RiCalendarLine } from 'react-icons/ri'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
 
@@ -34,7 +34,7 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
       const map = {}
       allStudents.forEach(s => { map[s.id] = s })
       setStudents(map)
-      setClasses(allClasses)
+      setClasses(sweepPastClasses(allClasses))
     } catch (e) {
       console.error('ClassList fetch failed:', e)
     } finally {

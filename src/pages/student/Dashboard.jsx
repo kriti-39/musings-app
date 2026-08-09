@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getStudentAllClasses, markClassDone, cancelClassByStudent, requestReschedule, getTeacher } from '../../firebase/db'
+import { getStudentAllClasses, markClassDone, cancelClassByStudent, requestReschedule, getTeacher, sweepPastClasses } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 import { RiCalendarLine, RiAddLine } from 'react-icons/ri'
 import { LOCAL_TZ, tzCity, fmtTime, fmtLongDate } from '../../utils/timezone'
@@ -32,7 +32,7 @@ export default function StudentDashboard() {
 
   async function fetchClasses() {
     try {
-      setAll(await getStudentAllClasses(user.id))
+      setAll(sweepPastClasses(await getStudentAllClasses(user.id)))
     } catch (e) {
       console.error('Failed to fetch classes:', e)
     } finally {

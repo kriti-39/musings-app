@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { RiCloseLine, RiAddLine, RiDeleteBinLine } from 'react-icons/ri'
-import { getBlockedSlotsForMonth, addBlockedSlot, deleteBlockedSlot, getTeacherId } from '../../firebase/db'
+import { getBlockedSlotsForMonth, addBlockedRange, deleteBlockedSlot, deleteBlockedGroup, getTeacherId } from '../../firebase/db'
 
 export default function ManageAvailabilityModal({ onClose }) {
   const [teacherId, setTeacherId] = useState(null)
   const [slots, setSlots] = useState([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ date: '', startTime: '', endTime: '', reason: '' })
+  const [form, setForm] = useState({
+    startDate: '', endDate: '', fullDay: false, startTime: '', endTime: '', reason: '',
+  })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -32,39 +34,77 @@ export default function ManageAvailabilityModal({ onClose }) {
 
   async function handleAdd(e) {
     e.preventDefault()
-    if (!form.date || !form.startTime || !form.endTime) {
-      setError('Please fill in date, start time and end time.')
+    if (!form.startDate) { setError('Please pick a date.'); return }
+    if (form.endDate && form.endDate < form.startDate) {
+      setError('"To" date must be on or after the "From" date.')
       return
     }
-    const start = new Date(`${form.date}T${form.startTime}`)
-    const end = new Date(`${form.date}T${form.endTime}`)
-    if (end <= start) { setError('End time must be after start time.'); return }
+    if (!form.fullDay) {
+      if (!form.startTime || !form.endTime) {
+        setError('Set start and end times, or tick "Block full day(s)".')
+        return
+      }
+      if (form.endTime <= form.startTime) {
+        setError('End time must be after start time.')
+        return
+      }
+    }
     setError('')
     setSaving(true)
     try {
-      await addBlockedSlot(teacherId, start.toISOString(), end.toISOString(), form.reason)
-      setForm({ date: '', startTime: '', endTime: '', reason: '' })
+      await addBlockedRange(teacherId, {
+        startDate: form.startDate,
+        endDate: form.endDate || null,
+        fullDay: form.fullDay,
+        startTime: form.startTime,
+        endTime: form.endTime,
+        reason: form.reason,
+      })
+      setForm({ startDate: '', endDate: '', fullDay: false, startTime: '', endTime: '', reason: '' })
       await fetchSlots()
     } catch (e) {
       console.error(e)
-      setError('Failed to add slot.')
+      setError('Failed to block this period.')
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleDelete(slotId) {
-    await deleteBlockedSlot(slotId)
-    setSlots(s => s.filter(x => x.id !== slotId))
+  // Old single slots have no groupId; grouped ranges share one. Either way the
+  // list shows ONE row per block and deletes the whole thing at once.
+  const groups = []
+  const seen = new Map()
+  for (const slot of slots) {
+    const key = slot.groupId || slot.id
+    if (seen.has(key)) {
+      const g = seen.get(key)
+      g.days.push(slot)
+    } else {
+      const g = { key, groupId: slot.groupId || null, days: [slot] }
+      seen.set(key, g)
+      groups.push(g)
+    }
   }
 
-  function formatSlot(slot) {
-    const start = slot.startAt?.toDate?.() ?? new Date()
-    const end = slot.endAt?.toDate?.() ?? new Date()
-    return {
-      date: start.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }),
-      time: `${start.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} – ${end.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`,
-    }
+  async function handleDelete(group) {
+    if (group.groupId) await deleteBlockedGroup(group.groupId)
+    else await deleteBlockedSlot(group.days[0].id)
+    setSlots(s => s.filter(x => (x.groupId || x.id) !== group.key))
+  }
+
+  function formatGroup(group) {
+    const first = group.days[0]
+    const last = group.days[group.days.length - 1]
+    const start = first.startAt?.toDate?.() ?? new Date()
+    const end = last.endAt?.toDate?.() ?? new Date()
+    const fmtDay = (d) => d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+    const date = group.days.length > 1 ? `${fmtDay(start)} – ${fmtDay(end)}` : fmtDay(start)
+    const fullDay = first.fullDay
+      || (start.getHours() === 0 && start.getMinutes() === 0 && end.getHours() === 23 && end.getMinutes() === 59)
+    const time = fullDay
+      ? 'Full day'
+      : `${start.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} – ${(first.endAt?.toDate?.() ?? end).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+    return { date, time }
   }
 
   return (
@@ -76,33 +116,52 @@ export default function ManageAvailabilityModal({ onClose }) {
         </div>
 
         <div className="px-6 py-5 space-y-5">
-          {/* Add new blocked slot */}
+          {/* Add new blocked period */}
           <form onSubmit={handleAdd} className="space-y-3">
-            <p className="text-xs font-medium text-gray-600">Block a time slot</p>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Date</label>
-              <input type="date" value={form.date}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-              />
-            </div>
+            <p className="text-xs font-medium text-gray-600">Block time off</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Start time</label>
-                <input type="time" value={form.startTime}
-                  onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
+                <label className="block text-xs text-gray-500 mb-1">From</label>
+                <input type="date" value={form.startDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">End time</label>
-                <input type="time" value={form.endTime}
-                  onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
+                <label className="block text-xs text-gray-500 mb-1">To (optional)</label>
+                <input type="date" value={form.endDate}
+                  min={form.startDate || new Date().toISOString().split('T')[0]}
+                  onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
                 />
               </div>
             </div>
+            <label className="flex items-center gap-2 cursor-pointer py-1">
+              <input type="checkbox" checked={form.fullDay}
+                onChange={e => setForm(f => ({ ...f, fullDay: e.target.checked }))}
+                className="w-4 h-4 accent-amber-500"
+              />
+              <span className="text-sm text-gray-700">Block full day(s)</span>
+            </label>
+            {!form.fullDay && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Start time</label>
+                  <input type="time" value={form.startTime}
+                    onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">End time</label>
+                  <input type="time" value={form.endTime}
+                    onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+              </div>
+            )}
             <div>
               <label className="block text-xs text-gray-500 mb-1">Reason (optional, internal)</label>
               <input value={form.reason}
@@ -115,28 +174,28 @@ export default function ManageAvailabilityModal({ onClose }) {
             <button type="submit" disabled={saving}
               className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors">
               <RiAddLine size={16} />
-              {saving ? 'Blocking...' : 'Block this slot'}
+              {saving ? 'Blocking...' : 'Block this time'}
             </button>
           </form>
 
-          {/* Existing blocked slots */}
+          {/* Existing blocked periods */}
           <div>
-            <p className="text-xs font-medium text-gray-600 mb-3">Upcoming blocked slots</p>
+            <p className="text-xs font-medium text-gray-600 mb-3">Upcoming blocked time</p>
             {loading ? (
               <p className="text-xs text-gray-400">Loading...</p>
-            ) : slots.length === 0 ? (
-              <p className="text-xs text-gray-400">No blocked slots.</p>
+            ) : groups.length === 0 ? (
+              <p className="text-xs text-gray-400">Nothing blocked.</p>
             ) : (
               <div className="space-y-2">
-                {slots.map(slot => {
-                  const { date, time } = formatSlot(slot)
+                {groups.map(group => {
+                  const { date, time } = formatGroup(group)
                   return (
-                    <div key={slot.id} className="flex items-center justify-between bg-red-50 rounded-xl px-4 py-3">
+                    <div key={group.key} className="flex items-center justify-between bg-red-50 rounded-xl px-4 py-3">
                       <div>
                         <p className="text-sm font-medium text-gray-800">{date}</p>
-                        <p className="text-xs text-gray-500">{time}{slot.reason ? ` · ${slot.reason}` : ''}</p>
+                        <p className="text-xs text-gray-500">{time}{group.days[0].reason ? ` · ${group.days[0].reason}` : ''}</p>
                       </div>
-                      <button onClick={() => handleDelete(slot.id)}
+                      <button onClick={() => handleDelete(group)}
                         className="text-red-400 hover:text-red-600 transition-colors">
                         <RiDeleteBinLine size={16} />
                       </button>

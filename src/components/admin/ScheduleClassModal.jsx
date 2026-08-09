@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { RiCloseLine, RiErrorWarningLine } from 'react-icons/ri'
-import { getAllStudents, createClass, createRecurringSchedule, getTeacherId, createNotification, findOverlappingClasses } from '../../firebase/db'
+import { getAllStudents, createClass, createRecurringSchedule, getTeacherId, createNotification, findOverlappingClasses, findBlockedOverlaps } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 
 const DURATIONS = [30, 45, 60, 90, 120]
@@ -25,19 +25,24 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
   const [error, setError] = useState('')
   const [teacherId, setTeacherId] = useState(null)
   const [overlap, setOverlap] = useState(false)
+  const [blockedHit, setBlockedHit] = useState(null) // blocked slot the time falls into
 
   useEffect(() => {
     getAllStudents().then(setStudents)
     getTeacherId().then(setTeacherId)
   }, [])
 
-  // Warn (non-blocking) if the chosen slot already has a class
+  // Warn (non-blocking) if the chosen slot already has a class or falls into
+  // a blocked (unavailable) period
   useEffect(() => {
-    if (!teacherId || !form.date || !form.time) { setOverlap(false); return }
+    if (!teacherId || !form.date || !form.time) { setOverlap(false); setBlockedHit(null); return }
     let active = true
     const start = new Date(`${form.date}T${form.time}`)
     findOverlappingClasses(teacherId, start, Number(form.duration))
       .then(hits => { if (active) setOverlap(hits.length > 0) })
+      .catch(() => {})
+    findBlockedOverlaps(teacherId, start, Number(form.duration))
+      .then(hits => { if (active) setBlockedHit(hits[0] || null) })
       .catch(() => {})
     return () => { active = false }
   }, [teacherId, form.date, form.time, form.duration])
@@ -243,6 +248,16 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
             <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
               <RiErrorWarningLine size={15} className="shrink-0 mt-0.5" />
               <span>This time already has a class. You can still schedule it (e.g. a group lesson).</span>
+            </div>
+          )}
+
+          {blockedHit && (
+            <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2">
+              <RiErrorWarningLine size={15} className="shrink-0 mt-0.5" />
+              <span>
+                This time is blocked{blockedHit.reason ? ` (${blockedHit.reason})` : ''} — students can't book it.
+                You can still schedule here if it's a known exception.
+              </span>
             </div>
           )}
 

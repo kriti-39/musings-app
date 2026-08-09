@@ -402,6 +402,61 @@ export async function addBlockedSlot(teacherId, startAt, endAt, reason = '') {
   })
 }
 
+// Block a period in one go: a single day or a from–to date range, either
+// full-day or with the same start/end times on each day. Stored as ONE DOC PER
+// DAY sharing a groupId — month queries and per-day calendar rendering keep
+// working unchanged, and the whole range can be deleted in one action.
+export async function addBlockedRange(teacherId, { startDate, endDate, fullDay, startTime, endTime, reason = '' }) {
+  const groupId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const [sh, sm] = fullDay ? [0, 0] : startTime.split(':').map(Number)
+  const [eh, em] = fullDay ? [23, 59] : endTime.split(':').map(Number)
+
+  const [y0, m0, d0] = startDate.split('-').map(Number)
+  const [y1, m1, d1] = (endDate || startDate).split('-').map(Number)
+  const first = new Date(y0, m0 - 1, d0)
+  const last = new Date(y1, m1 - 1, d1)
+
+  const writes = []
+  for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), sh, sm, 0)
+    const end = fullDay
+      ? new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)
+      : new Date(d.getFullYear(), d.getMonth(), d.getDate(), eh, em, 0)
+    writes.push(addDoc(collection(db, 'availability'), {
+      teacherId,
+      startAt: Timestamp.fromDate(start),
+      endAt: Timestamp.fromDate(end),
+      reason,
+      groupId,
+      fullDay: !!fullDay,
+      createdAt: serverTimestamp(),
+    }))
+  }
+  await Promise.all(writes)
+  return groupId
+}
+
+// Delete every day of a grouped block in one go.
+export async function deleteBlockedGroup(groupId) {
+  const snap = await getDocs(query(collection(db, 'availability'), where('groupId', '==', groupId)))
+  await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'availability', d.id))))
+}
+
+// Blocked slots that overlap a given time window (for warning staff before
+// they schedule a class into a blocked period).
+export async function findBlockedOverlaps(teacherId, startDate, durationMin) {
+  const start = new Date(startDate)
+  const end = new Date(start.getTime() + durationMin * 60000)
+  const snap = await getDocs(query(collection(db, 'availability'), where('teacherId', '==', teacherId)))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(s => {
+      const bStart = s.startAt?.toDate?.()
+      const bEnd = s.endAt?.toDate?.()
+      return bStart && bEnd && start < bEnd && end > bStart
+    })
+}
+
 export async function getBlockedSlotsForMonth(teacherId, year, month) {
   const start = new Date(year, month, 1)
   const end = new Date(year, month + 1, 0, 23, 59, 59)

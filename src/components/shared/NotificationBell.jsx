@@ -9,6 +9,7 @@ function destinationFor(type, role) {
   const base = role === 'admin' ? '/admin' : role === 'teacher' ? '/teacher' : '/student'
   if (role === 'student') {
     if (type === 'payment_confirmed' || type === 'payment_rejected') return '/student/fees'
+    if (type === 'recording_posted') return '/student/recordings'
     return '/student/dashboard' // class confirmed/rejected/cancelled/rescheduled
   }
   // staff: overlaps & reschedule requests need action → dashboard (confirm section)

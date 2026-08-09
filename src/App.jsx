@@ -21,6 +21,7 @@ import TeacherFees from './pages/teacher/Fees'
 import StudentDashboard from './pages/student/Dashboard'
 import BookClass from './pages/student/BookClass'
 import StudentFees from './pages/student/Fees'
+import StudentRecordings from './pages/student/Recordings'
 
 import Settings from './pages/shared/Settings'
 
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/student/dashboard" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard /></ProtectedRoute>} />
           <Route path="/student/book" element={<ProtectedRoute allowedRoles={['student']}><BookClass /></ProtectedRoute>} />
           <Route path="/student/fees" element={<ProtectedRoute allowedRoles={['student']}><StudentFees /></ProtectedRoute>} />
+          <Route path="/student/recordings" element={<ProtectedRoute allowedRoles={['student']}><StudentRecordings /></ProtectedRoute>} />
 
           {/* Settings — all roles */}
           <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><Settings /></ProtectedRoute>} />

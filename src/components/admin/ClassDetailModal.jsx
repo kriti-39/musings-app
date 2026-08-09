@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { RiCloseLine, RiCalendarLine, RiTimeLine, RiUserLine, RiGlobalLine } from 'react-icons/ri'
+import { RiCloseLine, RiCalendarLine, RiTimeLine, RiUserLine, RiGlobalLine, RiVideoLine, RiExternalLinkLine } from 'react-icons/ri'
 import {
   cancelClass, rescheduleClass, markClassDone,
-  confirmClass, rejectClass, updateClass, deleteClass
+  confirmClass, rejectClass, updateClass, deleteClass, saveRecording
 } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext'
@@ -19,10 +19,12 @@ const STATUS_STYLES = {
 
 export default function ClassDetailModal({ cls, studentName, studentTimezone, onClose, onUpdate }) {
   const { user } = useAuth()
-  const [view, setView] = useState('detail') // detail | reschedule | notes
+  const [view, setView] = useState('detail') // detail | reschedule | notes | recording
   const [newDate, setNewDate] = useState('')
   const [newTime, setNewTime] = useState('')
   const [notes, setNotes] = useState(cls.lessonNotes || '')
+  const [recUrl, setRecUrl] = useState(cls.recordingUrl || '')
+  const [recTitle, setRecTitle] = useState(cls.recordingTitle || '')
   const [loading, setLoading] = useState(false)
   const [confirm, setConfirm] = useState(null) // { title, message, confirmLabel, variant, action }
 
@@ -55,6 +57,13 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
 
   async function handleSaveNotes() {
     await handle(() => updateClass(cls.id, { lessonNotes: notes }))
+  }
+
+  async function handleSaveRecording() {
+    if (!recUrl.trim()) return
+    // Notify the student only the first time a recording is added
+    const notify = cls.recordingUrl ? null : cls.studentId
+    await handle(() => saveRecording(cls.id, { url: recUrl, title: recTitle }, notify))
   }
 
   return (
@@ -137,6 +146,43 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
             </div>
           ) : null}
 
+          {/* Recording — completed classes only */}
+          {view === 'recording' ? (
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-gray-600">Recording link *</label>
+              <input
+                type="url" value={recUrl} onChange={e => setRecUrl(e.target.value)}
+                placeholder="https://... (YouTube / Drive / Zoom)"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <label className="block text-xs font-medium text-gray-600 pt-1">Title (optional)</label>
+              <input
+                value={recTitle} onChange={e => setRecTitle(e.target.value)}
+                placeholder="e.g. Raag Yaman — meend practice"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <p className="text-xs text-gray-400">Tips or notes for the student go in Lesson Notes.</p>
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setView('detail')} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
+                <button onClick={handleSaveRecording} disabled={loading || !recUrl.trim()}
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50">
+                  {loading ? 'Saving...' : 'Save Recording'}
+                </button>
+              </div>
+            </div>
+          ) : cls.recordingUrl ? (
+            <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-gray-500 mb-1">Recording</p>
+                <p className="text-sm text-gray-700 truncate">{cls.recordingTitle || 'Class recording'}</p>
+              </div>
+              <a href={cls.recordingUrl} target="_blank" rel="noopener noreferrer"
+                className="shrink-0 flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700">
+                Open <RiExternalLinkLine size={13} />
+              </a>
+            </div>
+          ) : null}
+
           {/* Reschedule form */}
           {view === 'reschedule' && (
             <div className="space-y-3">
@@ -183,6 +229,14 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
               >
                 {cls.lessonNotes ? 'Edit Notes' : 'Add Notes'}
               </button>
+              {cls.status === 'completed' && (
+                <button onClick={() => setView('recording')}
+                  className="flex items-center justify-center gap-1.5 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50 transition-colors"
+                >
+                  <RiVideoLine size={15} />
+                  {cls.recordingUrl ? 'Edit Recording' : 'Add Recording Link'}
+                </button>
+              )}
               {cls.status === 'scheduled' && (
                 <button onClick={() => setView('reschedule')}
                   className="border border-amber-200 text-amber-600 rounded-lg py-2.5 text-sm hover:bg-amber-50 transition-colors"

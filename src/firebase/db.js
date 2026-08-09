@@ -356,6 +356,31 @@ export async function cancelClassByStudent(classId) {
   } catch (e) { console.error('Cancelled, staff notify failed:', e) }
 }
 
+// ─── RECORDINGS ───────────────────────────────────────────────────────────────
+// A recording is just a link (+ optional custom title) saved on the class doc.
+// Notes live in the existing lessonNotes field. The student is notified only
+// when a recording is first added, not on later edits.
+export async function saveRecording(classId, { url, title }, notifyStudentId = null) {
+  await updateDoc(doc(db, 'classes', classId), {
+    recordingUrl: (url || '').trim(),
+    recordingTitle: (title || '').trim(),
+    updatedAt: serverTimestamp(),
+  })
+  if (notifyStudentId) {
+    try {
+      await createNotification(notifyStudentId, 'recording_posted', 'A recording was posted for your class.', classId)
+    } catch (e) { console.error('Recording saved, student notify failed:', e) }
+  }
+}
+
+// Rename a recording (students use this on their own classes).
+export async function renameRecording(classId, title) {
+  await updateDoc(doc(db, 'classes', classId), {
+    recordingTitle: (title || '').trim(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
 // ─── RECURRING SCHEDULES ──────────────────────────────────────────────────────
 
 export async function createRecurringSchedule(data) {

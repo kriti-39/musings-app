@@ -3,6 +3,7 @@ import {
   query, where, orderBy, limit, Timestamp, serverTimestamp
 } from 'firebase/firestore'
 import { db } from './config'
+import { sendPushForNotification } from '../utils/push'
 
 // ─── USERS ────────────────────────────────────────────────────────────────────
 
@@ -633,6 +634,9 @@ export async function createNotification(userId, type, message, relatedClassId =
     isRead: false,
     createdAt: serverTimestamp(),
   })
+  // Every in-app notification is also offered as a phone push (fire-and-forget;
+  // the API skips admins and users with no registered devices).
+  sendPushForNotification(userId, type, message, relatedClassId)
 }
 
 export async function getUserNotifications(userId) {

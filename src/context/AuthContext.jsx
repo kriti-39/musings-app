@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase/config'
+import { syncPushToken } from '../firebase/messaging'
 
 const AuthContext = createContext(null)
 
@@ -21,6 +22,7 @@ export function AuthProvider({ children }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         await loadUserDoc(firebaseUser)
+        syncPushToken(firebaseUser.uid) // refresh this device's push token (no-op if push not enabled)
       } else {
         setUser(null)
         setRole(null)

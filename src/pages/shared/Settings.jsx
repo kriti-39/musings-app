@@ -105,8 +105,11 @@ function NotificationSettings({ user }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
-  // Reminder preference (shared across devices, stored on the profile)
+  // Reminder preference (shared across devices, stored on the profile).
+  // `sel` is the locally-tracked selection so taps highlight instantly —
+  // the profile object in context only refreshes on the next app focus.
   const saved = user?.notifReminderMinutes ?? null
+  const [sel, setSel] = useState(saved)
   const isPreset = REMINDER_PRESETS.some(p => p.value === saved)
   const [custom, setCustom] = useState(!isPreset && saved != null)
   const [customVal, setCustomVal] = useState(() =>
@@ -151,10 +154,12 @@ function NotificationSettings({ user }) {
 
   async function saveReminder(minutes) {
     setRemMsg('')
+    setSel(minutes) // highlight instantly, don't wait for the write
     try {
       await updateUser(user.id, { notifReminderMinutes: minutes })
       setRemMsg(minutes == null ? 'Class reminders turned off.' : 'Reminder saved.')
     } catch {
+      setSel(saved) // revert highlight if the write failed
       setRemMsg('Failed to save. Please try again.')
     }
   }
@@ -167,9 +172,9 @@ function NotificationSettings({ user }) {
     saveReminder(minutes)
   }
 
-  const savedLabel = saved == null
+  const savedLabel = sel == null
     ? null
-    : saved % 60 === 0 ? `${saved / 60} hr${saved / 60 > 1 ? 's' : ''}` : `${saved} min`
+    : sel % 60 === 0 ? `${sel / 60} hr${sel / 60 > 1 ? 's' : ''}` : `${sel} min`
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-6">
@@ -187,22 +192,18 @@ function NotificationSettings({ user }) {
         </p>
       ) : (
         <>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm text-gray-700">Push notifications on this device</p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Class updates{user?.role !== 'admin' ? ' and reminders' : ''}, even when the app is closed.
-              </p>
-            </div>
-            <button onClick={handleToggle} disabled={busy}
-              className={`shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
-                enabled
-                  ? 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-                  : 'bg-amber-500 hover:bg-amber-600 text-white'
-              }`}>
-              {busy ? '...' : enabled ? 'Turn off' : 'Turn on'}
-            </button>
-          </div>
+          <p className="text-sm text-gray-700">Push notifications on this device</p>
+          <p className="text-xs text-gray-400 mt-0.5 mb-3">
+            Class updates{user?.role !== 'admin' ? ' and reminders' : ''}, even when the app is closed.
+          </p>
+          <button onClick={handleToggle} disabled={busy}
+            className={`w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+              enabled
+                ? 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                : 'bg-amber-500 hover:bg-amber-600 text-white'
+            }`}>
+            {busy ? 'Please wait...' : enabled ? 'Turn off notifications' : 'Turn on notifications'}
+          </button>
           {msg && <p className="text-xs text-gray-500 mt-2">{msg}</p>}
 
           {/* Class reminder timing */}
@@ -211,12 +212,12 @@ function NotificationSettings({ user }) {
             <p className="text-xs text-gray-400 mt-0.5 mb-3">
               Get notified before each class starts{savedLabel ? ` — currently ${savedLabel} before` : ' — currently off'}.
             </p>
-            <div className="flex gap-2 flex-wrap">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
               {REMINDER_PRESETS.map(p => (
                 <button key={p.label}
                   onClick={() => { setCustom(false); saveReminder(p.value) }}
-                  className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                    !custom && saved === p.value
+                  className={`py-2 rounded-lg text-sm border transition-colors ${
+                    !custom && sel === p.value
                       ? 'bg-amber-500 text-white border-amber-500'
                       : 'border-gray-200 text-gray-600 hover:border-amber-300'
                   }`}>
@@ -224,7 +225,7 @@ function NotificationSettings({ user }) {
                 </button>
               ))}
               <button onClick={() => setCustom(true)}
-                className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                className={`py-2 rounded-lg text-sm border transition-colors ${
                   custom
                     ? 'bg-amber-500 text-white border-amber-500'
                     : 'border-gray-200 text-gray-600 hover:border-amber-300'
@@ -233,25 +234,27 @@ function NotificationSettings({ user }) {
               </button>
             </div>
             {custom && (
-              <div className="flex items-center gap-2 mt-3">
-                <input type="number" min="1" value={customVal}
-                  onChange={e => setCustomVal(e.target.value)}
-                  className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                />
-                <select value={customUnit} onChange={e => setCustomUnit(e.target.value)}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400">
-                  <option value="minutes">minutes</option>
-                  <option value="hours">hours</option>
-                </select>
-                <span className="text-xs text-gray-400">before class</span>
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <input type="number" min="1" value={customVal}
+                    onChange={e => setCustomVal(e.target.value)}
+                    className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  <select value={customUnit} onChange={e => setCustomUnit(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    <option value="minutes">minutes</option>
+                    <option value="hours">hours</option>
+                  </select>
+                  <span className="text-xs text-gray-400 shrink-0">before class</span>
+                </div>
                 <button onClick={handleCustomSave}
-                  className="ml-auto bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                  Save
+                  className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-medium">
+                  Save reminder
                 </button>
               </div>
             )}
             {remMsg && <p className="text-xs text-green-600 mt-2">{remMsg}</p>}
-            {!enabled && saved != null && (
+            {!enabled && sel != null && (
               <p className="text-xs text-amber-600 mt-2">
                 Turn on push notifications above so reminders can reach this device.
               </p>

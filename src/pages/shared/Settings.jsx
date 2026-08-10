@@ -168,7 +168,8 @@ function NotificationSettings({ user }) {
     const n = Number(customVal)
     if (!n || n <= 0) { setRemMsg('Enter a valid number.'); return }
     const minutes = customUnit === 'hours' ? Math.round(n * 60) : Math.round(n)
-    if (minutes > 7 * 24 * 60) { setRemMsg('That reminder is too far ahead (max 7 days).'); return }
+    // Capped at 24h to match the reminder checker's lookahead window (api/reminders.js)
+    if (minutes > 24 * 60) { setRemMsg('Please choose 24 hours or less.'); return }
     saveReminder(minutes)
   }
 

@@ -6,7 +6,11 @@
 // class, even though the cron fires repeatedly.
 import { getAdmin, sendToTokens } from './_lib/firebaseAdmin.js'
 
-const LOOKAHEAD_DAYS = 7 // supports custom reminders up to 7 days ahead
+// How far ahead each run searches. Kept deliberately tight: every run reads
+// every class inside this window, ~288 times a day, so a wide window burns the
+// free Firestore read quota for nothing. Must be >= the longest reminder lead
+// time the Settings UI allows (also 24h).
+const LOOKAHEAD_HOURS = 24
 
 function fmtTimeIn(date, tz) {
   try {
@@ -34,7 +38,7 @@ export default async function handler(req, res) {
     const admin = getAdmin()
     const db = admin.firestore()
     const now = new Date()
-    const horizon = new Date(now.getTime() + LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000)
+    const horizon = new Date(now.getTime() + LOOKAHEAD_HOURS * 60 * 60 * 1000)
     // Look slightly into the past too: a short lead time (e.g. "2 min before")
     // can fall entirely between two cron runs — the next run still sends a
     // "your class started" note instead of silently skipping it.

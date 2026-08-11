@@ -65,6 +65,9 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
       const tId = teacherId || await getTeacherId()
       if (!tId) { setError('No teacher account found.'); setLoading(false); return }
       const studentId = form.studentId
+      // Collected and handed back to the page so the calendar updates instantly,
+      // without waiting on (or depending on) a re-fetch round trip.
+      const created = []
 
       if (form.isRecurring) {
         const recurring = await createRecurringSchedule({
@@ -86,7 +89,7 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
           8
         )
 
-        await Promise.all(occurrences.map(date => createClass({
+        const refs = await Promise.all(occurrences.map(date => createClass({
           studentId,
           teacherId: tId,
           scheduledAt: Timestamp.fromDate(date),
@@ -96,8 +99,18 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
           isRecurring: true,
           status: 'scheduled',
         })))
+        occurrences.forEach((date, i) => created.push({
+          id: refs[i].id,
+          studentId, teacherId: tId,
+          scheduledAt: Timestamp.fromDate(date),
+          duration: Number(form.duration),
+          lessonNotes: form.notes,
+          recurringId: recurring.id,
+          isRecurring: true,
+          status: 'scheduled',
+        }))
       } else {
-        await createClass({
+        const ref = await createClass({
           studentId,
           teacherId: tId,
           scheduledAt,
@@ -107,17 +120,30 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
           isRecurring: false,
           status: 'scheduled',
         })
+        created.push({
+          id: ref.id,
+          studentId, teacherId: tId,
+          scheduledAt,
+          duration: Number(form.duration),
+          lessonNotes: form.notes,
+          recurringId: null,
+          isRecurring: false,
+          status: 'scheduled',
+        })
       }
 
-      // Let the student know a class was scheduled for them
-      await createNotification(
-        studentId,
-        'class_scheduled',
-        form.isRecurring ? 'Recurring classes have been scheduled for you.' : 'A new class has been scheduled for you.',
-        null
-      )
+      // Let the student know a class was scheduled for them. Wrapped so a failed
+      // notification can never hide a class that was actually created.
+      try {
+        await createNotification(
+          studentId,
+          'class_scheduled',
+          form.isRecurring ? 'Recurring classes have been scheduled for you.' : 'A new class has been scheduled for you.',
+          null
+        )
+      } catch (e) { console.error('Class saved, student notify failed:', e) }
 
-      onSuccess?.()
+      onSuccess?.(created)
       onClose()
     } catch (err) {
       console.error(err)

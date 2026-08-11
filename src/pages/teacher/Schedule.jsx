@@ -83,16 +83,34 @@ export default function TeacherSchedule() {
 
   async function fetchData(date) {
     if (!user?.id) return
-    const [allClasses, allStudents, pending] = await Promise.all([
-      getTeacherClassesForMonth(user.id, date.getFullYear(), date.getMonth()),
-      getAllStudents(),
-      getPendingRequests(user.id),
-    ])
-    const map = {}
-    allStudents.forEach(s => { map[s.id] = s })
-    setStudents(map)
-    setClasses(sweepPastClasses(allClasses))
-    setPendingCount(pending.length)
+    try {
+      const [allClasses, allStudents, pending] = await Promise.all([
+        getTeacherClassesForMonth(user.id, date.getFullYear(), date.getMonth()),
+        getAllStudents(),
+        getPendingRequests(user.id),
+      ])
+      const map = {}
+      allStudents.forEach(s => { map[s.id] = s })
+      setStudents(map)
+      setClasses(sweepPastClasses(allClasses))
+      setPendingCount(pending.length)
+    } catch (e) {
+      // Never leave the page silently stale — keep what's on screen and log it
+      console.error('Schedule refresh failed:', e)
+    }
+  }
+
+  // Newly scheduled classes are added straight to the calendar, then confirmed
+  // by the background refresh (de-duplicated by id).
+  function addCreated(created = []) {
+    if (created.length) {
+      setClasses(prev => {
+        const seen = new Set(prev.map(c => c.id))
+        return [...prev, ...created.filter(c => !seen.has(c.id))]
+      })
+    }
+    fetchData(currentDate)
+    setPendingSlot(null)
   }
 
   useEffect(() => { fetchData(currentDate) }, [user, currentDate])
@@ -261,7 +279,7 @@ export default function TeacherSchedule() {
       {showSchedule && (
         <ScheduleClassModal
           onClose={() => { setShowSchedule(false); setClickedSlot(null); setPendingSlot(null) }}
-          onSuccess={() => { fetchData(currentDate); setPendingSlot(null) }}
+          onSuccess={addCreated}
           defaultDate={clickedSlot}
         />
       )}

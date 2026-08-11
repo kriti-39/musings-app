@@ -53,6 +53,31 @@ export async function createAdmin(uid, data) {
 
 // ─── CLASSES ──────────────────────────────────────────────────────────────────
 
+// Staff notifications name the student and the class time, so the teacher can
+// judge a request from the notification alone. Times are rendered in the
+// TEACHER's timezone (staff are the readers), never the sender's. Falls back to
+// generic wording if any lookup fails — a notification must never block the
+// action that triggered it.
+async function staffContext(studentId, date, teacherId = null) {
+  let name = 'A student'
+  let when = ''
+  try {
+    const [student, teacher] = await Promise.all([
+      studentId ? getUser(studentId) : null,
+      teacherId ? getUser(teacherId) : getTeacher(),
+    ])
+    if (student?.name) name = student.name
+    if (date) {
+      when = date.toLocaleString('en-IN', {
+        weekday: 'short', day: 'numeric', month: 'short',
+        hour: '2-digit', minute: '2-digit',
+        timeZone: teacher?.timezone || 'Asia/Kolkata',
+      })
+    }
+  } catch (e) { console.error('Notification context lookup failed:', e) }
+  return { name, when }
+}
+
 export async function createClass(data) {
   const ref = await addDoc(collection(db, 'classes'), {
     ...data,
@@ -65,8 +90,11 @@ export async function createClass(data) {
   // Notify teacher and all admins about the new booking request
   if (data.status === 'pending') {
     const staffIds = await getStaffIds()
+    const when = data.scheduledAt?.toDate?.() ?? null
+    const { name, when: label } = await staffContext(data.studentId, when, data.teacherId)
     await Promise.all(staffIds.map(id =>
-      createNotification(id, 'new_booking', 'A student has requested a new class.', ref.id)
+      createNotification(id, 'new_booking',
+        label ? `${name} requested a class — ${label}.` : `${name} requested a new class.`, ref.id)
     ))
   }
   return ref
@@ -124,9 +152,10 @@ export async function createBooking({
   // booking (which would cause the student to re-book → duplicate classes).
   try {
     const staffIds = await getStaffIds()
+    const { name, when } = await staffContext(studentId, startDate, teacherId)
     const [type, msg] = status === 'pending'
-      ? ['overlap_booking', 'A booking overlaps an existing class — please confirm.']
-      : ['class_booked', 'A student booked a new class.']
+      ? ['overlap_booking', `${name} booked ${when} — this overlaps another class, please confirm.`]
+      : ['class_booked', `${name} booked a class — ${when}.`]
     await Promise.all(staffIds.map(id => createNotification(id, type, msg, ref.id)))
   } catch (e) {
     console.error('Booking saved, but staff notification failed:', e)
@@ -328,15 +357,19 @@ export async function rescheduleClass(classId, newScheduledAt, notifyStudentId =
 // Student requests a reschedule → goes back to pending for staff to re-confirm + notify staff.
 // Staff notification is wrapped so it can never fail the student's request.
 export async function requestReschedule(classId, newScheduledAt) {
+  const newDate = new Date(newScheduledAt)
+  const cls = await getClass(classId)
   await updateDoc(doc(db, 'classes', classId), {
-    scheduledAt: Timestamp.fromDate(new Date(newScheduledAt)),
+    scheduledAt: Timestamp.fromDate(newDate),
     status: 'pending',
     updatedAt: serverTimestamp(),
   })
   try {
     const staffIds = await getStaffIds()
+    const { name, when } = await staffContext(cls?.studentId, newDate, cls?.teacherId)
     await Promise.all(staffIds.map(id =>
-      createNotification(id, 'reschedule_request', 'A student requested to reschedule a class.', classId)
+      createNotification(id, 'reschedule_request',
+        `${name} asked to reschedule to ${when}.`, classId)
     ))
   } catch (e) { console.error('Reschedule saved, staff notify failed:', e) }
 }
@@ -345,14 +378,18 @@ export async function requestReschedule(classId, newScheduledAt) {
 // (no approval needed). Staff notification is wrapped so it can never fail the
 // cancellation itself.
 export async function cancelClassByStudent(classId) {
+  const cls = await getClass(classId)
   await updateDoc(doc(db, 'classes', classId), {
     status: 'cancelled',
     updatedAt: serverTimestamp(),
   })
   try {
     const staffIds = await getStaffIds()
+    const { name, when } = await staffContext(
+      cls?.studentId, cls?.scheduledAt?.toDate?.() ?? null, cls?.teacherId)
     await Promise.all(staffIds.map(id =>
-      createNotification(id, 'class_cancelled_by_student', 'A student cancelled a class.', classId)
+      createNotification(id, 'class_cancelled_by_student',
+        when ? `${name} cancelled their class — ${when}.` : `${name} cancelled a class.`, classId)
     ))
   } catch (e) { console.error('Cancelled, staff notify failed:', e) }
 }
@@ -432,8 +469,10 @@ export async function addBlockedSlot(teacherId, startAt, endAt, reason = '') {
 // full-day or with the same start/end times on each day. Stored as ONE DOC PER
 // DAY sharing a groupId — month queries and per-day calendar rendering keep
 // working unchanged, and the whole range can be deleted in one action.
-export async function addBlockedRange(teacherId, { startDate, endDate, fullDay, startTime, endTime, reason = '' }) {
-  const groupId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+// The concrete day-by-day time ranges a block covers. Shared by the writer
+// below and by the clash check, so "what gets blocked" and "what gets cancelled"
+// can never disagree.
+export function buildBlockIntervals({ startDate, endDate, fullDay, startTime, endTime }) {
   const [sh, sm] = fullDay ? [0, 0] : startTime.split(':').map(Number)
   const [eh, em] = fullDay ? [23, 59] : endTime.split(':').map(Number)
 
@@ -442,24 +481,84 @@ export async function addBlockedRange(teacherId, { startDate, endDate, fullDay, 
   const first = new Date(y0, m0 - 1, d0)
   const last = new Date(y1, m1 - 1, d1)
 
-  const writes = []
+  const intervals = []
   for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
-    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), sh, sm, 0)
-    const end = fullDay
-      ? new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)
-      : new Date(d.getFullYear(), d.getMonth(), d.getDate(), eh, em, 0)
-    writes.push(addDoc(collection(db, 'availability'), {
-      teacherId,
-      startAt: Timestamp.fromDate(start),
-      endAt: Timestamp.fromDate(end),
-      reason,
-      groupId,
-      fullDay: !!fullDay,
-      createdAt: serverTimestamp(),
-    }))
+    intervals.push({
+      start: new Date(d.getFullYear(), d.getMonth(), d.getDate(), sh, sm, 0),
+      end: fullDay
+        ? new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)
+        : new Date(d.getFullYear(), d.getMonth(), d.getDate(), eh, em, 0),
+    })
   }
-  await Promise.all(writes)
+  return intervals
+}
+
+export async function addBlockedRange(teacherId, opts) {
+  const groupId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const intervals = buildBlockIntervals(opts)
+  await Promise.all(intervals.map(({ start, end }) => addDoc(collection(db, 'availability'), {
+    teacherId,
+    startAt: Timestamp.fromDate(start),
+    endAt: Timestamp.fromDate(end),
+    reason: opts.reason || '',
+    groupId,
+    fullDay: !!opts.fullDay,
+    createdAt: serverTimestamp(),
+  })))
   return groupId
+}
+
+// Upcoming classes that fall inside a proposed block — these are what the
+// teacher is warned about (and what gets cancelled if they go ahead).
+// Past classes are never touched.
+export async function findClassesInIntervals(teacherId, intervals) {
+  const now = new Date()
+  const snap = await getDocs(query(collection(db, 'classes'), where('teacherId', '==', teacherId)))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(c => {
+      const status = c.status || 'scheduled'
+      if (status !== 'scheduled' && status !== 'pending') return false
+      const s = c.scheduledAt?.toDate?.()
+      if (!s || s < now) return false
+      const e = new Date(s.getTime() + (c.duration || 60) * 60000)
+      return intervals.some(iv => s < iv.end && e > iv.start)
+    })
+    .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
+}
+
+// Cancel the classes displaced by a block and tell each student why, with the
+// class time in THAT student's own timezone. Each cancellation is independent:
+// one failure can't stop the rest.
+export async function cancelClassesForBlock(classes) {
+  await Promise.all(classes.map(async (c) => {
+    try {
+      await updateDoc(doc(db, 'classes', c.id), {
+        status: 'cancelled',
+        cancelledByBlock: true,
+        updatedAt: serverTimestamp(),
+      })
+      const start = c.scheduledAt?.toDate?.()
+      let when = ''
+      if (start) {
+        let tz = 'Asia/Kolkata'
+        try { tz = (await getUser(c.studentId))?.timezone || tz } catch { /* default tz */ }
+        when = start.toLocaleString('en-IN', {
+          weekday: 'short', day: 'numeric', month: 'short',
+          hour: '2-digit', minute: '2-digit', timeZone: tz,
+        })
+      }
+      await createNotification(
+        c.studentId, 'class_cancelled',
+        when
+          ? `Your class on ${when} has been cancelled — Guruji is unavailable. Please reschedule after consulting with Guruji.`
+          : 'Your class has been cancelled — Guruji is unavailable. Please reschedule after consulting with Guruji.',
+        c.id,
+      )
+    } catch (e) {
+      console.error('Block cancellation failed for class', c.id, e)
+    }
+  }))
 }
 
 // Delete every day of a grouped block in one go.
@@ -509,8 +608,11 @@ export async function createPayment(data) {
   if (data.submittedBy === 'student') {
     try {
       const staffIds = await getStaffIds()
+      const { name } = await staffContext(data.studentId, null)
+      const amount = data.amount ? ` of ₹${data.amount}` : ''
       await Promise.all(staffIds.map(id =>
-        createNotification(id, 'payment_submitted', 'A student submitted a payment for review.', null)
+        createNotification(id, 'payment_submitted',
+          `${name} submitted a payment${amount} for review.`, null)
       ))
     } catch (e) { console.error('Payment saved, staff notify failed:', e) }
   }

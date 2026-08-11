@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
-import { RiCloseLine, RiAddLine, RiDeleteBinLine } from 'react-icons/ri'
-import { getBlockedSlotsForMonth, addBlockedRange, deleteBlockedSlot, deleteBlockedGroup, getTeacherId } from '../../firebase/db'
+import { RiCloseLine, RiAddLine, RiDeleteBinLine, RiErrorWarningLine } from 'react-icons/ri'
+import {
+  getBlockedSlotsForMonth, addBlockedRange, deleteBlockedSlot, deleteBlockedGroup, getTeacherId,
+  buildBlockIntervals, findClassesInIntervals, cancelClassesForBlock, getAllStudentsIncludingInactive,
+} from '../../firebase/db'
 
 export default function ManageAvailabilityModal({ onClose }) {
   const [teacherId, setTeacherId] = useState(null)
@@ -11,6 +14,8 @@ export default function ManageAvailabilityModal({ onClose }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // Classes that would be cancelled by the pending block — shown for confirmation
+  const [clash, setClash] = useState(null) // { classes, students }
 
   // Shared calendar: availability always belongs to the single teacher
   useEffect(() => { getTeacherId().then(id => setTeacherId(id)) }, [])
@@ -52,16 +57,53 @@ export default function ManageAvailabilityModal({ onClose }) {
     setError('')
     setSaving(true)
     try {
-      await addBlockedRange(teacherId, {
-        startDate: form.startDate,
-        endDate: form.endDate || null,
-        fullDay: form.fullDay,
-        startTime: form.startTime,
-        endTime: form.endTime,
-        reason: form.reason,
-      })
-      setForm({ startDate: '', endDate: '', fullDay: false, startTime: '', endTime: '', reason: '' })
-      await fetchSlots()
+      // Check for classes inside the period BEFORE blocking — the teacher must
+      // see what would be cancelled and agree to it first.
+      const intervals = buildBlockIntervals(blockOpts())
+      const hits = await findClassesInIntervals(teacherId, intervals)
+      if (hits.length > 0) {
+        const students = {}
+        try {
+          const all = await getAllStudentsIncludingInactive()
+          all.forEach(s => { students[s.id] = s })
+        } catch { /* names fall back to "Student" */ }
+        setClash({ classes: hits, students })
+        return
+      }
+      await applyBlock([])
+    } catch (e) {
+      console.error(e)
+      setError('Failed to block this period.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function blockOpts() {
+    return {
+      startDate: form.startDate,
+      endDate: form.endDate || null,
+      fullDay: form.fullDay,
+      startTime: form.startTime,
+      endTime: form.endTime,
+      reason: form.reason,
+    }
+  }
+
+  // Write the block, cancelling any classes the teacher agreed to displace.
+  async function applyBlock(classesToCancel) {
+    await addBlockedRange(teacherId, blockOpts())
+    if (classesToCancel.length) await cancelClassesForBlock(classesToCancel)
+    setForm({ startDate: '', endDate: '', fullDay: false, startTime: '', endTime: '', reason: '' })
+    setClash(null)
+    await fetchSlots()
+  }
+
+  async function confirmClash() {
+    setSaving(true)
+    setError('')
+    try {
+      await applyBlock(clash.classes)
     } catch (e) {
       console.error(e)
       setError('Failed to block this period.')
@@ -207,6 +249,57 @@ export default function ManageAvailabilityModal({ onClose }) {
           </div>
         </div>
       </div>
+
+      {/* Clash confirmation — classes inside the period the teacher is blocking */}
+      {clash && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl max-h-[85vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <RiErrorWarningLine size={18} className="text-amber-500" />
+                <h2 className="text-base font-semibold text-gray-800">
+                  {clash.classes.length} class{clash.classes.length > 1 ? 'es' : ''} in this period
+                </h2>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Blocking this time will cancel {clash.classes.length > 1 ? 'these classes' : 'this class'} and
+                notify {clash.classes.length > 1 ? 'the students' : 'the student'} to reschedule after
+                consulting with Guruji.
+              </p>
+            </div>
+
+            <div className="px-6 py-4 overflow-y-auto space-y-2">
+              {clash.classes.map(c => {
+                const d = c.scheduledAt?.toDate?.()
+                return (
+                  <div key={c.id} className="bg-red-50 rounded-xl px-4 py-3">
+                    <p className="text-sm font-medium text-gray-800">
+                      {clash.students[c.studentId]?.name || 'Student'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {d ? d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) : '—'}
+                      {d ? ` · ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                      {` · ${c.duration || 60} min`}
+                      {c.status === 'pending' ? ' · awaiting confirmation' : ''}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+              <button onClick={() => setClash(null)} disabled={saving}
+                className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50 disabled:opacity-50">
+                Keep classes
+              </button>
+              <button onClick={confirmClash} disabled={saving}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50">
+                {saving ? 'Blocking...' : 'Block & cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

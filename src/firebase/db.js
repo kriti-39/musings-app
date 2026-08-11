@@ -527,27 +527,31 @@ export async function findClassesInIntervals(teacherId, intervals) {
     .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
 }
 
-// Cancel the classes displaced by a block and tell each student why, with the
-// class time in THAT student's own timezone. Each cancellation is independent:
-// one failure can't stop the rest.
-export async function cancelClassesForBlock(classes) {
+// A class time written in the STUDENT's own timezone, for messages they read.
+async function studentTimeLabel(studentId, date) {
+  if (!date) return ''
+  let tz = 'Asia/Kolkata'
+  try { tz = (await getUser(studentId))?.timezone || tz } catch { /* default tz */ }
+  return date.toLocaleString('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'short',
+    hour: '2-digit', minute: '2-digit', timeZone: tz,
+  })
+}
+
+// Cancel the classes displaced by a block and tell each student why. The block's
+// groupId and the class's previous status are recorded, so removing the block
+// later can put these classes back exactly as they were. Each cancellation is
+// independent: one failure can't stop the rest.
+export async function cancelClassesForBlock(classes, groupId = null) {
   await Promise.all(classes.map(async (c) => {
     try {
       await updateDoc(doc(db, 'classes', c.id), {
         status: 'cancelled',
-        cancelledByBlock: true,
+        cancelledByBlock: groupId || true,
+        statusBeforeBlock: c.status || 'scheduled',
         updatedAt: serverTimestamp(),
       })
-      const start = c.scheduledAt?.toDate?.()
-      let when = ''
-      if (start) {
-        let tz = 'Asia/Kolkata'
-        try { tz = (await getUser(c.studentId))?.timezone || tz } catch { /* default tz */ }
-        when = start.toLocaleString('en-IN', {
-          weekday: 'short', day: 'numeric', month: 'short',
-          hour: '2-digit', minute: '2-digit', timeZone: tz,
-        })
-      }
+      const when = await studentTimeLabel(c.studentId, c.scheduledAt?.toDate?.())
       await createNotification(
         c.studentId, 'class_cancelled',
         when
@@ -557,6 +561,47 @@ export async function cancelClassesForBlock(classes) {
       )
     } catch (e) {
       console.error('Block cancellation failed for class', c.id, e)
+    }
+  }))
+}
+
+// Classes this block cancelled that could still be put back (future ones only —
+// restoring a class whose time has already passed would be pointless).
+export async function findRestorableClasses(groupId) {
+  if (!groupId) return []
+  const now = new Date()
+  const snap = await getDocs(query(collection(db, 'classes'), where('cancelledByBlock', '==', groupId)))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(c => {
+      if ((c.status || '') !== 'cancelled') return false // already handled some other way
+      const s = c.scheduledAt?.toDate?.()
+      return s && s > now
+    })
+    .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
+}
+
+// Put back classes that a (now removed) block had cancelled, restoring each to
+// the status it held before, and telling the student the class is back on.
+export async function restoreClassesFromBlock(classes) {
+  await Promise.all(classes.map(async (c) => {
+    try {
+      await updateDoc(doc(db, 'classes', c.id), {
+        status: c.statusBeforeBlock || 'scheduled',
+        cancelledByBlock: null,
+        statusBeforeBlock: null,
+        updatedAt: serverTimestamp(),
+      })
+      const when = await studentTimeLabel(c.studentId, c.scheduledAt?.toDate?.())
+      await createNotification(
+        c.studentId, 'class_restored',
+        when
+          ? `Good news — Guruji is available again. Your class on ${when} is back on.`
+          : 'Good news — Guruji is available again. Your cancelled class is back on.',
+        c.id,
+      )
+    } catch (e) {
+      console.error('Class restore failed for', c.id, e)
     }
   }))
 }

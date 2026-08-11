@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { RiCloseLine, RiAddLine, RiDeleteBinLine, RiErrorWarningLine } from 'react-icons/ri'
+import { RiCloseLine, RiAddLine, RiDeleteBinLine, RiErrorWarningLine, RiArrowGoBackLine } from 'react-icons/ri'
 import {
   getBlockedSlotsForMonth, addBlockedRange, deleteBlockedSlot, deleteBlockedGroup, getTeacherId,
   buildBlockIntervals, findClassesInIntervals, cancelClassesForBlock, getAllStudentsIncludingInactive,
+  findRestorableClasses, restoreClassesFromBlock,
 } from '../../firebase/db'
 
 export default function ManageAvailabilityModal({ onClose }) {
@@ -16,6 +17,8 @@ export default function ManageAvailabilityModal({ onClose }) {
   const [error, setError] = useState('')
   // Classes that would be cancelled by the pending block — shown for confirmation
   const [clash, setClash] = useState(null) // { classes, students }
+  // Classes this block had cancelled, offered back when the block is removed
+  const [restore, setRestore] = useState(null) // { group, classes, students }
 
   // Shared calendar: availability always belongs to the single teacher
   useEffect(() => { getTeacherId().then(id => setTeacherId(id)) }, [])
@@ -91,9 +94,11 @@ export default function ManageAvailabilityModal({ onClose }) {
   }
 
   // Write the block, cancelling any classes the teacher agreed to displace.
+  // The block's groupId is stamped on those classes so removing the block later
+  // can offer them back.
   async function applyBlock(classesToCancel) {
-    await addBlockedRange(teacherId, blockOpts())
-    if (classesToCancel.length) await cancelClassesForBlock(classesToCancel)
+    const groupId = await addBlockedRange(teacherId, blockOpts())
+    if (classesToCancel.length) await cancelClassesForBlock(classesToCancel, groupId)
     setForm({ startDate: '', endDate: '', fullDay: false, startTime: '', endTime: '', reason: '' })
     setClash(null)
     await fetchSlots()
@@ -129,9 +134,44 @@ export default function ManageAvailabilityModal({ onClose }) {
   }
 
   async function handleDelete(group) {
+    // If this block cancelled classes, ask whether to put them back before
+    // removing it (e.g. the concert got called off).
+    if (group.groupId) {
+      try {
+        const back = await findRestorableClasses(group.groupId)
+        if (back.length > 0) {
+          const students = {}
+          try {
+            const all = await getAllStudentsIncludingInactive()
+            all.forEach(s => { students[s.id] = s })
+          } catch { /* names fall back to "Student" */ }
+          setRestore({ group, classes: back, students })
+          return
+        }
+      } catch (e) { console.error('Restore check failed:', e) }
+    }
+    await removeBlock(group)
+  }
+
+  async function removeBlock(group) {
     if (group.groupId) await deleteBlockedGroup(group.groupId)
     else await deleteBlockedSlot(group.days[0].id)
     setSlots(s => s.filter(x => (x.groupId || x.id) !== group.key))
+  }
+
+  async function finishRestore(putBack) {
+    setSaving(true)
+    setError('')
+    try {
+      if (putBack) await restoreClassesFromBlock(restore.classes)
+      await removeBlock(restore.group)
+      setRestore(null)
+    } catch (e) {
+      console.error(e)
+      setError('Failed to remove this block.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function formatGroup(group) {
@@ -296,6 +336,65 @@ export default function ManageAvailabilityModal({ onClose }) {
                 className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50">
                 {saving ? 'Blocking...' : 'Block & cancel'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Removing a block — offer back the classes it had cancelled */}
+      {restore && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl max-h-[85vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <RiArrowGoBackLine size={18} className="text-green-600" />
+                <h2 className="text-base font-semibold text-gray-800">
+                  Restore {restore.classes.length} cancelled class{restore.classes.length > 1 ? 'es' : ''}?
+                </h2>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {restore.classes.length > 1 ? 'These classes were' : 'This class was'} cancelled when you
+                blocked this time. Removing the block can put {restore.classes.length > 1 ? 'them' : 'it'} back
+                and let the student{restore.classes.length > 1 ? 's' : ''} know you're available again.
+              </p>
+            </div>
+
+            <div className="px-6 py-4 overflow-y-auto space-y-2">
+              {restore.classes.map(c => {
+                const d = c.scheduledAt?.toDate?.()
+                return (
+                  <div key={c.id} className="bg-green-50 rounded-xl px-4 py-3">
+                    <p className="text-sm font-medium text-gray-800">
+                      {restore.students[c.studentId]?.name || 'Student'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {d ? d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) : '—'}
+                      {d ? ` · ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                      {` · ${c.duration || 60} min`}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 space-y-2">
+              <button onClick={() => finishRestore(true)} disabled={saving}
+                className="w-full bg-green-500 hover:bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50">
+                {saving ? 'Restoring...' : 'Unblock & restore classes'}
+              </button>
+              <div className="flex gap-3">
+                <button onClick={() => setRestore(null)} disabled={saving}
+                  className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50 disabled:opacity-50">
+                  Keep block
+                </button>
+                <button onClick={() => finishRestore(false)} disabled={saving}
+                  className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50 disabled:opacity-50">
+                  Unblock only
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400 text-center">
+                "Unblock only" frees the time but leaves the classes cancelled.
+              </p>
             </div>
           </div>
         </div>

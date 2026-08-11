@@ -32,6 +32,7 @@ const TITLES = {
   class_confirmed: 'Class confirmed',
   class_rejected: 'Class request update',
   class_cancelled: 'Class cancelled',
+  class_restored: 'Class back on',
   class_rescheduled: 'Class rescheduled',
   class_scheduled: 'New class scheduled',
   recording_posted: 'New recording',

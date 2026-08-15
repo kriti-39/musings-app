@@ -53,10 +53,19 @@ export async function createAdmin(uid, data) {
 
 // ─── CLASSES ──────────────────────────────────────────────────────────────────
 
-// Staff notifications name the student and the class time, so the teacher can
-// judge a request from the notification alone. Times are rendered in the
-// TEACHER's timezone (staff are the readers), never the sender's. Falls back to
-// generic wording if any lookup fails — a notification must never block the
+// One house format for every class time in a notification: time first, then
+// day and date — "12:00 pm · Sat, 15 Aug".
+export function fmtWhen(date, tz = 'Asia/Kolkata') {
+  if (!date) return ''
+  const time = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: tz })
+  const day = date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz })
+  return `${time} · ${day}`
+}
+
+// Staff notifications lead with the student's NAME as the headline (like a
+// message from them) and put the detail underneath. Times are rendered in the
+// TEACHER's timezone — staff are the readers, not the sender. Falls back to
+// generic wording if any lookup fails: a notification must never block the
 // action that triggered it.
 async function staffContext(studentId, date, teacherId = null) {
   let name = 'A student'
@@ -67,13 +76,7 @@ async function staffContext(studentId, date, teacherId = null) {
       teacherId ? getUser(teacherId) : getTeacher(),
     ])
     if (student?.name) name = student.name
-    if (date) {
-      when = date.toLocaleString('en-IN', {
-        weekday: 'short', day: 'numeric', month: 'short',
-        hour: '2-digit', minute: '2-digit',
-        timeZone: teacher?.timezone || 'Asia/Kolkata',
-      })
-    }
+    when = fmtWhen(date, teacher?.timezone || 'Asia/Kolkata')
   } catch (e) { console.error('Notification context lookup failed:', e) }
   return { name, when }
 }
@@ -94,7 +97,7 @@ export async function createClass(data) {
     const { name, when: label } = await staffContext(data.studentId, when, data.teacherId)
     await Promise.all(staffIds.map(id =>
       createNotification(id, 'new_booking',
-        label ? `${name} requested a class — ${label}.` : `${name} requested a new class.`, ref.id)
+        label ? `Requested a class — ${label}` : 'Requested a new class', ref.id, name)
     ))
   }
   return ref
@@ -154,9 +157,9 @@ export async function createBooking({
     const staffIds = await getStaffIds()
     const { name, when } = await staffContext(studentId, startDate, teacherId)
     const [type, msg] = status === 'pending'
-      ? ['overlap_booking', `${name} booked ${when} — this overlaps another class, please confirm.`]
-      : ['class_booked', `${name} booked a class — ${when}.`]
-    await Promise.all(staffIds.map(id => createNotification(id, type, msg, ref.id)))
+      ? ['overlap_booking', `Booked ${when} — clashes with another class, tap to confirm`]
+      : ['class_booked', `Booked a class — ${when}`]
+    await Promise.all(staffIds.map(id => createNotification(id, type, msg, ref.id, name)))
   } catch (e) {
     console.error('Booking saved, but staff notification failed:', e)
   }
@@ -272,7 +275,10 @@ export async function cancelClass(classId, notifyStudentId = null) {
   })
   // When staff cancels, notify the student
   if (notifyStudentId) {
-    await createNotification(notifyStudentId, 'class_cancelled', 'Your class has been cancelled.', classId)
+    const cls = await getClass(classId)
+    const when = await studentTimeLabel(notifyStudentId, cls?.scheduledAt?.toDate?.())
+    await createNotification(notifyStudentId, 'class_cancelled',
+      when || 'Your class has been cancelled.', classId, 'Class cancelled')
   }
 }
 
@@ -325,7 +331,11 @@ export async function confirmClass(classId, studentId = null) {
     updatedAt: serverTimestamp(),
   })
   if (studentId) {
-    await createNotification(studentId, 'class_confirmed', 'Your class request has been confirmed!', classId)
+    const cls = await getClass(classId)
+    const when = await studentTimeLabel(studentId, cls?.scheduledAt?.toDate?.())
+    await createNotification(studentId, 'class_confirmed',
+      when ? `${when} — see you there!` : 'Your class request has been confirmed!',
+      classId, 'Class confirmed')
   }
 }
 
@@ -335,7 +345,11 @@ export async function rejectClass(classId, studentId = null) {
     updatedAt: serverTimestamp(),
   })
   if (studentId) {
-    await createNotification(studentId, 'class_rejected', 'Your class request was not accepted.', classId)
+    const cls = await getClass(classId)
+    const when = await studentTimeLabel(studentId, cls?.scheduledAt?.toDate?.())
+    await createNotification(studentId, 'class_rejected',
+      when ? `${when} — please pick another time.` : 'Your class request was not accepted.',
+      classId, 'Class request declined')
   }
 }
 
@@ -348,9 +362,9 @@ export async function rescheduleClass(classId, newScheduledAt, notifyStudentId =
     updatedAt: serverTimestamp(),
   })
   if (notifyStudentId) {
-    const when = newDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) +
-      ' at ' + newDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
-    await createNotification(notifyStudentId, 'class_rescheduled', `Your class was rescheduled to ${when}.`, classId)
+    const when = await studentTimeLabel(notifyStudentId, newDate)
+    await createNotification(notifyStudentId, 'class_rescheduled',
+      when ? `Moved to ${when}` : 'Your class was rescheduled.', classId, 'Class rescheduled')
   }
 }
 
@@ -369,7 +383,7 @@ export async function requestReschedule(classId, newScheduledAt) {
     const { name, when } = await staffContext(cls?.studentId, newDate, cls?.teacherId)
     await Promise.all(staffIds.map(id =>
       createNotification(id, 'reschedule_request',
-        `${name} asked to reschedule to ${when}.`, classId)
+        when ? `Wants to move their class to ${when}` : 'Wants to reschedule a class', classId, name)
     ))
   } catch (e) { console.error('Reschedule saved, staff notify failed:', e) }
 }
@@ -389,7 +403,7 @@ export async function cancelClassByStudent(classId) {
       cls?.studentId, cls?.scheduledAt?.toDate?.() ?? null, cls?.teacherId)
     await Promise.all(staffIds.map(id =>
       createNotification(id, 'class_cancelled_by_student',
-        when ? `${name} cancelled their class — ${when}.` : `${name} cancelled a class.`, classId)
+        when ? `Cancelled their class — ${when}` : 'Cancelled a class', classId, name)
     ))
   } catch (e) { console.error('Cancelled, staff notify failed:', e) }
 }
@@ -406,7 +420,9 @@ export async function saveRecording(classId, { url, title }, notifyStudentId = n
   })
   if (notifyStudentId) {
     try {
-      await createNotification(notifyStudentId, 'recording_posted', 'A recording was posted for your class.', classId)
+      await createNotification(notifyStudentId, 'recording_posted',
+        (title || '').trim() ? `${title.trim()} — tap to watch` : 'Your class recording is ready to watch',
+        classId, 'New recording')
     } catch (e) { console.error('Recording saved, student notify failed:', e) }
   }
 }
@@ -532,10 +548,7 @@ async function studentTimeLabel(studentId, date) {
   if (!date) return ''
   let tz = 'Asia/Kolkata'
   try { tz = (await getUser(studentId))?.timezone || tz } catch { /* default tz */ }
-  return date.toLocaleString('en-IN', {
-    weekday: 'short', day: 'numeric', month: 'short',
-    hour: '2-digit', minute: '2-digit', timeZone: tz,
-  })
+  return fmtWhen(date, tz)
 }
 
 // Cancel the classes displaced by a block and tell each student why. The block's
@@ -555,9 +568,9 @@ export async function cancelClassesForBlock(classes, groupId = null) {
       await createNotification(
         c.studentId, 'class_cancelled',
         when
-          ? `Your class on ${when} has been cancelled — Guruji is unavailable. Please reschedule after consulting with Guruji.`
-          : 'Your class has been cancelled — Guruji is unavailable. Please reschedule after consulting with Guruji.',
-        c.id,
+          ? `${when} — Guruji is unavailable. Please reschedule after consulting with Guruji.`
+          : 'Guruji is unavailable. Please reschedule after consulting with Guruji.',
+        c.id, 'Class cancelled',
       )
     } catch (e) {
       console.error('Block cancellation failed for class', c.id, e)
@@ -596,9 +609,9 @@ export async function restoreClassesFromBlock(classes) {
       await createNotification(
         c.studentId, 'class_restored',
         when
-          ? `Good news — Guruji is available again. Your class on ${when} is back on.`
-          : 'Good news — Guruji is available again. Your cancelled class is back on.',
-        c.id,
+          ? `${when} — Guruji is available again, your class is back on.`
+          : 'Guruji is available again — your class is back on.',
+        c.id, 'Class back on',
       )
     } catch (e) {
       console.error('Class restore failed for', c.id, e)
@@ -657,7 +670,7 @@ export async function createPayment(data) {
       const amount = data.amount ? ` of ₹${data.amount}` : ''
       await Promise.all(staffIds.map(id =>
         createNotification(id, 'payment_submitted',
-          `${name} submitted a payment${amount} for review.`, null)
+          `Submitted a payment${amount} — tap to review`, null, name)
       ))
     } catch (e) { console.error('Payment saved, staff notify failed:', e) }
   }
@@ -686,7 +699,8 @@ export async function confirmPayment(paymentId, confirmedByUid, studentId = null
     confirmedAt: serverTimestamp(),
   })
   if (studentId) {
-    await createNotification(studentId, 'payment_confirmed', 'Your payment has been confirmed!', null)
+    await createNotification(studentId, 'payment_confirmed',
+      'Thank you — your payment is verified.', null, 'Payment confirmed')
   }
 }
 
@@ -697,7 +711,8 @@ export async function rejectPayment(paymentId, studentId = null) {
     updatedAt: serverTimestamp(),
   })
   if (studentId) {
-    await createNotification(studentId, 'payment_rejected', 'Your payment could not be confirmed — please re-submit.', null)
+    await createNotification(studentId, 'payment_rejected',
+      'Your payment could not be confirmed — please re-submit.', null, 'Payment needs attention')
   }
 }
 
@@ -772,10 +787,15 @@ export async function getAllClassesDesc() {
 
 // ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
 
-export async function createNotification(userId, type, message, relatedClassId = null) {
+// `title` is the bold headline — the student's name for staff notifications,
+// a short status for the student's own. It's shown above the message in the
+// bell and becomes the push notification's title. Older notifications have no
+// title and simply render as the message alone.
+export async function createNotification(userId, type, message, relatedClassId = null, title = null) {
   await addDoc(collection(db, 'notifications'), {
     userId,
     type,
+    title,
     message,
     relatedClassId,
     isRead: false,
@@ -783,7 +803,7 @@ export async function createNotification(userId, type, message, relatedClassId =
   })
   // Every in-app notification is also offered as a phone push (fire-and-forget;
   // the API skips admins and users with no registered devices).
-  sendPushForNotification(userId, type, message, relatedClassId)
+  sendPushForNotification(userId, type, message, relatedClassId, title)
 }
 
 export async function getUserNotifications(userId) {

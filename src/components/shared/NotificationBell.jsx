@@ -111,7 +111,8 @@ export default function NotificationBell() {
                 onClick={() => handleRead(n)}
                 className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${!n.isRead ? 'bg-amber-50' : ''}`}
               >
-                <p className="text-sm text-gray-700">{n.message}</p>
+                {n.title && <p className="text-sm font-medium text-gray-800">{n.title}</p>}
+                <p className={`text-sm text-gray-700 ${n.title ? 'mt-0.5' : ''}`}>{n.message}</p>
                 <p className="text-xs text-gray-400 mt-0.5">
                   {n.createdAt?.toDate?.()?.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                 </p>

@@ -6,7 +6,7 @@
 
 import { auth } from '../firebase/config'
 
-export function sendPushForNotification(userId, type, message, classId = null) {
+export function sendPushForNotification(userId, type, message, classId = null, title = null) {
   if (!import.meta.env.PROD) return // no /api functions on the dev server
   ;(async () => {
     try {
@@ -16,7 +16,7 @@ export function sendPushForNotification(userId, type, message, classId = null) {
       await fetch('/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ userId, type, message, classId }),
+        body: JSON.stringify({ userId, type, message, classId, title }),
       })
     } catch { /* push is best-effort */ }
   })()

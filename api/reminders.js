@@ -83,11 +83,22 @@ export default async function handler(req, res) {
         if (!tokens.length) continue
 
         const remaining = Math.round((start.getTime() - now.getTime()) / 60000)
+        const at = fmtTimeIn(start, user.timezone)
         const body = remaining >= 1
-          ? `Your class starts at ${fmtTimeIn(start, user.timezone)} — in about ${leadLabel(remaining)}.`
-          : `Your class started at ${fmtTimeIn(start, user.timezone)}.`
-        const link = user.role === 'teacher' ? '/teacher/schedule' : '/student/dashboard'
-        const result = await sendToTokens(admin, tokens, { title: 'Upcoming class', body, link })
+          ? `${at} — starts in ${leadLabel(remaining)}`
+          : `${at} — starting now`
+        // The teacher's headline names the student whose class it is; the
+        // student's simply says it's theirs.
+        const isTeacher = user.role === 'teacher'
+        let title = 'Your next class'
+        if (isTeacher) {
+          try {
+            const s = await getUser(cls.studentId)
+            if (s?.name) title = `${s.name}'s class`
+          } catch { /* keep the generic headline */ }
+        }
+        const link = isTeacher ? '/teacher/schedule' : '/student/dashboard'
+        const result = await sendToTokens(admin, tokens, { title, body, link })
         sent += result.sent
         if (result.dead.length) {
           await user.ref.update({ fcmTokens: admin.firestore.FieldValue.arrayRemove(...result.dead) })

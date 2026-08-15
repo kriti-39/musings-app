@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { RiCloseLine, RiErrorWarningLine } from 'react-icons/ri'
-import { getAllStudents, createClass, createRecurringSchedule, getTeacherId, createNotification, findOverlappingClasses, findBlockedOverlaps } from '../../firebase/db'
+import { getAllStudents, createClass, createRecurringSchedule, getTeacherId, createNotification, findOverlappingClasses, findBlockedOverlaps, fmtWhen } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 
 const DURATIONS = [30, 45, 60, 90, 120]
@@ -68,6 +68,8 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
       // Collected and handed back to the page so the calendar updates instantly,
       // without waiting on (or depending on) a re-fetch round trip.
       const created = []
+      // The student reads their notification in their own timezone
+      const studentTz = students.find(s => s.id === studentId)?.timezone || 'Asia/Kolkata'
 
       if (form.isRecurring) {
         const recurring = await createRecurringSchedule({
@@ -135,11 +137,15 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
       // Let the student know a class was scheduled for them. Wrapped so a failed
       // notification can never hide a class that was actually created.
       try {
+        const when = fmtWhen(new Date(`${form.date}T${form.time}`), studentTz)
         await createNotification(
           studentId,
           'class_scheduled',
-          form.isRecurring ? 'Recurring classes have been scheduled for you.' : 'A new class has been scheduled for you.',
-          null
+          form.isRecurring
+            ? `Starting ${when}, then ${form.frequency === 'weekly' ? 'every week' : 'every 2 weeks'}`
+            : when,
+          null,
+          form.isRecurring ? 'Recurring classes scheduled' : 'New class scheduled',
         )
       } catch (e) { console.error('Class saved, student notify failed:', e) }
 

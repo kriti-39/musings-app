@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     if (!idToken) return res.status(401).json({ error: 'unauthorized' })
     await admin.auth().verifyIdToken(idToken)
 
-    const { userId, type, message } = req.body || {}
+    const { userId, type, message, title } = req.body || {}
     if (!userId || !message) return res.status(400).json({ error: 'userId and message required' })
 
     const snap = await admin.firestore().doc(`users/${userId}`).get()
@@ -28,7 +28,9 @@ export default async function handler(req, res) {
     if (!tokens.length) return res.status(200).json({ sent: 0 })
 
     const { sent, dead } = await sendToTokens(admin, tokens, {
-      title: titleFor(type),
+      // The notification carries its own headline (student name, or a short
+      // status); the per-type title is only a fallback for older callers.
+      title: (typeof title === 'string' && title.trim()) || titleFor(type),
       body: String(message),
       link: linkFor(user.role, type),
     })

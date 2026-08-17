@@ -15,7 +15,7 @@ const STATUS_STYLES = {
 const TABS = [
   { key: 'upcoming',  label: 'Upcoming' },
   { key: 'completed', label: 'Completed' },
-  { key: 'cancelled', label: 'Cancelled / Rejected' },
+  { key: 'cancelled', label: 'Cancelled' },
 ]
 
 export default function ClassList({ teacherId, Layout, showAll = false }) {

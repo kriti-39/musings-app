@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { getTeacherAllClasses, getAllClassesDesc, getAllStudentsIncludingInactive, sweepPastClasses } from '../../firebase/db'
 import { RiCalendarLine } from 'react-icons/ri'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
+import PeriodFilter, { ALL_PERIOD, filterByPeriod } from '../../components/shared/PeriodFilter'
 
 const STATUS_STYLES = {
   scheduled:  'bg-green-50 text-green-700',
@@ -23,6 +24,7 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('upcoming')
   const [detail, setDetail] = useState(null)
+  const [period, setPeriod] = useState(ALL_PERIOD)
 
   async function fetchAll() {
     if (!showAll && !teacherId) return
@@ -59,6 +61,8 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
     return tab === 'upcoming' ? ta - tb : tb - ta
   })
 
+  const visible = filterByPeriod(filtered, period, c => c.scheduledAt?.toDate?.())
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto">
@@ -66,7 +70,7 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
 
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-6">
           {TABS.map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
+            <button key={t.key} onClick={() => { setTab(t.key); setPeriod(ALL_PERIOD) }}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 tab === t.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}>
@@ -75,16 +79,26 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
           ))}
         </div>
 
+        {!loading && filtered.length > 0 && (
+          <PeriodFilter
+            dates={filtered.map(c => c.scheduledAt?.toDate?.())}
+            value={period} onChange={setPeriod}
+            showing={visible.length} total={filtered.length}
+          />
+        )}
+
         {loading ? (
           <p className="text-sm text-gray-400 text-center py-16">Loading...</p>
-        ) : filtered.length === 0 ? (
+        ) : visible.length === 0 ? (
           <div className="text-center py-16">
             <RiCalendarLine size={36} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-400 text-sm">No classes in this category.</p>
+            <p className="text-gray-400 text-sm">
+              {filtered.length === 0 ? 'No classes in this category.' : 'No classes in this period.'}
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {filtered.map(cls => {
+            {visible.map(cls => {
               const date = cls.scheduledAt?.toDate?.() ?? new Date()
               const student = students[cls.studentId]
               const status = cls.status || 'scheduled'

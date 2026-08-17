@@ -72,6 +72,16 @@ export function unshiftFromTz(shifted, tz) {
   return new Date(shifted.getTime() - diff * 60000)
 }
 
+// Compact date for table columns, e.g. "15-Aug-26"
+export function fmtShortDate(date, tz) {
+  if (!date) return ''
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit', month: 'short', year: '2-digit', timeZone: tz,
+  }).formatToParts(date)
+  const get = t => parts.find(p => p.type === t)?.value || ''
+  return `${get('day')}-${get('month')}-${get('year')}`
+}
+
 // "6:00 PM Kolkata" — time + city, for compact dual-timezone display
 export function fmtTimeCity(date, tz) {
   return `${fmtTime(date, tz)} ${tzCity(tz)}`

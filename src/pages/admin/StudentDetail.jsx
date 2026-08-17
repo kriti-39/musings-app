@@ -14,6 +14,9 @@ import { displayId } from '../../utils/auth'
 import ReceiptModal from '../../components/shared/ReceiptModal'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
 import EditStudentModal from '../../components/shared/EditStudentModal'
+import ClassDetailModal from '../../components/admin/ClassDetailModal'
+import PeriodFilter, { ALL_PERIOD, filterByPeriod } from '../../components/shared/PeriodFilter'
+import { fmtShortDate } from '../../utils/timezone'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -50,6 +53,8 @@ export default function StudentDetail() {
   const [showRecord, setShowRecord] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [detail, setDetail] = useState(null)   // class opened from the table
+  const [period, setPeriod] = useState(ALL_PERIOD)
 
   const thisMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
 
@@ -93,9 +98,10 @@ export default function StudentDetail() {
 
   if (loading) return <Layout><p className="text-gray-400 text-sm">Loading...</p></Layout>
 
+  // Single-word labels so every card is one line and the numbers align
   const cards = [
     { key: 'upcoming', label: 'Upcoming', value: upcoming.length },
-    { key: 'done', label: 'Classes Done', value: completed.length },
+    { key: 'done', label: 'Completed', value: completed.length },
     { key: 'payments', label: 'Payments', value: confirmedPayments.length },
   ]
 
@@ -118,30 +124,31 @@ export default function StudentDetail() {
               <RiEdit2Line size={14} /> Edit
             </button>
           </div>
-          <div className="flex gap-x-6 gap-y-3 mt-4 flex-wrap">
+          {/* Contact and fee first — the details actually needed day to day */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3 mt-4">
             {[
-              { label: 'Country', value: student?.country || '—' },
-              { label: 'Timezone', value: student?.timezone || '—' },
               { label: 'Phone', value: student?.phone || '—' },
               { label: 'Fee', value: student?.feeAmount ? `₹${student.feeAmount}` : '—' },
+              { label: 'Country', value: student?.country || '—' },
+              { label: 'Timezone', value: student?.timezone || '—' },
             ].map(item => (
-              <div key={item.label}>
+              <div key={item.label} className="min-w-0">
                 <p className="text-xs text-gray-400">{item.label}</p>
-                <p className="text-sm text-gray-700 font-medium">{item.value}</p>
+                <p className="text-sm text-gray-700 font-medium truncate">{item.value}</p>
               </div>
             ))}
           </div>
         </div>
 
         {/* Clickable mini-dashboard — also acts as the section selector */}
-        <div className="grid grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-3 gap-3 mb-5">
           {cards.map(c => (
-            <button key={c.key} onClick={() => setSection(c.key)}
-              className={`bg-white rounded-xl border px-5 py-4 text-left transition-all ${
+            <button key={c.key} onClick={() => { setSection(c.key); setPeriod(ALL_PERIOD) }}
+              className={`bg-white rounded-xl border px-4 py-4 text-left transition-all ${
                 section === c.key ? 'border-amber-400 shadow-sm' : 'border-gray-100 hover:border-amber-200'
               }`}>
-              <p className="text-xs text-gray-400">{c.label}</p>
-              <p className="text-2xl font-semibold text-gray-800 mt-1">{c.value}</p>
+              <p className="text-xs text-gray-400 truncate">{c.label}</p>
+              <p className="text-2xl font-semibold text-gray-800 mt-1 tabular-nums leading-none">{c.value}</p>
             </button>
           ))}
         </div>
@@ -175,10 +182,28 @@ export default function StudentDetail() {
         {/* ── Section content ── */}
 
         {/* Class lists (Upcoming or Done) */}
-        {(section === 'upcoming' || section === 'done') && (
-          <ClassTable classes={section === 'upcoming' ? upcoming : completed}
-            emptyText={section === 'upcoming' ? 'No upcoming classes.' : 'No completed classes yet.'} />
-        )}
+        {(section === 'upcoming' || section === 'done') && (() => {
+          const list = section === 'upcoming' ? upcoming : completed
+          const shown = filterByPeriod(list, period, c => c.scheduledAt?.toDate?.())
+          return (
+            <>
+              <PeriodFilter
+                dates={list.map(c => c.scheduledAt?.toDate?.())}
+                value={period} onChange={setPeriod}
+                showing={shown.length} total={list.length}
+              />
+              <ClassTable
+                classes={shown}
+                onSelect={setDetail}
+                emptyText={
+                  list.length === 0
+                    ? (section === 'upcoming' ? 'No upcoming classes.' : 'No completed classes yet.')
+                    : 'No classes in this period.'
+                }
+              />
+            </>
+          )
+        })()}
 
         {/* Payments — with inline Confirm / Decline */}
         {section === 'payments' && (
@@ -272,11 +297,22 @@ export default function StudentDetail() {
           onSuccess={fetchAll}
         />
       )}
+      {detail && (
+        <ClassDetailModal
+          cls={detail}
+          studentName={student?.name || 'Student'}
+          studentTimezone={student?.timezone}
+          onClose={() => setDetail(null)}
+          onUpdate={fetchAll}
+        />
+      )}
     </Layout>
   )
 }
 
-function ClassTable({ classes, emptyText }) {
+// Rows open the same Class Details popup as the Classes page, so a recording
+// link can be added straight from the student you're already looking at.
+function ClassTable({ classes, emptyText, onSelect }) {
   if (classes.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-100">
@@ -289,30 +325,37 @@ function ClassTable({ classes, emptyText }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-100">
-            <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Date & Time</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Duration</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Status</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Notes</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Date</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Duration</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Status</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Notes</th>
           </tr>
         </thead>
         <tbody>
           {classes.map((c, i) => {
             const date = c.scheduledAt?.toDate?.() ?? new Date()
             return (
-              <tr key={c.id} className={i !== classes.length - 1 ? 'border-b border-gray-50' : ''}>
-                <td className="px-5 py-3.5 text-gray-700">
-                  {date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  <span className="text-gray-400 ml-2 text-xs">
+              <tr key={c.id}
+                onClick={() => onSelect?.(c)}
+                className={`cursor-pointer hover:bg-amber-50 transition-colors ${
+                  i !== classes.length - 1 ? 'border-b border-gray-50' : ''
+                }`}>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <span className="block text-gray-700 tabular-nums">{fmtShortDate(date)}</span>
+                  <span className="block text-xs text-gray-400 tabular-nums mt-0.5">
                     {date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </td>
-                <td className="px-5 py-3.5 text-gray-500">{c.duration || 60}m</td>
-                <td className="px-5 py-3.5">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[c.status] || ''}`}>
+                <td className="px-4 py-3 text-gray-500 tabular-nums whitespace-nowrap">{c.duration || 60}m</td>
+                <td className="px-4 py-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize whitespace-nowrap ${STATUS_STYLES[c.status] || ''}`}>
                     {c.status === 'pending' ? 'Awaiting confirmation' : c.status}
                   </span>
                 </td>
-                <td className="px-5 py-3.5 text-gray-400 text-xs">{c.lessonNotes || '—'}</td>
+                <td className="px-4 py-3 text-gray-400 text-xs">
+                  {c.recordingUrl && <span className="text-amber-600 mr-1">▶</span>}
+                  {c.lessonNotes || (c.recordingUrl ? 'Recording added' : '—')}
+                </td>
               </tr>
             )
           })}

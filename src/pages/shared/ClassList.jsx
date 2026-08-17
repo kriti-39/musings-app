@@ -66,7 +66,17 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
   return (
     <Layout>
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-xl font-semibold text-gray-800 mb-5">Classes</h1>
+        {/* Filter sits on the heading row so it costs no vertical space */}
+        <div className="flex items-center justify-between gap-3 mb-5">
+          <h1 className="text-xl font-semibold text-gray-800">Classes</h1>
+          {!loading && filtered.length > 0 && (
+            <PeriodFilter
+              dates={filtered.map(c => c.scheduledAt?.toDate?.())}
+              value={period} onChange={setPeriod}
+              showing={visible.length} total={filtered.length}
+            />
+          )}
+        </div>
 
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-6">
           {TABS.map(t => (
@@ -78,14 +88,6 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
             </button>
           ))}
         </div>
-
-        {!loading && filtered.length > 0 && (
-          <PeriodFilter
-            dates={filtered.map(c => c.scheduledAt?.toDate?.())}
-            value={period} onChange={setPeriod}
-            showing={visible.length} total={filtered.length}
-          />
-        )}
 
         {loading ? (
           <p className="text-sm text-gray-400 text-center py-16">Loading...</p>

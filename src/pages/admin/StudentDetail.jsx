@@ -187,11 +187,18 @@ export default function StudentDetail() {
           const shown = filterByPeriod(list, period, c => c.scheduledAt?.toDate?.())
           return (
             <>
-              <PeriodFilter
-                dates={list.map(c => c.scheduledAt?.toDate?.())}
-                value={period} onChange={setPeriod}
-                showing={shown.length} total={list.length}
-              />
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <h2 className="text-sm font-semibold text-gray-800">
+                  {section === 'upcoming' ? 'Upcoming classes' : 'Completed classes'}
+                </h2>
+                {list.length > 0 && (
+                  <PeriodFilter
+                    dates={list.map(c => c.scheduledAt?.toDate?.())}
+                    value={period} onChange={setPeriod}
+                    showing={shown.length} total={list.length}
+                  />
+                )}
+              </div>
               <ClassTable
                 classes={shown}
                 onSelect={setDetail}

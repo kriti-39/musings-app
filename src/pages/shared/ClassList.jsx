@@ -107,7 +107,7 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
               return (
                 <button key={cls.id}
                   onClick={() => setDetail(cls)}
-                  className="w-full text-left bg-white rounded-xl border border-gray-100 p-4 hover:border-amber-200 hover:shadow-sm transition-all">
+                  className="w-full text-left bg-white rounded-xl border border-gray-100 p-5 hover:border-amber-200 hover:shadow-sm transition-all">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-medium text-gray-800 truncate">{student?.name || '—'}</p>

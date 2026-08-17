@@ -288,13 +288,13 @@ export default function BookClass() {
         {teacherTz && teacherTz !== studentTz && (
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xs text-gray-400">Show times in:</span>
-            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+            <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
               <button onClick={() => setDisplayTz(studentTz)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${displayTz === studentTz ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${displayTz === studentTz ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>
                 My time ({tzCity(studentTz)})
               </button>
               <button onClick={() => setDisplayTz(teacherTz)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${displayTz === teacherTz ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${displayTz === teacherTz ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>
                 Teacher's time ({tzCity(teacherTz)})
               </button>
             </div>
@@ -324,7 +324,7 @@ export default function BookClass() {
         </div>
 
         {/* Calendar */}
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
           <style>{`
             /* Subtle neutral borders that read well on both light and dark */
             .rbc-month-view,

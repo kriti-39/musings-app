@@ -98,7 +98,7 @@ Inside a class you can:
 | **Confirm / Reject** | For pending requests only |
 | **Mark as Done** | Marks the class completed |
 | **Add / Edit Notes** | What was covered — the student sees this |
-| **Add Recording Link** | *(completed classes only)* — see below |
+| **Add Recording** | *(completed classes only)* — see below |
 | **Reschedule** | Pick a new date/time; the student is notified |
 | **Cancel Class** | Cancels it; the student is notified |
 | **Delete permanently** | Removes it completely — cannot be undone |
@@ -106,7 +106,7 @@ Inside a class you can:
 ### Posting a class recording
 
 1. **Classes** → **Completed** tab → tap the class
-2. **Add Recording Link**
+2. **Add Recording**
 3. Paste the link (YouTube / Google Drive / Zoom)
 4. Optionally give it a **title** — e.g. *"Raag Yaman — meend practice"*
 5. Tips or corrections for the student go in **Lesson Notes**

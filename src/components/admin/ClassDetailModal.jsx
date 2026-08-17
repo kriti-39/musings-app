@@ -233,8 +233,8 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
                 <button onClick={() => setView('recording')}
                   className="flex items-center justify-center gap-1.5 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50 transition-colors"
                 >
-                  <RiVideoLine size={15} />
-                  {cls.recordingUrl ? 'Edit Recording' : 'Add Recording Link'}
+                  <RiVideoLine size={15} className="shrink-0" />
+                  {cls.recordingUrl ? 'Edit Recording' : 'Add Recording'}
                 </button>
               )}
               {cls.status === 'scheduled' && (

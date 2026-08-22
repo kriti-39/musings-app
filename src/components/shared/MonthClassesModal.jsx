@@ -32,7 +32,7 @@ export default function MonthClassesModal({ classes = [], students = {}, monthLa
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={onClose}>
       <div
-        className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col shadow-xl"
+        className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[85dvh] flex flex-col shadow-xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

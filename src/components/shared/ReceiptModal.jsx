@@ -27,7 +27,7 @@ export default function ReceiptModal({ paymentId, directUrl, onClose }) {
             <RiCloseLine size={20} />
           </button>
         </div>
-        <div className="p-2 bg-gray-50 max-h-[75vh] overflow-auto">
+        <div className="p-2 bg-gray-50 max-h-[75dvh] overflow-auto">
           {loading ? (
             <p className="text-sm text-gray-400 text-center py-10">Loading…</p>
           ) : error || !url ? (

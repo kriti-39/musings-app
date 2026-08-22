@@ -263,7 +263,7 @@ export default function TeacherSchedule() {
 
       {/* Floating confirm bar when a slot is selected */}
       {pendingSlot && !showSchedule && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] px-4 py-3 flex items-center justify-between gap-3">
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-3">
           <p className="text-sm font-semibold text-gray-800 truncate">
             {format(pendingSlot, 'EEE, d MMM')} · {format(pendingSlot, 'h:mm a')}
           </p>

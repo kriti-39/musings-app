@@ -32,6 +32,65 @@ select {
   padding-right: 2.2rem !important;
 }
 
+/* ─── iOS / Safari fixes ────────────────────────────────────────────────────
+   Safari applies its own styling to date and time inputs: it centres the value,
+   ignores our padding, and can shrink the field below the height of the boxes
+   next to it. Normalising them keeps a row of inputs the same size on iPhone,
+   iPad and Android.
+   ─────────────────────────────────────────────────────────────────────────── */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+
+/* Safari lays the value out inside its own shadow elements, which ignore the
+   field's line-height — leaving date/time boxes shorter than the text inputs
+   beside them. Inheriting it makes every field in a row the same height. */
+input[type="date"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit {
+  padding: 0;
+  line-height: inherit;
+}
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+  min-height: 0;
+  line-height: inherit;
+}
+/* An empty date/time field is blank on iOS, so nothing hints that it's
+   tappable — show the calendar/clock button instead of hiding it. */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 0.45;
+}
+
+/* iOS zooms the whole page in when you focus a field whose text is under 16px.
+   Phones get 16px fields so tapping one no longer jerks the layout around;
+   larger screens keep the smaller type. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Respect the home indicator / notch on iPhone (viewport-fit=cover is set). */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
 /* ─── DARK MODE — GitHub-style dark blue ────────────────────────────────────
    Deep navy bg · solid dark surfaces · golden gradient accents
    ─────────────────────────────────────────────────────────────────────────── */

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { RiCloseLine, RiErrorWarningLine } from 'react-icons/ri'
+import { useState, useEffect, useRef } from 'react'
+import { RiCloseLine, RiErrorWarningLine, RiSearchLine } from 'react-icons/ri'
 import { getAllStudents, createClass, createRecurringSchedule, getTeacherId, createNotification, findOverlappingClasses, findBlockedOverlaps, fmtWhen } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 
@@ -170,18 +170,14 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {/* Student */}
+          {/* Student — type to search instead of scrolling a long list */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Student *</label>
-            <select
-              name="studentId" value={form.studentId} onChange={handleChange}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
-            >
-              <option value="">Select a student</option>
-              {students.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+            <StudentPicker
+              students={students}
+              value={form.studentId}
+              onChange={id => setForm(f => ({ ...f, studentId: id }))}
+            />
           </div>
 
           {/* Date + Time */}
@@ -311,6 +307,75 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
           </div>
         </form>
       </div>
+    </div>
+  )
+}
+
+// Type-to-search student picker. With 80+ students a plain dropdown means
+// scrolling; this filters as you type and still works by tapping the list.
+function StudentPicker({ students, value, onChange }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function onClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  const selected = students.find(s => s.id === value)
+  const q = query.trim().toLowerCase()
+  const matches = q
+    ? students.filter(s =>
+        s.name?.toLowerCase().includes(q) ||
+        s.userId?.toLowerCase().includes(q) ||
+        s.country?.toLowerCase().includes(q))
+    : students
+
+  // Showing the chosen student as a chip keeps the choice unmistakable
+  if (selected && !open) {
+    return (
+      <div className="flex items-center justify-between gap-2 border border-gray-200 rounded-lg px-3 py-2">
+        <span className="text-sm text-gray-800 truncate">{selected.name}</span>
+        <button type="button"
+          onClick={() => { onChange(''); setQuery(''); setOpen(true) }}
+          className="shrink-0 text-xs text-amber-600 hover:underline">
+          Change
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <div className="relative">
+        <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+        <input
+          type="text" value={query} autoFocus={open}
+          onChange={e => { setQuery(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          placeholder="Type a name to search..."
+          className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+        />
+      </div>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-11 z-40 bg-white rounded-xl shadow-lg border border-gray-100 max-h-56 overflow-y-auto">
+          {matches.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-4">No student matches "{query}".</p>
+          ) : (
+            matches.map(s => (
+              <button key={s.id} type="button"
+                onClick={() => { onChange(s.id); setQuery(''); setOpen(false) }}
+                className="w-full text-left px-4 py-2.5 hover:bg-amber-50 transition-colors border-b border-gray-50 last:border-b-0">
+                <span className="block text-sm text-gray-800 truncate">{s.name}</span>
+                {s.country && <span className="block text-xs text-gray-400">{s.country}</span>}
+              </button>
+            ))
+          )}
+        </div>
+      )}
     </div>
   )
 }

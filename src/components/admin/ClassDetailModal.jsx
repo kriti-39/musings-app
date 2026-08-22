@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { RiCloseLine, RiCalendarLine, RiTimeLine, RiUserLine, RiGlobalLine, RiVideoLine, RiExternalLinkLine } from 'react-icons/ri'
+import { RiCloseLine, RiCalendarLine, RiTimeLine, RiUserLine, RiGlobalLine, RiVideoLine } from 'react-icons/ri'
 import {
   cancelClass, rescheduleClass, markClassDone,
-  confirmClass, rejectClass, updateClass, deleteClass, saveRecording
+  confirmClass, rejectClass, updateClass, deleteClass, saveRecording,
+  hasRecording, recordingText,
 } from '../../firebase/db'
+import RecordingBlock from '../shared/RecordingBlock'
 import { Timestamp } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext'
 import { fmtTime, tzCity } from '../../utils/timezone'
@@ -23,8 +25,7 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
   const [newDate, setNewDate] = useState('')
   const [newTime, setNewTime] = useState('')
   const [notes, setNotes] = useState(cls.lessonNotes || '')
-  const [recUrl, setRecUrl] = useState(cls.recordingUrl || '')
-  const [recTitle, setRecTitle] = useState(cls.recordingTitle || '')
+  const [rec, setRec] = useState(recordingText(cls))
   const [loading, setLoading] = useState(false)
   const [confirm, setConfirm] = useState(null) // { title, message, confirmLabel, variant, action }
 
@@ -60,10 +61,10 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
   }
 
   async function handleSaveRecording() {
-    if (!recUrl.trim()) return
+    if (!rec.trim()) return
     // Notify the student only the first time a recording is added
-    const notify = cls.recordingUrl ? null : cls.studentId
-    await handle(() => saveRecording(cls.id, { url: recUrl, title: recTitle }, notify))
+    const notify = hasRecording(cls) ? null : cls.studentId
+    await handle(() => saveRecording(cls.id, rec, notify))
   }
 
   return (
@@ -149,39 +150,26 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
           {/* Recording — completed classes only */}
           {view === 'recording' ? (
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-gray-600">Recording link *</label>
-              <input
-                type="url" value={recUrl} onChange={e => setRecUrl(e.target.value)}
-                placeholder="https://... (YouTube / Drive / Zoom)"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              <label className="block text-xs font-medium text-gray-600">Recording</label>
+              <textarea
+                value={rec} onChange={e => setRec(e.target.value)} rows={5}
+                placeholder={'Paste the Zoom recording link and passcode here.\n\nhttps://us02web.zoom.us/rec/share/...\nPasscode: aB3#xY9'}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
               />
-              <label className="block text-xs font-medium text-gray-600 pt-1">Title (optional)</label>
-              <input
-                value={recTitle} onChange={e => setRecTitle(e.target.value)}
-                placeholder="e.g. Raag Yaman — meend practice"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-              />
-              <p className="text-xs text-gray-400">Tips or notes for the student go in Lesson Notes.</p>
+              <p className="text-xs text-gray-400">
+                Paste it exactly as Zoom gives it — the student gets a copy button and a tappable link.
+              </p>
               <div className="flex gap-2 pt-1">
                 <button onClick={() => setView('detail')} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
-                <button onClick={handleSaveRecording} disabled={loading || !recUrl.trim()}
+                <button onClick={handleSaveRecording} disabled={loading || !rec.trim()}
                   className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50">
                   {loading ? 'Saving...' : 'Save Recording'}
                 </button>
               </div>
             </div>
-          ) : cls.recordingUrl ? (
-            <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-gray-500 mb-1">Recording</p>
-                <p className="text-sm text-gray-700 truncate">{cls.recordingTitle || 'Class recording'}</p>
-              </div>
-              <a href={cls.recordingUrl} target="_blank" rel="noopener noreferrer"
-                className="shrink-0 flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700">
-                Open <RiExternalLinkLine size={13} />
-              </a>
-            </div>
-          ) : null}
+          ) : (
+            <RecordingBlock text={recordingText(cls)} />
+          )}
 
           {/* Reschedule form */}
           {view === 'reschedule' && (
@@ -234,7 +222,7 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
                   className="flex items-center justify-center gap-1.5 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50 transition-colors"
                 >
                   <RiVideoLine size={15} className="shrink-0" />
-                  {cls.recordingUrl ? 'Edit Recording' : 'Add Recording'}
+                  {hasRecording(cls) ? 'Edit Recording' : 'Add Recording'}
                 </button>
               )}
               {cls.status === 'scheduled' && (

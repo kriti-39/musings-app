@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getStudentAllClasses, markClassDone, cancelClassByStudent, requestReschedule, getTeacher, sweepPastClasses } from '../../firebase/db'
+import { getStudentAllClasses, markClassDone, cancelClassByStudent, requestReschedule, getTeacher, sweepPastClasses, hasRecording } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 import { RiCalendarLine, RiAddLine, RiVideoLine } from 'react-icons/ri'
 import { LOCAL_TZ, tzCity, fmtTime, fmtLongDate } from '../../utils/timezone'
@@ -170,11 +170,13 @@ function ClassCard({ cls, onAction, onPatch, tz, teacherTz }) {
             </p>
           )}
           {cls.lessonNotes && <p className="text-xs text-gray-500 mt-2 italic">"{cls.lessonNotes}"</p>}
-          {cls.status === 'completed' && cls.recordingUrl && (
-            <a href={cls.recordingUrl} target="_blank" rel="noopener noreferrer"
+          {cls.status === 'completed' && hasRecording(cls) && (
+            // Goes to Recordings rather than straight to the link — the
+            // passcode lives there too.
+            <Link to="/student/recordings"
               className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700">
-              <RiVideoLine size={14} /> Watch recording
-            </a>
+              <RiVideoLine size={14} /> Recording available
+            </Link>
           )}
         </div>
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[cls.status]}`}>

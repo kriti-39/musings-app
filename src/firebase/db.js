@@ -409,20 +409,40 @@ export async function cancelClassByStudent(classId) {
 }
 
 // ─── RECORDINGS ───────────────────────────────────────────────────────────────
-// A recording is just a link (+ optional custom title) saved on the class doc.
-// Notes live in the existing lessonNotes field. The student is notified only
-// when a recording is first added, not on later edits.
-export async function saveRecording(classId, { url, title }, notifyStudentId = null) {
+// A recording is ONE free-text field: staff paste the whole thing straight from
+// Zoom — link, passcode, whatever — and the student sees it with the links
+// tappable and a copy button. Earlier recordings stored the link and title in
+// separate fields; the helpers below read both shapes.
+
+// The first web link inside a block of text, if any.
+export function firstUrl(text) {
+  const m = (text || '').match(/https?:\/\/\S+/)
+  return m ? m[0] : null
+}
+
+export function hasRecording(cls) {
+  return !!(cls?.recordingInfo?.trim() || cls?.recordingUrl?.trim())
+}
+
+// What to show the student — the pasted block, or a legacy title + link.
+export function recordingText(cls) {
+  if (cls?.recordingInfo?.trim()) return cls.recordingInfo.trim()
+  return [cls?.recordingTitle, cls?.recordingUrl].filter(t => t?.trim()).join('\n')
+}
+
+export async function saveRecording(classId, info, notifyStudentId = null) {
+  const text = (info || '').trim()
   await updateDoc(doc(db, 'classes', classId), {
-    recordingUrl: (url || '').trim(),
-    recordingTitle: (title || '').trim(),
+    recordingInfo: text,
+    // Also kept so phones still running the previous version keep working
+    // until they pick up the update.
+    recordingUrl: firstUrl(text) || '',
     updatedAt: serverTimestamp(),
   })
   if (notifyStudentId) {
     try {
       await createNotification(notifyStudentId, 'recording_posted',
-        (title || '').trim() ? `${title.trim()} — tap to watch` : 'Your class recording is ready to watch',
-        classId, 'New recording')
+        'Your class recording is ready to watch', classId, 'New recording')
     } catch (e) { console.error('Recording saved, student notify failed:', e) }
   }
 }

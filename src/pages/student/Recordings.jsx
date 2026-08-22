@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getStudentAllClasses, renameRecording } from '../../firebase/db'
+import { getStudentAllClasses, renameRecording, hasRecording, recordingText } from '../../firebase/db'
+import RecordingBlock from '../../components/shared/RecordingBlock'
 import { LOCAL_TZ, tzCity, fmtTime, fmtLongDate } from '../../utils/timezone'
 import { RiVideoLine, RiExternalLinkLine, RiPencilLine, RiCheckLine, RiCloseLine } from 'react-icons/ri'
 
@@ -14,7 +15,7 @@ export default function StudentRecordings() {
     try {
       const all = await getStudentAllClasses(user.id)
       // Newest first (getStudentAllClasses already sorts descending)
-      setRecordings(all.filter(c => c.recordingUrl))
+      setRecordings(all.filter(hasRecording))
     } catch (e) {
       console.error('Failed to fetch recordings:', e)
     } finally {
@@ -122,10 +123,9 @@ function RecordingCard({ cls, tz, onRename }) {
           )}
         </div>
       </div>
-      <a href={cls.recordingUrl} target="_blank" rel="noopener noreferrer"
-        className="mt-4 inline-flex items-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-        <RiVideoLine size={16} /> Watch recording <RiExternalLinkLine size={13} />
-      </a>
+      <div className="mt-4">
+        <RecordingBlock text={recordingText(cls)} />
+      </div>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import MonthClassesModal from '../../components/shared/MonthClassesModal'
+import FollowUpCard from '../../components/shared/FollowUpCard'
 import { useAuth } from '../../context/AuthContext'
 import {
   getAdminDashboardStats, getAllClassesForMonth,
@@ -82,6 +83,9 @@ export default function AdminDashboard() {
             </button>
           ))}
         </div>
+
+        {/* Students to contact after a class was cancelled */}
+        <FollowUpCard staffId={user?.id} />
 
         {/* Pending booking requests */}
         {pending.length > 0 && (

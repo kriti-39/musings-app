@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import MonthClassesModal from '../../components/shared/MonthClassesModal'
+import FollowUpCard from '../../components/shared/FollowUpCard'
 import { useAuth } from '../../context/AuthContext'
 import { getDashboardStats, getTeacherClassesForDay, getTeacherClassesForMonth, getAllStudentsIncludingInactive, getPendingRequests, confirmClass, rejectClass, sweepPastClasses } from '../../firebase/db'
 import { RiCheckLine, RiCloseLine, RiCalendarLine } from 'react-icons/ri'
@@ -69,6 +70,9 @@ export default function TeacherDashboard() {
             </button>
           ))}
         </div>
+
+        {/* Students to contact after a class was cancelled */}
+        <FollowUpCard staffId={user?.id} />
 
         {/* Pending requests */}
         {pending.length > 0 && (

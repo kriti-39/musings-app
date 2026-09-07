@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
+  collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, deleteField,
   query, where, orderBy, limit, Timestamp, serverTimestamp
 } from 'firebase/firestore'
 import { db } from './config'
@@ -271,6 +271,9 @@ export function sweepPastClasses(classes) {
 export async function cancelClass(classId, notifyStudentId = null) {
   await updateDoc(doc(db, 'classes', classId), {
     status: 'cancelled',
+    // Staff cancelled this, so the student is owed a word about rescheduling —
+    // it joins the follow-up list until someone actually reaches out.
+    followUpNeeded: true,
     updatedAt: serverTimestamp(),
   })
   // When staff cancels, notify the student
@@ -455,6 +458,42 @@ export async function renameRecording(classId, title) {
   })
 }
 
+// ─── FOLLOW-UPS ───────────────────────────────────────────────────────────────
+// When staff cancel a class, the student is owed a personal word about
+// rescheduling. Those classes carry followUpNeeded until someone reaches out.
+// The flag is REMOVED once handled (rather than set to false), so this query
+// only ever reads the handful still open, however long the studio runs.
+
+export async function getPendingFollowUps() {
+  const snap = await getDocs(query(collection(db, 'classes'), where('followUpNeeded', '==', true)))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.scheduledAt?.seconds ?? 0) - (a.scheduledAt?.seconds ?? 0))
+}
+
+// `via` records how it was handled — 'whatsapp' when the message was opened,
+// 'manual' when ticked off after a call or a chat in person.
+export async function markFollowUpDone(classId, staffId = null, via = 'manual') {
+  await updateDoc(doc(db, 'classes', classId), {
+    followUpNeeded: deleteField(),
+    followUpDoneAt: serverTimestamp(),
+    followUpBy: staffId,
+    followUpVia: via,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// In case it was ticked off by mistake
+export async function undoFollowUpDone(classId) {
+  await updateDoc(doc(db, 'classes', classId), {
+    followUpNeeded: true,
+    followUpDoneAt: deleteField(),
+    followUpBy: deleteField(),
+    followUpVia: deleteField(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
 // ─── RECURRING SCHEDULES ──────────────────────────────────────────────────────
 
 export async function createRecurringSchedule(data) {
@@ -582,6 +621,7 @@ export async function cancelClassesForBlock(classes, groupId = null) {
         status: 'cancelled',
         cancelledByBlock: groupId || true,
         statusBeforeBlock: c.status || 'scheduled',
+        followUpNeeded: true,
         updatedAt: serverTimestamp(),
       })
       const when = await studentTimeLabel(c.studentId, c.scheduledAt?.toDate?.())
@@ -623,6 +663,8 @@ export async function restoreClassesFromBlock(classes) {
         status: c.statusBeforeBlock || 'scheduled',
         cancelledByBlock: null,
         statusBeforeBlock: null,
+        // The class is back on, so there's nothing left to chase
+        followUpNeeded: deleteField(),
         updatedAt: serverTimestamp(),
       })
       const when = await studentTimeLabel(c.studentId, c.scheduledAt?.toDate?.())

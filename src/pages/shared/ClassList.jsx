@@ -117,6 +117,15 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
                       <p className="text-xs text-gray-400 mt-0.5">
                         {date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {cls.duration || 60} min
                       </p>
+                      {/* Record of whether the student was spoken to about it */}
+                      {status === 'cancelled' && cls.followUpNeeded && (
+                        <p className="text-xs text-amber-600 mt-1">Student not contacted yet</p>
+                      )}
+                      {status === 'cancelled' && cls.followUpDoneAt && (
+                        <p className="text-xs text-green-600 mt-1">
+                          ✓ Contacted{cls.followUpVia === 'whatsapp' ? ' on WhatsApp' : ''}
+                        </p>
+                      )}
                     </div>
                     <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[status] || ''}`}>
                       {status === 'pending' ? 'Awaiting confirmation' : status}

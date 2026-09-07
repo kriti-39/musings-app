@@ -5,7 +5,8 @@ import ReceiptModal from '../../components/shared/ReceiptModal'
 import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment } from '../../firebase/db'
 import { paymentCoverage } from '../../utils/payment'
 import { useAuth } from '../../context/AuthContext'
-import { RiCheckLine, RiAddLine, RiCloseLine, RiImageLine } from 'react-icons/ri'
+import FeeReportModal from '../../components/shared/FeeReportModal'
+import { RiCheckLine, RiAddLine, RiCloseLine, RiImageLine, RiFileDownloadLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -28,6 +29,7 @@ export default function TeacherFees() {
   const [markPaid, setMarkPaid] = useState(null) // studentId
   const [receiptId, setReceiptId] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showReport, setShowReport] = useState(false)
 
   async function refreshPayments() {
     const allStudents = await getAllStudents()
@@ -86,7 +88,13 @@ export default function TeacherFees() {
     <TeacherLayout>
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-gray-800 mb-3">Fees</h1>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h1 className="text-xl font-semibold text-gray-800">Fees</h1>
+            <button onClick={() => setShowReport(true)}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:border-amber-300 transition-colors">
+              <RiFileDownloadLine size={14} /> Report
+            </button>
+          </div>
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {months.map(m => (
               <button key={m} onClick={() => setSelectedMonth(m)}
@@ -219,6 +227,10 @@ export default function TeacherFees() {
       )}
 
       {receiptId && <ReceiptModal paymentId={receiptId.id} directUrl={receiptId.url} onClose={() => setReceiptId(null)} />}
+
+      {showReport && (
+        <FeeReportModal students={students} payments={payments} onClose={() => setShowReport(false)} />
+      )}
     </TeacherLayout>
   )
 }

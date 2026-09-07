@@ -5,11 +5,14 @@ import {
   getAllStudentsIncludingInactive, fmtWhen,
 } from '../../firebase/db'
 import { whatsappUrl, cancelledClassMessage, normalizePhone } from '../../utils/whatsapp'
+import { useAuth } from '../../context/AuthContext'
 
 // Students whose class the studio cancelled and who haven't been spoken to yet.
 // Only shows up when there's something to do; opening WhatsApp ticks the
 // student off, so the list empties itself as the messages go out.
-export default function FollowUpCard({ staffId }) {
+export default function FollowUpCard() {
+  const { user, role } = useAuth()
+  const staffId = user?.id
   const [items, setItems] = useState([])
   const [students, setStudents] = useState({})
   const [done, setDone] = useState({})   // id -> true, kept briefly so Undo is possible
@@ -68,10 +71,14 @@ export default function FollowUpCard({ staffId }) {
       <div>
         {items.map(cls => {
           const s = students[cls.studentId]
-          const when = fmtWhen(cls.scheduledAt?.toDate?.(), s?.timezone)
+          const date = cls.scheduledAt?.toDate?.()
+          const when = fmtWhen(date, s?.timezone)
           const isDone = done[cls.id]
           const hasNumber = !!normalizePhone(s?.phone, s?.country)
-          const url = whatsappUrl(s?.phone, s?.country, cancelledClassMessage({ name: s?.name, when }))
+          // Guruji writes in the first person; admins write for the studio
+          const url = whatsappUrl(s?.phone, s?.country, cancelledClassMessage({
+            name: s?.name, date, tz: s?.timezone, fromTeacher: role === 'teacher',
+          }))
 
           return (
             <div key={cls.id}

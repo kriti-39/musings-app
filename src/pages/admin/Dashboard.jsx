@@ -85,7 +85,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Students to contact after a class was cancelled */}
-        <FollowUpCard staffId={user?.id} />
+        <FollowUpCard />
 
         {/* Pending booking requests */}
         {pending.length > 0 && (

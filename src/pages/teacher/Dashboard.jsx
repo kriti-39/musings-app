@@ -72,7 +72,7 @@ export default function TeacherDashboard() {
         </div>
 
         {/* Students to contact after a class was cancelled */}
-        <FollowUpCard staffId={user?.id} />
+        <FollowUpCard />
 
         {/* Pending requests */}
         {pending.length > 0 && (

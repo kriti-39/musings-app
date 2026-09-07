@@ -62,13 +62,38 @@ export function whatsappUrl(phone, country, message) {
   return num ? `https://wa.me/${num}?text=${text}` : `https://wa.me/?text=${text}`
 }
 
-// The default note for a class the studio cancelled. Staff can edit it in
-// WhatsApp before sending.
-export function cancelledClassMessage({ name, when }) {
-  const greeting = name ? `Namaste ${name} 🙏` : 'Namaste 🙏'
-  return `${greeting}
+// The compact "6:00 pm · Tue, 12 Aug" used in the app reads oddly mid-sentence,
+// so messages spell the slot out: "Tuesday, 12 August at 6:00 pm".
+function proseWhen(date, tz) {
+  if (!date) return ''
+  const day = date.toLocaleDateString('en-IN', {
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: tz,
+  })
+  // 'numeric' not '2-digit' — "6:00 pm" reads naturally, "06:00 pm" doesn't
+  const time = date.toLocaleTimeString('en-IN', {
+    hour: 'numeric', minute: '2-digit', timeZone: tz,
+  })
+  return `${day} at ${time}`
+}
 
-Guruji is unavailable${when ? ` on ${when}` : ''}, so your class has been cancelled.
+// The note that opens in WhatsApp, editable before sending. Guruji writes in
+// his own voice and the message stops after the facts so he can carry on in
+// his own words; an admin writes on the studio's behalf and signs off.
+export function cancelledClassMessage({ name, date, tz, fromTeacher = false }) {
+  const when = proseWhen(date, tz)
+  const on = when ? ` on ${when}` : ''
+
+  if (fromTeacher) {
+    return `Hi ${name || 'there'},
+
+I'm unavailable${on}, so your class is being cancelled.
+
+`
+  }
+
+  return `Namaste${name ? ` ${name}` : ''} 🙏
+
+Guruji is unavailable${on}, so your class has been cancelled.
 
 Shall we find another time? Please let me know what suits you.
 

@@ -1,6 +1,6 @@
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, deleteField,
-  query, where, orderBy, limit, Timestamp, serverTimestamp
+  query, where, orderBy, limit, Timestamp, serverTimestamp, onSnapshot
 } from 'firebase/firestore'
 import { db } from './config'
 import { sendPushForNotification } from '../utils/push'
@@ -464,11 +464,23 @@ export async function renameRecording(classId, title) {
 // The flag is REMOVED once handled (rather than set to false), so this query
 // only ever reads the handful still open, however long the studio runs.
 
+const byLatest = (a, b) => (b.scheduledAt?.seconds ?? 0) - (a.scheduledAt?.seconds ?? 0)
+
 export async function getPendingFollowUps() {
   const snap = await getDocs(query(collection(db, 'classes'), where('followUpNeeded', '==', true)))
-  return snap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .sort((a, b) => (b.scheduledAt?.seconds ?? 0) - (a.scheduledAt?.seconds ?? 0))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byLatest)
+}
+
+// Live version: every open dashboard hears the moment any teacher or admin
+// handles a student, so nobody messages the same person twice. Because the
+// query only matches open follow-ups, it stays cheap no matter how many
+// cancellations the studio has had. Returns the unsubscribe function.
+export function subscribePendingFollowUps(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, 'classes'), where('followUpNeeded', '==', true)),
+    snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byLatest)),
+    onError,
+  )
 }
 
 // `via` records how it was handled — 'whatsapp' when the message was opened,

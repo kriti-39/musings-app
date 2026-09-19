@@ -40,6 +40,13 @@ export function fmtTime(date, tz) {
   return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: tz })
 }
 
+// Plain 12-hour time, e.g. "6:00 PM" — no leading zero, uppercase AM/PM.
+// Used where the time is the thing being checked, like the booking confirmation.
+export function fmtTime12(date, tz) {
+  if (!date) return ''
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz })
+}
+
 // Format date + time in a given tz, e.g. "3 Jun, 6:00 PM"
 export function fmtDateTime(date, tz) {
   if (!date) return ''

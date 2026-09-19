@@ -12,7 +12,7 @@ import {
   RiCloseLine, RiCalendarLine, RiCheckLine,
   RiArrowLeftSLine, RiArrowRightSLine
 } from 'react-icons/ri'
-import { LOCAL_TZ, tzCity, shiftToTz, unshiftFromTz, tzOffsetMinutes, fmtTime, fmtLongDate } from '../../utils/timezone'
+import { LOCAL_TZ, tzCity, shiftToTz, unshiftFromTz, tzOffsetMinutes, fmtTime12, fmtLongDate } from '../../utils/timezone'
 
 const localizer = dateFnsLocalizer({
   format, parse,
@@ -82,6 +82,7 @@ export default function BookClass() {
   const [conflict, setConflict] = useState(false)
   const [bookingError, setBookingError] = useState('')
   const [bookingSuccess, setBookingSuccess] = useState(null) // { status }
+  const [confirmSlot, setConfirmSlot] = useState(null)       // instant awaiting confirmation
   const [currentView, setCurrentView] = useState('month')
 
   // Timezones
@@ -239,12 +240,19 @@ export default function BookClass() {
     return new Date(utcGuess - offset * 60000)
   }
 
-  async function handleBook() {
+  async function handleBook(confirmed = false) {
     if (!selectedDate || !selectedTime || !teacherId) return
     const instant = realInstant()
     if (isBefore(instant, new Date())) return
     // Teacher-blocked times can't be booked at all
     if (hitsBlocked(displayWallClock(selectedDate, selectedTime))) { setConflict('blocked'); return }
+    // A student in another timezone checks the slot in both clocks first — it's
+    // the one mistake that's easy to make and awkward to undo. Students in the
+    // studio's own timezone book in a single tap, as before.
+    if (!confirmed && teacherTz && teacherTz !== studentTz) {
+      setConfirmSlot(instant)
+      return
+    }
     setBookingLoading(true)
     setBookingError('')
     try {
@@ -256,6 +264,7 @@ export default function BookClass() {
         lessonNotes: note,
       })
       setShowPicker(false)
+      setConfirmSlot(null)
       setPendingSlot(null)
       setBookingSuccess({ status: result?.status || 'scheduled' })
       loadCalendar() // reflect the new class on the calendar right away
@@ -455,6 +464,53 @@ export default function BookClass() {
         </div>
       )}
 
+      {/* Cross-timezone confirmation — each side shows its OWN date, because a
+          late or early slot can land on a different day for the two of you. */}
+      {confirmSlot && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6">
+            <h2 className="text-base font-semibold text-gray-800">Check the time</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              You and Guruji are in different timezones. Please confirm this is the slot you mean.
+            </p>
+
+            <div className="space-y-2 mt-4">
+              <div className="rounded-xl border border-gray-200 px-4 py-3">
+                <p className="text-xs text-gray-400">Your time · {tzCity(studentTz)}</p>
+                <p className="text-sm text-gray-600 mt-1">{fmtLongDate(confirmSlot, studentTz)}</p>
+                <p className="text-xl font-semibold text-gray-800 leading-tight mt-0.5">
+                  {fmtTime12(confirmSlot, studentTz)}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-amber-300 px-4 py-3">
+                <p className="text-xs text-amber-600">Guruji's time · {tzCity(teacherTz)}</p>
+                <p className="text-sm text-gray-600 mt-1">{fmtLongDate(confirmSlot, teacherTz)}</p>
+                <p className="text-xl font-semibold text-gray-800 leading-tight mt-0.5">
+                  {fmtTime12(confirmSlot, teacherTz)}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 mt-3">
+              {duration < 60 ? `${duration} minutes` : `${duration / 60} hour${duration > 60 ? 's' : ''}`}
+              {conflict === 'busy' ? ' · Guruji will confirm this slot' : ''}
+            </p>
+
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setConfirmSlot(null)} disabled={bookingLoading}
+                className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50 disabled:opacity-50">
+                Change time
+              </button>
+              <button onClick={() => handleBook(true)} disabled={bookingLoading}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50">
+                {bookingLoading ? 'Booking...' : 'Confirm booking'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Booking modal */}
       {showPicker && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -520,12 +576,12 @@ export default function BookClass() {
                   <p className="text-xs font-medium text-amber-800">{fmtLongDate(realInstant(), studentTz)}</p>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-500">Your time ({tzCity(studentTz)})</span>
-                    <span className="font-medium text-gray-800">{fmtTime(realInstant(), studentTz)}</span>
+                    <span className="font-medium text-gray-800">{fmtTime12(realInstant(), studentTz)}</span>
                   </div>
                   {teacherTz && teacherTz !== studentTz && (
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-500">Teacher's time ({tzCity(teacherTz)})</span>
-                      <span className="font-medium text-gray-800">{fmtTime(realInstant(), teacherTz)}</span>
+                      <span className="font-medium text-gray-800">{fmtTime12(realInstant(), teacherTz)}</span>
                     </div>
                   )}
                 </div>

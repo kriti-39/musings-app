@@ -245,7 +245,10 @@ export default function BookClass() {
     const instant = realInstant()
     if (isBefore(instant, new Date())) return
     // Teacher-blocked times can't be booked at all
-    if (hitsBlocked(displayWallClock(selectedDate, selectedTime))) { setConflict('blocked'); return }
+    const slotStart = displayWallClock(selectedDate, selectedTime)
+    if (hitsBlocked(slotStart)) { setConflict('blocked'); return }
+    // Nor can a time that already has a class — one class per slot
+    if (hitsBusy(slotStart)) { setConflict('busy'); return }
     // A student in another timezone checks the slot in both clocks first — it's
     // the one mistake that's easy to make and awkward to undo. Students in the
     // studio's own timezone book in a single tap, as before.
@@ -270,7 +273,15 @@ export default function BookClass() {
       loadCalendar() // reflect the new class on the calendar right away
     } catch (e) {
       console.error(e)
-      setBookingError('Failed to book. Please try again.')
+      // Someone took the slot between the calendar loading and this tap
+      if (e?.code === 'slot-taken') {
+        setConfirmSlot(null)
+        setConflict('busy')
+        setBookingError('Someone has already booked this slot. Please choose another time.')
+        loadCalendar() // so the slot now shows as unavailable
+      } else {
+        setBookingError('Failed to book. Please try again.')
+      }
     } finally {
       setBookingLoading(false)
     }
@@ -494,7 +505,6 @@ export default function BookClass() {
 
             <p className="text-xs text-gray-400 mt-3">
               {duration < 60 ? `${duration} minutes` : `${duration / 60} hour${duration > 60 ? 's' : ''}`}
-              {conflict === 'busy' ? ' · Guruji will confirm this slot' : ''}
             </p>
 
             <div className="flex gap-3 mt-5">
@@ -593,8 +603,8 @@ export default function BookClass() {
                 </p>
               )}
               {conflict === 'busy' && (
-                <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
-                  This time already has a class. You can still request it — the teacher will confirm if it works.
+                <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">
+                  Already someone has booked a class at this time. Please choose another slot.
                 </p>
               )}
               {bookingError && (
@@ -611,10 +621,10 @@ export default function BookClass() {
               </button>
               <button
                 onClick={handleBook}
-                disabled={bookingLoading || !selectedDate || !selectedTime || conflict === 'blocked'}
+                disabled={bookingLoading || !selectedDate || !selectedTime || conflict === 'blocked' || conflict === 'busy'}
                 className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50"
               >
-                {bookingLoading ? 'Booking...' : conflict === 'busy' ? 'Request anyway' : 'Book Class'}
+                {bookingLoading ? 'Booking...' : 'Book Class'}
               </button>
             </div>
           </div>

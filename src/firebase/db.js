@@ -133,9 +133,16 @@ export async function createBooking({
   let status = forceStatus
 
   if (!status) {
+    // Two classes can't share a time. The calendar already hides taken slots,
+    // but someone may have booked this one since it loaded — so the check is
+    // repeated here, as close to the write as possible.
     const overlaps = await findOverlappingClasses(teacherId, startDate, dur)
-    overlap = overlaps.length > 0
-    status = overlap ? 'pending' : 'scheduled'
+    if (overlaps.length > 0) {
+      const err = new Error('That time has already been booked.')
+      err.code = 'slot-taken'
+      throw err
+    }
+    status = 'scheduled'
   }
 
   const ref = await addDoc(collection(db, 'classes'), {

@@ -502,6 +502,18 @@ export async function markFollowUpDone(classId, staffId = null, via = 'manual') 
   })
 }
 
+// Once the class day itself has gone, there is nothing left to rearrange, so
+// the follow-up drops off the list on its own. Recorded as lapsed rather than
+// contacted, so the history stays honest — and removing the flag keeps the
+// query reading only what is still live.
+export async function lapseFollowUp(classId) {
+  await updateDoc(doc(db, 'classes', classId), {
+    followUpNeeded: deleteField(),
+    followUpLapsedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
 // In case it was ticked off by mistake
 export async function undoFollowUpDone(classId) {
   await updateDoc(doc(db, 'classes', classId), {

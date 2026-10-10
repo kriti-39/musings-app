@@ -126,6 +126,9 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
                           ✓ Contacted{cls.followUpVia === 'whatsapp' ? ' on WhatsApp' : ''}
                         </p>
                       )}
+                      {status === 'cancelled' && cls.followUpLapsedAt && !cls.followUpDoneAt && (
+                        <p className="text-xs text-gray-400 mt-1">Not contacted — the day passed</p>
+                      )}
                     </div>
                     <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[status] || ''}`}>
                       {status === 'pending' ? 'Awaiting confirmation' : status}

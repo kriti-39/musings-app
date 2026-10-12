@@ -28,6 +28,65 @@ export function monthStatus(payments, month) {
   return found.status === 'confirmed' ? 'paid' : 'pending'
 }
 
+// ─── WHAT ONE MONTH BROUGHT IN ───────────────────────────────────────────────
+// A payment can cover several months at one total. For a per-month figure that
+// is SPLIT evenly across the months it covers — ₹6000 for Jun–Aug counts ₹2000
+// in each — so the twelve monthly figures add up to the year instead of
+// counting the same ₹6000 three times.
+//
+// (The period report above deliberately does the opposite: there the whole
+// payment is counted once across the whole selected range, which is right when
+// you're asking "what came in for these months together".)
+export function paymentMonthShare(payment, month) {
+  const months = (payment?.months || []).filter(Boolean)
+  if (!months.includes(month)) return 0
+  const amount = Number(payment.amount) || 0
+  return months.length > 1 ? amount / months.length : amount
+}
+
+export function monthlyCollection(students, paymentsMap, month) {
+  const rows = (students || []).map(s => {
+    const list = paymentsMap?.[s.id] || []
+    let received = 0
+    let pending = 0
+    for (const p of list) {
+      if (p.status === 'rejected') continue
+      const share = paymentMonthShare(p, month)
+      if (!share) continue
+      if (p.status === 'confirmed') received += share
+      else pending += share
+    }
+    // Only a monthly fee can be turned into an expected amount; per-class and
+    // flexible students depend on classes taken, so they're left out of the
+    // target rather than guessed at.
+    const expected = s.feeType === 'monthly' ? Number(s.feeAmount) || 0 : 0
+    return {
+      id: s.id,
+      name: s.name || '—',
+      received, pending, expected,
+      feeType: s.feeType || '',
+      status: received > 0 ? 'paid' : pending > 0 ? 'pending' : 'unpaid',
+    }
+  })
+
+  const sum = (key) => rows.reduce((t, r) => t + r[key], 0)
+
+  return {
+    month,
+    rows,
+    received: Math.round(sum('received')),
+    pending: Math.round(sum('pending')),
+    expected: Math.round(sum('expected')),
+    paidCount: rows.filter(r => r.status === 'paid').length,
+    pendingCount: rows.filter(r => r.status === 'pending').length,
+    unpaidCount: rows.filter(r => r.status === 'unpaid').length,
+    students: rows.length,
+    // Students whose fee can't be turned into a number, so the target is a
+    // floor rather than the whole truth.
+    expectedUnknown: rows.filter(r => r.feeType && r.feeType !== 'monthly').length,
+  }
+}
+
 export function buildFeeReport(students, paymentsMap, months) {
   const period = [...(months || [])].sort()
 

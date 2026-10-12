@@ -6,6 +6,7 @@ import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment } fro
 import { paymentCoverage } from '../../utils/payment'
 import { useAuth } from '../../context/AuthContext'
 import FeeReportModal from '../../components/shared/FeeReportModal'
+import FeeMonthSummary from '../../components/shared/FeeMonthSummary'
 import { RiCheckLine, RiAddLine, RiCloseLine, RiImageLine, RiFileDownloadLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -107,6 +108,9 @@ export default function TeacherFees() {
             ))}
           </div>
         </div>
+
+        {/* What the month actually brought in */}
+        {!loading && <FeeMonthSummary students={students} payments={payments} month={selectedMonth} />}
 
         {/* Summary — click a card to filter the list */}
         <div className="grid grid-cols-3 gap-4 mb-6">

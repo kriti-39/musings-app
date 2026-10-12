@@ -17,10 +17,17 @@ export async function getUser(uid) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null
 }
 
+// Every student list comes back A–Z. Firestore returns documents in whatever
+// order it likes, which made the Fees tables effectively random and hard to
+// scan; sorting here means every screen gets it without having to remember.
+// `sensitivity: 'base'` so case and accents don't split the alphabet.
+export const byStudentName = (a, b) =>
+  (a?.name || '').localeCompare(b?.name || '', 'en', { sensitivity: 'base' })
+
 export async function getAllStudents() {
   const q = query(collection(db, 'users'), where('role', '==', 'student'), where('isActive', '==', true))
   const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byStudentName)
 }
 
 export async function createStudent(uid, data) {
@@ -897,6 +904,35 @@ export async function getAllPayments() {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }
 
+// Correct a payment that was recorded wrongly — the amount typed in a hurry,
+// the wrong method, the wrong months. Staff only: the Firestore rule on
+// `payments` already allows updates from admins and the teacher alone, so a
+// student cannot change one even if they tried.
+//
+// The student is told when the AMOUNT changes, because that's the part they
+// could reasonably disagree with; a corrected note or method isn't worth a
+// notification.
+export async function updatePayment(paymentId, data, editedBy = null) {
+  const before = await getDoc(doc(db, 'payments', paymentId))
+  const old = before.exists() ? before.data() : null
+
+  await updateDoc(doc(db, 'payments', paymentId), {
+    ...data,
+    editedBy,
+    editedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+
+  const oldAmount = Number(old?.amount) || 0
+  const newAmount = Number(data?.amount)
+  if (old?.studentId && Number.isFinite(newAmount) && newAmount !== oldAmount) {
+    try {
+      await createNotification(old.studentId, 'payment_updated',
+        `Your payment record now reads ₹${newAmount}.`, null, 'Payment updated')
+    } catch (e) { console.error('Payment updated, student notify failed:', e) }
+  }
+}
+
 export async function confirmPayment(paymentId, confirmedByUid, studentId = null) {
   await updateDoc(doc(db, 'payments', paymentId), {
     status: 'confirmed',
@@ -924,7 +960,7 @@ export async function rejectPayment(paymentId, studentId = null) {
 export async function getAllStudentsIncludingInactive() {
   const q = query(collection(db, 'users'), where('role', '==', 'student'))
   const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byStudentName)
 }
 
 // Deactivate (pause) a student: blocks their access and CANCELS their upcoming

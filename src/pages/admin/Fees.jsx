@@ -6,7 +6,8 @@ import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment } fro
 import { paymentCoverage } from '../../utils/payment'
 import { useAuth } from '../../context/AuthContext'
 import FeeReportModal from '../../components/shared/FeeReportModal'
-import { RiCheckLine, RiAddLine, RiCloseLine, RiImageLine, RiFileDownloadLine } from 'react-icons/ri'
+import FeeMonthSummary from '../../components/shared/FeeMonthSummary'
+import { RiCheckLine, RiAddLine, RiCloseLine, RiImageLine, RiFileDownloadLine, RiEdit2Line } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -26,7 +27,7 @@ export default function AdminFees() {
   const [payments, setPayments] = useState({})
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr())
   const [loading, setLoading] = useState(true)
-  const [addModal, setAddModal] = useState(null) // studentId
+  const [addModal, setAddModal] = useState(null) // { studentId, defaultAmount } | { payment }
   const [receiptId, setReceiptId] = useState(null)
   const [showReport, setShowReport] = useState(false)
 
@@ -88,6 +89,8 @@ export default function AdminFees() {
         {loading ? (
           <p className="text-gray-400 text-sm text-center py-16">Loading...</p>
         ) : (
+          <>
+          <FeeMonthSummary students={students} payments={payments} month={selectedMonth} />
           <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -158,10 +161,19 @@ export default function AdminFees() {
                           )}
                           {status === 'unpaid' && (
                             <button
-                              onClick={() => setAddModal(s.id)}
+                              // Prefilled with what this student is meant to pay
+                              onClick={() => setAddModal({ studentId: s.id, defaultAmount: s.feeAmount })}
                               className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs hover:bg-amber-100 transition-colors"
                             >
                               <RiAddLine size={13} /> Mark Paid
+                            </button>
+                          )}
+                          {monthPayment && (
+                            <button
+                              onClick={() => setAddModal({ studentId: s.id, payment: monthPayment })}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-xs hover:bg-gray-100 transition-colors"
+                            >
+                              <RiEdit2Line size={13} /> Edit
                             </button>
                           )}
                         </div>
@@ -172,12 +184,15 @@ export default function AdminFees() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
       {addModal && (
         <MarkPaidModal
-          studentId={addModal}
+          studentId={addModal.studentId}
+          payment={addModal.payment || null}
+          defaultAmount={addModal.defaultAmount || null}
           selectedMonth={selectedMonth}
           staffId={user.id}
           onClose={() => setAddModal(null)}

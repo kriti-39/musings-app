@@ -1,16 +1,26 @@
 import { useState } from 'react'
 import { RiCloseLine, RiUploadLine } from 'react-icons/ri'
-import { createPayment, saveReceipt } from '../../firebase/db'
+import { createPayment, updatePayment, saveReceipt } from '../../firebase/db'
 import { compressImage } from '../../utils/image'
 import MonthPicker from './MonthPicker'
 
-// Staff records a payment (e.g. cash received). Saved as already-confirmed.
-export default function MarkPaidModal({ studentId, selectedMonth, staffId, onClose, onSuccess }) {
+// Staff records a payment (e.g. cash received), saved as already-confirmed —
+// or, when `payment` is passed, corrects one that's already on the books.
+// Editing is staff-only by the Firestore rule, not just by hiding the button.
+//
+// `defaultAmount` prefills a new payment with what this student is meant to pay,
+// so the usual case is one tap. It stays editable — the amount agreed isn't
+// always the amount handed over.
+export default function MarkPaidModal({
+  studentId, selectedMonth, staffId, payment = null, defaultAmount = null,
+  onClose, onSuccess,
+}) {
+  const editing = !!payment
   const [form, setForm] = useState({
-    amount: '',
-    method: 'cash',
-    months: [selectedMonth],
-    note: '',
+    amount: payment?.amount ?? (defaultAmount ? String(defaultAmount) : ''),
+    method: payment?.method || 'cash',
+    months: payment?.months?.length ? payment.months : [selectedMonth],
+    note: payment?.note || '',
   })
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -30,18 +40,32 @@ export default function MarkPaidModal({ studentId, selectedMonth, staffId, onClo
       if (file) {
         try { dataUrl = await compressImage(file) } catch (e) { console.error('Compress failed:', e) }
       }
-      const newPayment = await createPayment({
-        studentId,
-        amount: Number(form.amount),
-        method: form.method,
-        months: form.months,
-        note: form.note,
-        submittedBy: 'staff',
-        status: 'confirmed',
-        confirmedBy: staffId,
-        hasReceipt: !!dataUrl,
-      })
-      if (dataUrl) await saveReceipt(newPayment.id, dataUrl)
+
+      if (editing) {
+        await updatePayment(payment.id, {
+          amount: Number(form.amount),
+          method: form.method,
+          months: form.months,
+          note: form.note,
+          // A newly attached receipt counts; an existing one is left alone.
+          ...(dataUrl ? { hasReceipt: true } : {}),
+        }, staffId)
+        if (dataUrl) await saveReceipt(payment.id, dataUrl)
+      } else {
+        const newPayment = await createPayment({
+          studentId,
+          amount: Number(form.amount),
+          method: form.method,
+          months: form.months,
+          note: form.note,
+          submittedBy: 'staff',
+          status: 'confirmed',
+          confirmedBy: staffId,
+          hasReceipt: !!dataUrl,
+        })
+        if (dataUrl) await saveReceipt(newPayment.id, dataUrl)
+      }
+
       onSuccess()
       onClose()
     } catch (err) {
@@ -55,7 +79,9 @@ export default function MarkPaidModal({ studentId, selectedMonth, staffId, onClo
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-xl max-h-[90dvh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-800">Record Payment</h2>
+          <h2 className="text-base font-semibold text-gray-800">
+            {editing ? 'Edit Payment' : 'Record Payment'}
+          </h2>
           <button onClick={onClose}><RiCloseLine size={20} className="text-gray-400" /></button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
@@ -80,6 +106,11 @@ export default function MarkPaidModal({ studentId, selectedMonth, staffId, onClo
               </select>
             </div>
           </div>
+          {editing && (
+            <p className="text-[11px] text-gray-400 -mt-2">
+              Changing the amount tells the student their record was updated.
+            </p>
+          )}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Note (optional)</label>
             <input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
@@ -101,7 +132,7 @@ export default function MarkPaidModal({ studentId, selectedMonth, staffId, onClo
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50">Cancel</button>
             <button type="submit" disabled={loading} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50">
-              {loading ? 'Saving...' : 'Mark as Paid'}
+              {loading ? 'Saving...' : editing ? 'Save Changes' : 'Mark as Paid'}
             </button>
           </div>
         </form>

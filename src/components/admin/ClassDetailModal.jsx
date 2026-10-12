@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { RiCloseLine, RiCalendarLine, RiTimeLine, RiUserLine, RiGlobalLine, RiVideoLine } from 'react-icons/ri'
+import {
+  RiCloseLine, RiCalendarLine, RiTimeLine, RiUserLine, RiGlobalLine, RiVideoLine, RiTicketLine,
+} from 'react-icons/ri'
 import {
   cancelClass, rescheduleClass, markClassDone,
   confirmClass, rejectClass, updateClass, deleteClass, saveRecording,
-  hasRecording, recordingText,
+  hasRecording, recordingText, staffReturnCredit, staffKeepCredit,
 } from '../../firebase/db'
 import RecordingBlock from '../shared/RecordingBlock'
 import { Timestamp } from 'firebase/firestore'
@@ -104,6 +106,67 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
               </div>
             )}
           </div>
+
+          {/* How the class was paid for, and the one decision that may be open
+              on it. Absent on every class booked before credits existed. */}
+          {cls.paidWith === 'credit' && (
+            <div className={`rounded-xl px-4 py-3 ${
+              cls.creditReviewNeeded ? 'bg-amber-50' : 'bg-gray-50'
+            }`}>
+              <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+                <RiTicketLine size={13} className="text-gray-400" />
+                Paid with 1 credit
+                {cls.creditRefundedAt && (
+                  <span className="text-green-600 font-normal">
+                    · {cls.creditRefundType === 'reissued' ? 'replaced with a new one' : 'returned'}
+                  </span>
+                )}
+                {cls.creditKept && <span className="text-gray-400 font-normal">· kept</span>}
+              </p>
+
+              {cls.creditReviewNeeded && (
+                <>
+                  <p className="text-xs text-amber-800 mt-1.5">
+                    {cls.creditReviewReason || 'Waiting on a decision'} — should the credit go back?
+                  </p>
+                  <div className="flex gap-2 mt-2.5">
+                    <button
+                      onClick={() => setConfirm({
+                        title: 'Return the credit?',
+                        message: `${studentName} gets this class credit back. If their original batch has already expired, a fresh credit is issued instead.`,
+                        confirmLabel: 'Return it',
+                        variant: 'primary',
+                        action: () => staffReturnCredit(cls.id),
+                      })}
+                      disabled={loading}
+                      className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2 text-xs font-medium transition-colors disabled:opacity-50"
+                    >
+                      Return the credit
+                    </button>
+                    <button
+                      onClick={() => setConfirm({
+                        title: 'Keep the credit spent?',
+                        message: 'The class stays paid for and the student does not get the credit back.',
+                        confirmLabel: 'Keep it',
+                        variant: 'danger',
+                        action: () => staffKeepCredit(cls.id, user?.id),
+                      })}
+                      disabled={loading}
+                      className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-xs font-medium hover:bg-white transition-colors disabled:opacity-50"
+                    >
+                      Keep it spent
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {cls.paidWith === 'free' && (
+            <p className="text-xs text-gray-400 flex items-center gap-1.5">
+              <RiTicketLine size={13} /> Free class{cls.freeReason ? ` · ${cls.freeReason}` : ''}
+            </p>
+          )}
 
           {/* Pending: confirm / reject */}
           {cls.status === 'pending' && (

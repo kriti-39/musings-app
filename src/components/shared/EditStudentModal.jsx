@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { updateUser } from '../../firebase/db'
 import { RiCloseLine } from 'react-icons/ri'
+import { useAuth } from '../../context/AuthContext'
+import { validityLabel } from '../../utils/credits'
 
 const TIMEZONES = [
   'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney',
@@ -17,6 +19,8 @@ const FEE_TYPES = [
 // Edit a student's profile (teacher/admin only). Updates the Firestore user doc.
 // Login User ID & password are NOT editable here — those are auth-level changes.
 export default function EditStudentModal({ student, onClose, onSuccess }) {
+  const { role } = useAuth()
+  const isAdmin = role === 'admin'
   const [form, setForm] = useState({
     name: student?.name || '',
     phone: student?.phone || '',
@@ -24,6 +28,7 @@ export default function EditStudentModal({ student, onClose, onSuccess }) {
     timezone: student?.timezone || 'Asia/Kolkata',
     feeType: student?.feeType || 'monthly',
     feeAmount: student?.feeAmount ?? '',
+    billingMode: student?.billingMode || 'legacy',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -45,6 +50,9 @@ export default function EditStudentModal({ student, onClose, onSuccess }) {
         timezone: form.timezone,
         feeType: form.feeType,
         feeAmount: form.feeAmount === '' || form.feeAmount === null ? null : Number(form.feeAmount),
+        // Only an admin can move someone onto (or off) the credit system, so
+        // nobody else's save can change it by accident.
+        ...(isAdmin ? { billingMode: form.billingMode } : {}),
       })
       onSuccess?.()
       onClose()
@@ -123,6 +131,36 @@ export default function EditStudentModal({ student, onClose, onSuccess }) {
               />
             </div>
           </div>
+
+          {/* How this student books. Existing students stay on the old way
+              until an admin deliberately moves them over. */}
+          {isAdmin && (
+            <div className="border-t border-gray-100 pt-4">
+              <label className="block text-xs font-medium text-gray-600 mb-2">How they book</label>
+              <div className="flex gap-2">
+                {[
+                  { v: 'legacy', label: 'As before', hint: 'Books freely, fees handled outside the app' },
+                  { v: 'credits', label: 'Class credits', hint: `Needs credits to book · last ${validityLabel(form)}` },
+                ].map(o => (
+                  <button key={o.v} type="button"
+                    onClick={() => setForm(f => ({ ...f, billingMode: o.v }))}
+                    className={`flex-1 text-left px-3 py-2.5 rounded-lg border transition-colors ${
+                      form.billingMode === o.v
+                        ? 'border-amber-400 bg-amber-50'
+                        : 'border-gray-200 hover:border-amber-200'
+                    }`}>
+                    <span className="block text-sm font-medium text-gray-800">{o.label}</span>
+                    <span className="block text-[11px] text-gray-400 mt-0.5">{o.hint}</span>
+                  </button>
+                ))}
+              </div>
+              {form.billingMode === 'credits' && student?.billingMode !== 'credits' && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-2">
+                  They'll need credits before they can book again — add some straight after saving.
+                </p>
+              )}
+            </div>
+          )}
 
           <p className="text-xs text-gray-400">The student's User ID and password can't be changed here.</p>
 

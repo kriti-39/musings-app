@@ -15,6 +15,7 @@ import ReceiptModal from '../../components/shared/ReceiptModal'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
 import EditStudentModal from '../../components/shared/EditStudentModal'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
+import CreditsCard from '../../components/shared/CreditsCard'
 import PeriodFilter, { ALL_PERIOD, filterByPeriod } from '../../components/shared/PeriodFilter'
 import { fmtShortDate } from '../../utils/timezone'
 
@@ -139,6 +140,10 @@ export default function StudentDetail() {
             ))}
           </div>
         </div>
+
+        {/* Credits sit directly under the profile: it's the first thing staff
+            need when a student rings up about booking. */}
+        <CreditsCard student={student} onChange={fetchAll} />
 
         {/* Clickable mini-dashboard — also acts as the section selector */}
         <div className="grid grid-cols-3 gap-3 mb-5">

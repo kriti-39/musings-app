@@ -13,6 +13,8 @@ import {
   RiArrowLeftSLine, RiArrowRightSLine
 } from 'react-icons/ri'
 import { LOCAL_TZ, tzCity, shiftToTz, unshiftFromTz, tzOffsetMinutes, fmtTime12, fmtLongDate } from '../../utils/timezone'
+import CreditBalance from '../../components/student/CreditBalance'
+import { usesCredits } from '../../utils/credits'
 
 const localizer = dateFnsLocalizer({
   format, parse,
@@ -84,6 +86,10 @@ export default function BookClass() {
   const [bookingSuccess, setBookingSuccess] = useState(null) // { status }
   const [confirmSlot, setConfirmSlot] = useState(null)       // instant awaiting confirmation
   const [currentView, setCurrentView] = useState('month')
+  // null while the balance loads — don't block booking on a guess
+  const [credits, setCredits] = useState(null)
+  const onCredits = usesCredits(user)
+  const outOfCredits = onCredits && credits === 0
 
   // Timezones
   const studentTz = user?.timezone || LOCAL_TZ
@@ -265,6 +271,9 @@ export default function BookClass() {
         scheduledAt: Timestamp.fromDate(instant),
         duration,
         lessonNotes: note,
+        // Passed so the booking doesn't have to re-read the profile just to
+        // find out whether a credit is due.
+        student: user,
       })
       setShowPicker(false)
       setConfirmSlot(null)
@@ -279,6 +288,11 @@ export default function BookClass() {
         setConflict('busy')
         setBookingError('Someone has already booked this slot. Please choose another time.')
         loadCalendar() // so the slot now shows as unavailable
+      } else if (e?.code === 'no-credits') {
+        // The last credit went while this modal was open, or it expired at
+        // midnight. Nothing was booked and nothing was charged.
+        setConfirmSlot(null)
+        setBookingError('You have no class credits left. Please speak to Guruji\'s office to add more.')
       } else {
         setBookingError('Failed to book. Please try again.')
       }
@@ -294,8 +308,15 @@ export default function BookClass() {
         <div className="mb-4">
           <h1 className="text-xl font-semibold text-gray-800">Book a Class</h1>
           <p className="text-sm text-gray-400 mt-1">
-            Tap a date, then a free time slot to book instantly. Taken slots need teacher confirmation.
+            {onCredits
+              ? 'Tap a date, then a free time slot. Each class uses one credit.'
+              : 'Tap a date, then a free time slot to book instantly. Taken slots need teacher confirmation.'}
           </p>
+        </div>
+
+        {/* Nothing is rendered for students on the earlier arrangement */}
+        <div className="mb-4">
+          <CreditBalance onCount={setCredits} />
         </div>
 
         {teacherLoadFailed && (
@@ -336,7 +357,9 @@ export default function BookClass() {
           </div>
           <button
             onClick={() => setShowPicker(true)}
-            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors shrink-0"
+            disabled={outOfCredits}
+            title={outOfCredits ? 'You have no credits left' : undefined}
+            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors shrink-0"
           >
             <RiCalendarLine size={16} />
             Book Class
@@ -433,8 +456,9 @@ export default function BookClass() {
               Cancel
             </button>
             <button onClick={() => openBookingFor(pendingSlot)}
-              className="px-4 py-2 text-sm font-medium bg-amber-500 hover:bg-amber-600 text-white rounded-lg">
-              Book this slot
+              disabled={outOfCredits}
+              className="px-4 py-2 text-sm font-medium bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-lg">
+              {outOfCredits ? 'No credits left' : 'Book this slot'}
             </button>
           </div>
         </div>
@@ -607,6 +631,17 @@ export default function BookClass() {
                   Already someone has booked a class at this time. Please choose another slot.
                 </p>
               )}
+              {/* What this booking costs, before they commit to it */}
+              {onCredits && credits !== null && (
+                <p className={`text-xs rounded-lg px-3 py-2 ${
+                  outOfCredits ? 'text-red-600 bg-red-50' : 'text-gray-500 bg-gray-50'
+                }`}>
+                  {outOfCredits
+                    ? 'You have no credits left — please speak to Guruji\'s office.'
+                    : `Uses 1 credit · ${credits - 1} left after this`}
+                </p>
+              )}
+
               {bookingError && (
                 <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{bookingError}</p>
               )}
@@ -621,7 +656,7 @@ export default function BookClass() {
               </button>
               <button
                 onClick={handleBook}
-                disabled={bookingLoading || !selectedDate || !selectedTime || conflict === 'blocked' || conflict === 'busy'}
+                disabled={bookingLoading || !selectedDate || !selectedTime || conflict === 'blocked' || conflict === 'busy' || outOfCredits}
                 className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50"
               >
                 {bookingLoading ? 'Booking...' : 'Book Class'}

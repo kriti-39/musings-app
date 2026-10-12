@@ -59,6 +59,33 @@ service cloud.firestore {
       allow delete: if isAuth() && (isAdmin() || resource.data.userId == request.auth.uid);
     }
 
+    // Class credits. Granting, extending and revoking are the studio's to do,
+    // but a student has to be able to SPEND one when they book — there is no
+    // server in between, so the spend happens from their own device. The update
+    // rule below is what makes that safe: a student may change nothing except
+    // `used`, may only ever move it up by exactly one, can never take a batch
+    // past the quantity that was granted, and cannot touch an expired batch.
+    // Everything that decides value — quantity, expiresAt, studentId — is
+    // out of their reach entirely.
+    match /credits/{id} {
+      allow read: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
+      allow create: if isAdminOrTeacher();
+      allow update: if isAuth() && (
+        isAdminOrTeacher()
+        || (
+          resource.data.studentId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['used', 'status', 'updatedAt'])
+          && request.resource.data.used == resource.data.used + 1
+          && request.resource.data.used <= resource.data.quantity
+          && request.resource.data.status in ['active', 'exhausted']
+          && resource.data.status == 'active'
+          && resource.data.expiresAt > request.time
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
     // Payment receipts (compressed images). A student can upload (create) their
     // receipt, but only staff can READ them — students never read receipts back,
     // so this keeps one student from seeing another's payment proof.

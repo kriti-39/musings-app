@@ -7,6 +7,8 @@ import { Timestamp } from 'firebase/firestore'
 import { RiCalendarLine, RiAddLine, RiVideoLine } from 'react-icons/ri'
 import { LOCAL_TZ, tzCity, fmtTime, fmtLongDate } from '../../utils/timezone'
 import ConfirmDialog from '../../components/shared/ConfirmDialog'
+import CreditBalance from '../../components/student/CreditBalance'
+import { usesCredits } from '../../utils/credits'
 
 const STATUS_STYLES = {
   scheduled: 'bg-green-50 text-green-700',
@@ -29,6 +31,8 @@ export default function StudentDashboard() {
   const [tab, setTab] = useState('upcoming')
   const [loading, setLoading] = useState(true)
   const [teacherTz, setTeacherTz] = useState(null)
+  // null until the balance has loaded, so the button isn't disabled on a guess
+  const [credits, setCredits] = useState(null)
 
   async function fetchClasses() {
     try {
@@ -62,6 +66,8 @@ export default function StudentDashboard() {
   const visible = lists[tab]
   const completedCount = lists.completed.length
   const tz = user?.timezone || LOCAL_TZ
+  // Only credit students can run out; everyone else books as before.
+  const outOfCredits = usesCredits(user) && credits === 0
 
   return (
     <StudentLayout>
@@ -75,11 +81,16 @@ export default function StudentDashboard() {
           </div>
           <button
             onClick={() => navigate('/student/book')}
-            className="shrink-0 inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap shadow-sm transition-colors"
+            disabled={outOfCredits}
+            title={outOfCredits ? 'You have no credits left' : undefined}
+            className="shrink-0 inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none text-white px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap shadow-sm transition-colors"
           >
             <RiAddLine size={18} className="shrink-0" /> Book a Class
           </button>
         </div>
+
+        {/* Renders nothing for students on the earlier arrangement */}
+        <CreditBalance onCount={setCredits} />
 
         {/* Tabs */}
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
@@ -102,7 +113,7 @@ export default function StudentDashboard() {
             <p className="text-gray-400 text-sm">
               {tab === 'upcoming' ? 'No upcoming classes.' : tab === 'completed' ? 'No completed classes yet.' : 'No cancelled classes.'}
             </p>
-            {tab === 'upcoming' && (
+            {tab === 'upcoming' && !outOfCredits && (
               <button onClick={() => navigate('/student/book')} className="mt-3 text-amber-600 text-sm hover:underline">Book one now</button>
             )}
           </div>

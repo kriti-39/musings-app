@@ -67,6 +67,9 @@ export default function AddStudentModal({ onClose, onSuccess }) {
         timezone: form.timezone,
         feeType: form.feeType,
         feeAmount: form.feeAmount ? Number(form.feeAmount) : null,
+        // Everyone added from now on books with credits. Students already on the
+        // books are left exactly as they were.
+        billingMode: 'credits',
       })
 
       onSuccess?.()
@@ -182,6 +185,11 @@ export default function AddStudentModal({ onClose, onSuccess }) {
               />
             </div>
           </div>
+
+          <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-3 py-2.5">
+            This student will book with <span className="font-medium">class credits</span>. Add their
+            first credits from their profile once they've paid.
+          </p>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
 

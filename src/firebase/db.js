@@ -3,7 +3,12 @@ import {
   query, where, orderBy, limit, Timestamp, serverTimestamp, onSnapshot
 } from 'firebase/firestore'
 import { db } from './config'
-import { sendPushForNotification } from '../utils/push'
+import { createNotification } from './notify'
+import {
+  consumeCredit, returnCredit, refundCreditForClass,
+  rechargeCreditForClass, flagCreditForReview,
+} from './credits'
+import { usesCredits } from '../utils/credits'
 
 // ─── USERS ────────────────────────────────────────────────────────────────────
 
@@ -123,9 +128,15 @@ export async function findOverlappingClasses(teacherId, startDate, durationMin) 
 // Book a class. Auto-confirms (scheduled) if the slot is free.
 // If it overlaps an existing class, it goes to 'pending' for staff to confirm.
 // forceStatus='scheduled' lets staff book directly even on overlap.
+//
+// Students on the credit system spend one credit per booking. Staff bookings
+// (demos, make-up classes, anything Guruji arranges himself) pass freeClass and
+// cost nothing. Students still on the old arrangement are unaffected — they have
+// no billingMode, so nothing is charged.
 export async function createBooking({
   studentId, teacherId, scheduledAt, duration,
   lessonNotes = '', isRecurring = false, recurringId = null, forceStatus = null,
+  student = null, freeClass = false, freeReason = '',
 }) {
   const startDate = scheduledAt?.toDate ? scheduledAt.toDate() : new Date(scheduledAt)
   const dur = Math.min(Math.max(Number(duration) || 60, 15), 180) // always a clean number
@@ -145,17 +156,43 @@ export async function createBooking({
     status = 'scheduled'
   }
 
-  const ref = await addDoc(collection(db, 'classes'), {
-    studentId, teacherId,
-    scheduledAt: scheduledAt?.toDate ? scheduledAt : Timestamp.fromDate(startDate),
-    duration: dur, lessonNotes,
-    isRecurring, recurringId,
-    status,
-    isOverlap: overlap,
-    markedDoneBy: null,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  })
+  // The credit is taken only once the slot is known to be free, so a clash never
+  // costs a student a class. Caller passes the profile when it already has it
+  // (the student's own device always does) to save a read.
+  const profile = student || (studentId ? await getUser(studentId).catch(() => null) : null)
+  const charge = !freeClass && usesCredits(profile)
+  let creditBatchId = null
+  if (charge) {
+    const { batchId } = await consumeCredit(studentId)   // throws code 'no-credits'
+    creditBatchId = batchId
+  }
+
+  let ref
+  try {
+    ref = await addDoc(collection(db, 'classes'), {
+      studentId, teacherId,
+      scheduledAt: scheduledAt?.toDate ? scheduledAt : Timestamp.fromDate(startDate),
+      duration: dur, lessonNotes,
+      isRecurring, recurringId,
+      status,
+      isOverlap: overlap,
+      markedDoneBy: null,
+      // How this class was paid for. Absent on everything booked before v2.
+      paidWith: charge ? 'credit' : (freeClass ? 'free' : null),
+      creditBatchId,
+      freeReason: freeClass ? (freeReason || '').trim() : '',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    // The credit was already taken, so give it straight back — a failed write
+    // must never cost the student a paid class.
+    if (creditBatchId) {
+      await returnCredit(creditBatchId).catch(err =>
+        console.error('Booking failed AND the credit could not be returned —', creditBatchId, err))
+    }
+    throw e
+  }
 
   // Notify staff: overlaps need confirmation, free bookings are just a heads-up.
   // Wrapped so a notification failure can NEVER undo or hide a successful
@@ -276,6 +313,10 @@ export function sweepPastClasses(classes) {
 }
 
 export async function cancelClass(classId, notifyStudentId = null) {
+  // Read it first: once the status is cancelled we still need to know what the
+  // class was paid with.
+  const cls = await getClass(classId)
+
   await updateDoc(doc(db, 'classes', classId), {
     status: 'cancelled',
     // Staff cancelled this, so the student is owed a word about rescheduling —
@@ -283,13 +324,57 @@ export async function cancelClass(classId, notifyStudentId = null) {
     followUpNeeded: true,
     updatedAt: serverTimestamp(),
   })
+
+  // The studio cancelled, so the class costs the student nothing. Wrapped: a
+  // bookkeeping problem must not leave the class un-cancelled.
+  if (cls?.creditBatchId) {
+    try {
+      const student = await getUser(cls.studentId)
+      await refundCreditForClass(cls, student)
+    } catch (e) { console.error('Cancelled, credit refund failed for', classId, e) }
+  }
+
   // When staff cancels, notify the student
   if (notifyStudentId) {
-    const cls = await getClass(classId)
     const when = await studentTimeLabel(notifyStudentId, cls?.scheduledAt?.toDate?.())
     await createNotification(notifyStudentId, 'class_cancelled',
       when || 'Your class has been cancelled.', classId, 'Class cancelled')
   }
+}
+
+// ─── CREDIT DECISIONS STAFF MAKE ON A CLASS ───────────────────────────────────
+// When a student cancels their own class the credit is left alone and the class
+// is flagged, because only Guruji can say whether they should get it back. These
+// two functions are the yes and the no. Both clear the flag, so the decision is
+// made once.
+
+export async function staffReturnCredit(classId, reason = 'Returned by the studio') {
+  const cls = await getClass(classId)
+  if (!cls) return { refunded: false, why: 'no-class' }
+  const student = await getUser(cls.studentId).catch(() => null)
+  const result = await refundCreditForClass(cls, student, reason)
+  await updateDoc(doc(db, 'classes', classId), {
+    creditReviewNeeded: deleteField(),
+    creditReviewedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return result
+}
+
+export async function staffKeepCredit(classId, staffId = null) {
+  await updateDoc(doc(db, 'classes', classId), {
+    creditReviewNeeded: deleteField(),
+    creditReviewedAt: serverTimestamp(),
+    creditReviewedBy: staffId,
+    creditKept: true,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// Classes waiting on one of those two decisions.
+export async function getCreditReviews() {
+  const snap = await getDocs(query(collection(db, 'classes'), where('creditReviewNeeded', '==', true)))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byLatest)
 }
 
 // Permanently delete a class document (admin/teacher only)
@@ -350,12 +435,19 @@ export async function confirmClass(classId, studentId = null) {
 }
 
 export async function rejectClass(classId, studentId = null) {
+  const cls = await getClass(classId)
   await updateDoc(doc(db, 'classes', classId), {
     status: 'rejected',
     updatedAt: serverTimestamp(),
   })
+  // The class was never granted, so the credit goes straight back.
+  if (cls?.creditBatchId) {
+    try {
+      await refundCreditForClass(cls, await getUser(cls.studentId),
+        'Booking request was not accepted')
+    } catch (e) { console.error('Rejected, credit refund failed for', classId, e) }
+  }
   if (studentId) {
-    const cls = await getClass(classId)
     const when = await studentTimeLabel(studentId, cls?.scheduledAt?.toDate?.())
     await createNotification(studentId, 'class_rejected',
       when ? `${when} — please pick another time.` : 'Your class request was not accepted.',
@@ -407,6 +499,14 @@ export async function cancelClassByStudent(classId) {
     status: 'cancelled',
     updatedAt: serverTimestamp(),
   })
+  // The credit is NOT returned automatically — whether a student gets it back
+  // when they drop a class themselves is Guruji's decision, so it's flagged for
+  // staff rather than quietly refunded (which would make cancelling free) or
+  // quietly kept (which would be unfair when they had a real reason).
+  if (cls?.creditBatchId && !cls.creditRefundedAt) {
+    try { await flagCreditForReview(classId, 'Student cancelled their own class') }
+    catch (e) { console.error('Could not flag the credit for review:', e) }
+  }
   try {
     const staffIds = await getStaffIds()
     const { name, when } = await staffContext(
@@ -655,6 +755,12 @@ export async function cancelClassesForBlock(classes, groupId = null) {
         followUpNeeded: true,
         updatedAt: serverTimestamp(),
       })
+      // Guruji is away, so the student keeps their credit.
+      if (c.creditBatchId) {
+        try {
+          await refundCreditForClass(c, await getUser(c.studentId))
+        } catch (e) { console.error('Block refund failed for class', c.id, e) }
+      }
       const when = await studentTimeLabel(c.studentId, c.scheduledAt?.toDate?.())
       await createNotification(
         c.studentId, 'class_cancelled',
@@ -698,6 +804,12 @@ export async function restoreClassesFromBlock(classes) {
         followUpNeeded: deleteField(),
         updatedAt: serverTimestamp(),
       })
+      // The class is happening after all, so the credit that was handed back
+      // when it was cancelled has to come out again.
+      if (c.creditBatchId && c.creditRefundedAt) {
+        try { await rechargeCreditForClass(c) }
+        catch (e) { console.error('Restore: credit re-charge failed for', c.id, e) }
+      }
       const when = await studentTimeLabel(c.studentId, c.scheduledAt?.toDate?.())
       await createNotification(
         c.studentId, 'class_restored',
@@ -821,13 +933,23 @@ export async function getAllStudentsIncludingInactive() {
 // reactivateStudent (their cancelled classes are not auto-restored).
 export async function deactivateStudent(uid) {
   const snap = await getDocs(query(collection(db, 'classes'), where('studentId', '==', uid)))
-  const active = snap.docs.filter(d => {
-    const s = d.data().status || 'scheduled'
-    return s === 'scheduled' || s === 'pending'
-  })
-  await Promise.all(active.map(d =>
-    updateDoc(doc(db, 'classes', d.id), { status: 'cancelled', updatedAt: serverTimestamp() })
+  const active = snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(c => {
+      const s = c.status || 'scheduled'
+      return s === 'scheduled' || s === 'pending'
+    })
+  await Promise.all(active.map(c =>
+    updateDoc(doc(db, 'classes', c.id), { status: 'cancelled', updatedAt: serverTimestamp() })
   ))
+  // Pausing someone shouldn't spend the classes they already paid for — the
+  // credits go back, ready for them if they return.
+  const student = await getUser(uid).catch(() => null)
+  for (const c of active) {
+    if (!c.creditBatchId) continue
+    try { await refundCreditForClass(c, student, 'Account paused') }
+    catch (e) { console.error('Pause: credit refund failed for class', c.id, e) }
+  }
   await updateDoc(doc(db, 'users', uid), { isActive: false })
 }
 
@@ -839,17 +961,19 @@ export async function reactivateStudent(uid) {
 // notifications). Does NOT remove their Firebase Auth login — delete that in the
 // Firebase Console if needed. Use for cleaning up test accounts.
 export async function deleteStudentCompletely(uid) {
-  const [classesSnap, paymentsSnap, recurringSnap, notifsSnap] = await Promise.all([
+  const [classesSnap, paymentsSnap, recurringSnap, notifsSnap, creditsSnap] = await Promise.all([
     getDocs(query(collection(db, 'classes'), where('studentId', '==', uid))),
     getDocs(query(collection(db, 'payments'), where('studentId', '==', uid))),
     getDocs(query(collection(db, 'recurringSchedules'), where('studentId', '==', uid))),
     getDocs(query(collection(db, 'notifications'), where('userId', '==', uid))),
+    getDocs(query(collection(db, 'credits'), where('studentId', '==', uid))),
   ])
   await Promise.all([
     ...classesSnap.docs.map(d => deleteDoc(doc(db, 'classes', d.id))),
     ...paymentsSnap.docs.map(d => deleteDoc(doc(db, 'payments', d.id))),
     ...recurringSnap.docs.map(d => deleteDoc(doc(db, 'recurringSchedules', d.id))),
     ...notifsSnap.docs.map(d => deleteDoc(doc(db, 'notifications', d.id))),
+    ...creditsSnap.docs.map(d => deleteDoc(doc(db, 'credits', d.id))),
   ])
   await deleteDoc(doc(db, 'users', uid))
 }
@@ -880,24 +1004,9 @@ export async function getAllClassesDesc() {
 
 // ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
 
-// `title` is the bold headline — the student's name for staff notifications,
-// a short status for the student's own. It's shown above the message in the
-// bell and becomes the push notification's title. Older notifications have no
-// title and simply render as the message alone.
-export async function createNotification(userId, type, message, relatedClassId = null, title = null) {
-  await addDoc(collection(db, 'notifications'), {
-    userId,
-    type,
-    title,
-    message,
-    relatedClassId,
-    isRead: false,
-    createdAt: serverTimestamp(),
-  })
-  // Every in-app notification is also offered as a phone push (fire-and-forget;
-  // the API skips admins and users with no registered devices).
-  sendPushForNotification(userId, type, message, relatedClassId, title)
-}
+// Sending one now lives in notify.js (so credits.js can send without importing
+// this whole file); re-exported here because that's where the app looks for it.
+export { createNotification }
 
 export async function getUserNotifications(userId) {
   // No orderBy → avoids composite index; sorted client-side

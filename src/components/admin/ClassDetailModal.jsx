@@ -6,9 +6,9 @@ import {
   cancelClass, rescheduleClass, markClassDone,
   confirmClass, rejectClass, updateClass, deleteClass, saveRecording,
   hasRecording, recordingText, staffReturnCredit, staffKeepCredit,
+  markClassMissed, unmarkClassMissed,
 } from '../../firebase/db'
 import RecordingBlock from '../shared/RecordingBlock'
-import { Timestamp } from 'firebase/firestore'
 import { useAuth } from '../../context/AuthContext'
 import { fmtTime, tzCity } from '../../utils/timezone'
 import ConfirmDialog from '../shared/ConfirmDialog'
@@ -75,8 +75,10 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold text-gray-800">Class Details</h2>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[cls.status] || ''}`}>
-              {cls.status}
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
+              cls.missed ? 'bg-orange-50 text-orange-600' : STATUS_STYLES[cls.status] || ''
+            }`}>
+              {cls.missed ? 'Missed' : cls.status}
             </span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -294,6 +296,27 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
                 >
                   Reschedule
                 </button>
+              )}
+              {/* Nobody turned up. Staff-only, and it leaves the class where it
+                  is so it doesn't disappear from the list. */}
+              {cls.status === 'completed' && (
+                cls.missed ? (
+                  <button onClick={() => handle(() => unmarkClassMissed(cls.id))} disabled={loading}
+                    className="col-span-2 border border-gray-200 text-gray-500 rounded-lg py-2.5 text-sm hover:bg-gray-50 transition-colors disabled:opacity-50">
+                    It wasn't missed — undo
+                  </button>
+                ) : (
+                  <button onClick={() => setConfirm({
+                    title: 'Mark this class as missed?',
+                    message: 'For a class nobody turned up to. It stays in the list with a "Missed" tag, the student is told, and if it was paid for with a credit you\'ll be asked whether to give it back.',
+                    confirmLabel: 'Mark as Missed',
+                    variant: 'primary',
+                    action: () => markClassMissed(cls.id, user?.id),
+                  })} disabled={loading}
+                    className="col-span-2 border border-orange-200 text-orange-600 rounded-lg py-2.5 text-sm hover:bg-orange-50 transition-colors disabled:opacity-50">
+                    Mark as Missed
+                  </button>
+                )
               )}
               {cls.status !== 'completed' && (
                 <button onClick={() => setConfirm({

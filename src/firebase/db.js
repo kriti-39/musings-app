@@ -6,7 +6,7 @@ import { db } from './config'
 import { createNotification } from './notify'
 import {
   consumeCredit, returnCredit, refundCreditForClass,
-  rechargeCreditForClass, flagCreditForReview,
+  rechargeCreditForClass, flagCreditForReview, grantCredits,
 } from './credits'
 import { usesCredits } from '../utils/credits'
 
@@ -347,6 +347,58 @@ export async function cancelClass(classId, notifyStudentId = null) {
     await createNotification(notifyStudentId, 'class_cancelled',
       when || 'Your class has been cancelled.', classId, 'Class cancelled')
   }
+}
+
+// ─── A CLASS NOBODY TURNED UP TO ──────────────────────────────────────────────
+// It happens: the slot passes and both Guruji and the student forget. The class
+// has already been swept to 'completed' by then, which is a lie — so staff can
+// retag it as missed.
+//
+// The status deliberately STAYS 'completed' rather than becoming a new value of
+// its own: every tab, filter and stat in the app sorts classes into upcoming /
+// completed / cancelled, and a fourth status would make a missed class vanish
+// from all three. It keeps its place in the list and wears a 'Missed' tag.
+//
+// The credit isn't returned automatically. Nobody taught and nobody learned, so
+// whether the student pays for it is Guruji's call — it goes to the same review
+// queue a student's own cancellation does.
+export async function markClassMissed(classId, staffId = null, note = '') {
+  const cls = await getClass(classId)
+
+  await updateDoc(doc(db, 'classes', classId), {
+    status: 'completed',
+    missed: true,
+    missedAt: serverTimestamp(),
+    missedBy: staffId,
+    missedNote: (note || '').trim(),
+    updatedAt: serverTimestamp(),
+  })
+
+  if (cls?.creditBatchId && !cls.creditRefundedAt && !cls.creditReviewNeeded) {
+    try { await flagCreditForReview(classId, 'Class was missed — nobody attended') }
+    catch (e) { console.error('Marked missed, credit flag failed:', e) }
+  }
+
+  if (cls?.studentId) {
+    try {
+      const when = await studentTimeLabel(cls.studentId, cls.scheduledAt?.toDate?.())
+      await createNotification(cls.studentId, 'class_missed',
+        when ? `${when} — marked as missed. Please speak to Guruji about rearranging it.`
+             : 'A class was marked as missed. Please speak to Guruji about rearranging it.',
+        classId, 'Class missed')
+    } catch (e) { console.error('Marked missed, student notify failed:', e) }
+  }
+}
+
+// Tagged by mistake — put it back to an ordinary completed class.
+export async function unmarkClassMissed(classId) {
+  await updateDoc(doc(db, 'classes', classId), {
+    missed: deleteField(),
+    missedAt: deleteField(),
+    missedBy: deleteField(),
+    missedNote: deleteField(),
+    updatedAt: serverTimestamp(),
+  })
 }
 
 // ─── CREDIT DECISIONS STAFF MAKE ON A CLASS ───────────────────────────────────
@@ -887,6 +939,57 @@ export async function createPayment(data) {
     } catch (e) { console.error('Payment saved, staff notify failed:', e) }
   }
   return ref
+}
+
+// Buying credits IS the payment, so the two are recorded together: the money
+// goes on the books as a confirmed payment and the credits are granted against
+// it, each pointing at the other.
+//
+// The payment is written FIRST on purpose. If the grant then fails, the studio
+// has a recorded payment and no credits — an admin sees the error and grants
+// again. The other order would risk credits with no payment behind them, which
+// is the expensive mistake.
+export async function grantCreditsWithPayment({
+  studentId, student, quantity, amount, method = 'cash', months = null,
+  note = '', staffId = null, staffName = '',
+}) {
+  const paid = Number(amount) || 0
+  let paymentId = null
+
+  if (paid > 0) {
+    const now = new Date()
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const ref = await createPayment({
+      studentId,
+      amount: paid,
+      method,
+      months: months?.length ? months : [thisMonth],
+      note: note || `${quantity} class ${quantity === 1 ? 'credit' : 'credits'}`,
+      submittedBy: 'staff',
+      status: 'confirmed',
+      confirmedBy: staffId,
+      // Marks this as a credit purchase rather than a plain monthly fee
+      forCredits: quantity,
+    })
+    paymentId = ref.id
+  }
+
+  try {
+    const result = await grantCredits({
+      studentId, student, quantity,
+      grantedBy: staffId, grantedByName: staffName, reason: note, paymentId,
+    })
+    // Link back, so a payment row can show which credits it bought
+    if (paymentId) {
+      await updateDoc(doc(db, 'payments', paymentId), { creditBatchId: result.id })
+        .catch(e => console.error('Credits granted, payment link failed:', e))
+    }
+    return { ...result, paymentId }
+  } catch (e) {
+    // Tell the caller the money is already recorded, so the message can say so
+    if (paymentId) e.paymentRecorded = paid
+    throw e
+  }
 }
 
 export async function getStudentPayments(studentId) {

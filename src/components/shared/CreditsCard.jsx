@@ -4,8 +4,9 @@ import {
 } from 'react-icons/ri'
 import { useAuth } from '../../context/AuthContext'
 import {
-  loadCredits, grantCredits, extendCredits, revokeCredits,
+  loadCredits, extendCredits, revokeCredits,
 } from '../../firebase/credits'
+import { grantCreditsWithPayment } from '../../firebase/db'
 import {
   MAX_CREDITS, creditSummary, validityLabel, isIndianStudent, usesCredits,
   batchRemaining, daysLeft, creditsWord, daysWord, expiresWord, fmtExpiry, toDate, creditExpiry,
@@ -72,7 +73,11 @@ export default function CreditsCard({ student, onChange }) {
       return true
     } catch (e) {
       console.error(e)
-      setError(e?.message || 'That did not work. Please try again.')
+      // The payment may already be on the books even though the credits aren't —
+      // say so, or someone will record it twice.
+      setError(e?.paymentRecorded
+        ? `${e.message} The ₹${e.paymentRecorded} payment HAS been recorded — don't enter it again, just add the credits once there's room.`
+        : (e?.message || 'That did not work. Please try again.'))
       return false
     } finally {
       setBusy(false)
@@ -249,10 +254,10 @@ export default function CreditsCard({ student, onChange }) {
           summary={summary}
           busy={busy}
           onClose={() => setShowGrant(false)}
-          onGrant={async (qty, reason) => {
-            const ok = await run(() => grantCredits({
-              studentId, student, quantity: qty,
-              grantedBy: user?.id, grantedByName: user?.name || '', reason,
+          onGrant={async (qty, reason, amount, method) => {
+            const ok = await run(() => grantCreditsWithPayment({
+              studentId, student, quantity: qty, amount, method, note: reason,
+              staffId: user?.id, staffName: user?.name || '',
             }))
             if (ok) setShowGrant(false)
           }}
@@ -298,13 +303,20 @@ const STATUS_WORD = {
 
 // ─── Add credits ─────────────────────────────────────────────────────────────
 
+const METHODS = ['cash', 'upi', 'bank_transfer', 'other']
+
 function GrantModal({ student, summary, busy, onClose, onGrant }) {
   // Default to filling them up to the cap — the usual case is a month's fees.
   const [qty, setQty] = useState(summary.canHold || 1)
   const [reason, setReason] = useState('')
+  // What this student is meant to pay, filled in for you and still editable —
+  // the agreed fee isn't always the amount actually handed over.
+  const [amount, setAmount] = useState(student?.feeAmount ? String(student.feeAmount) : '')
+  const [method, setMethod] = useState('cash')
 
   const expiry = creditExpiry(new Date(), student)
   const options = Array.from({ length: summary.canHold }, (_, i) => i + 1)
+  const paid = Number(amount) || 0
 
   return (
     <Modal title="Add credits" onClose={onClose}>
@@ -327,10 +339,34 @@ function GrantModal({ student, summary, busy, onClose, onGrant }) {
         </div>
       </div>
 
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Amount paid (₹)</label>
+          <input type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)}
+            placeholder="0"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Method</label>
+          <select value={method} onChange={e => setMethod(e.target.value)} disabled={paid <= 0}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50">
+            {METHODS.map(m => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
+          </select>
+        </div>
+      </div>
+      <p className="text-[11px] text-gray-400 mt-1.5">
+        {student?.feeAmount
+          ? `${student.name?.split(' ')[0] || 'This student'}'s fee is ₹${student.feeAmount}. `
+          : 'No fee set on this profile. '}
+        {paid > 0
+          ? 'This is recorded as a confirmed payment against this month.'
+          : 'Leave it at 0 to add credits without recording a payment.'}
+      </p>
+
       <div className="mt-4">
         <label className="block text-xs font-medium text-gray-600 mb-1">Note (optional)</label>
         <input value={reason} onChange={e => setReason(e.target.value)}
-          placeholder="e.g. October fees, paid by UPI"
+          placeholder="e.g. October fees"
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
       </div>
 
@@ -344,8 +380,8 @@ function GrantModal({ student, summary, busy, onClose, onGrant }) {
       </div>
 
       <Actions busy={busy} onClose={onClose}
-        label={`Add ${qty} ${creditsWord(qty)}`}
-        onGo={() => onGrant(qty, reason)} />
+        label={paid > 0 ? `Add ${qty} · ₹${paid}` : `Add ${qty} ${creditsWord(qty)}`}
+        onGo={() => onGrant(qty, reason, paid, method)} />
     </Modal>
   )
 }

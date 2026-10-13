@@ -360,8 +360,10 @@ function ClassTable({ classes, emptyText, onSelect }) {
                 </td>
                 <td className="px-4 py-3 text-gray-500 tabular-nums whitespace-nowrap">{c.duration || 60}m</td>
                 <td className="px-4 py-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize whitespace-nowrap ${STATUS_STYLES[c.status] || ''}`}>
-                    {c.status === 'pending' ? 'Awaiting confirmation' : c.status}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize whitespace-nowrap ${
+                    c.missed ? 'bg-orange-50 text-orange-600' : STATUS_STYLES[c.status] || ''
+                  }`}>
+                    {c.missed ? 'Missed' : c.status === 'pending' ? 'Awaiting confirmation' : c.status}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-gray-400 text-xs">

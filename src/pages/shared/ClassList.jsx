@@ -134,8 +134,10 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
                         <p className="text-xs text-amber-600 mt-1">Credit decision needed</p>
                       )}
                     </div>
-                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[status] || ''}`}>
-                      {status === 'pending' ? 'Awaiting confirmation' : status}
+                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
+                      cls.missed ? 'bg-orange-50 text-orange-600' : STATUS_STYLES[status] || ''
+                    }`}>
+                      {cls.missed ? 'Missed' : status === 'pending' ? 'Awaiting confirmation' : status}
                     </span>
                   </div>
                 </button>

@@ -190,8 +190,10 @@ function ClassCard({ cls, onAction, onPatch, tz, teacherTz }) {
             </Link>
           )}
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[cls.status]}`}>
-          {cls.status === 'pending' ? 'Awaiting confirmation' : cls.status}
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
+          cls.missed ? 'bg-orange-50 text-orange-600' : STATUS_STYLES[cls.status]
+        }`}>
+          {cls.missed ? 'Missed' : cls.status === 'pending' ? 'Awaiting confirmation' : cls.status}
         </span>
       </div>
 

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { RiTicketLine, RiTimeLine, RiErrorWarningLine } from 'react-icons/ri'
 import { useAuth } from '../../context/AuthContext'
 import { subscribeStudentCredits, expireStaleCredits } from '../../firebase/credits'
@@ -83,22 +82,17 @@ export default function CreditBalance({ compact = false, onCount }) {
           </span>
         </div>
 
-        <div className="shrink-0 flex items-center gap-2">
-          {!none && (
-            <Link to="/student/book"
-              className="c-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold text-center transition-opacity hover:opacity-90">
-              Book
-            </Link>
-          )}
-          {summary.canHold > 0 && (
-            <button onClick={() => setBuying(true)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 ${
-                none ? 'c-btn' : 'c-btn--ghost'
-              }`}>
-              Buy
-            </button>
-          )}
-        </div>
+        {/* No Book button here. Every screen that shows this card already has
+            one directly above it, and two of the same button stacked is just
+            a question about which one is the real one. */}
+        {summary.canHold > 0 && (
+          <button onClick={() => setBuying(true)}
+            className={`shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 ${
+              none ? 'c-btn' : 'c-btn--ghost'
+            }`}>
+            Buy credits
+          </button>
+        )}
       </div>
 
       {/* Pips and the use-by date share the last row: four pips is the whole

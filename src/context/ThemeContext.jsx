@@ -2,10 +2,10 @@ import { createContext, useContext, useEffect, useState } from 'react'
 
 const ThemeContext = createContext()
 
-// One look for now — black, cerulean and neon red on a light ground. Riyaz
-// and Kaanch are parked, not deleted: the token layer below takes any number
-// of themes, so adding them back is a block of CSS variables and an entry
-// here, with no component changes.
+// One palette — black, cerulean and neon red — in light and dark. Riyaz and
+// Kaanch are parked, not deleted: the token layer takes any number of themes,
+// so adding one back is a block of CSS variables and an entry here, with no
+// component changes.
 //
 // Not exported — consumers get it from the context as `themes`, which keeps
 // this file exporting components only.
@@ -13,9 +13,16 @@ const THEMES = [
   {
     id: 'light',
     name: 'Light',
-    blurb: 'Black, cerulean and a red kept for what matters.',
+    blurb: 'Black on paper, cerulean for every action.',
     dark: false,
     swatch: ['#F4F6FA', '#0B82CB', '#FF2D2D'],
+  },
+  {
+    id: 'dark',
+    name: 'Dark',
+    blurb: 'The same three colours, inverted ground.',
+    dark: true,
+    swatch: ['#0A0D13', '#56B6F2', '#FF7070'],
   },
 ]
 

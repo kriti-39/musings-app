@@ -23,10 +23,10 @@
 
   --color-ink: #0B0C0E;             /* black — headings and body */
   --color-muted: #586175;           /* captions, labels, metadata */
-  --color-faint: #939EAE;           /* placeholders, disabled, timestamps */
+  --color-faint: #6C7580;           /* placeholders, disabled, timestamps */
 
   --color-accent: #0A6AA8;          /* cerulean, dark enough for small text */
-  --color-accent-fill: #0B82CB;     /* cerulean, vivid — filled buttons */
+  --color-accent-fill: #0A7ABF;     /* cerulean — darkened so white text clears 4.5:1 */
   --color-on-accent: #FFFFFF;
   --color-accent-soft: #E3F1FB;     /* tinted chips and hovers */
   --color-accent-glow: #17A6EC;     /* progress pips, highlights */
@@ -41,8 +41,9 @@
 
   /* Neon red. Bright for fills, darkened for text, because #FF2D2D on white
      is about 3.4:1 and fails for anything small. */
-  --color-danger: #FF2D2D;
-  --color-danger-strong: #DC1F1F;
+  --color-danger: #FF2D2D;          /* the true neon red — borders, icons, accents */
+  --color-danger-fill: #E22828;     /* darkened so white text on a Cancel button reads */
+  --color-danger-strong: #C81A1A;
   --color-danger-ink: #CC1818;
   --color-danger-soft: #FFE9E9;
   --color-danger-line: #FFC9C9;
@@ -52,11 +53,60 @@
   --shadow-card: 0 1px 2px rgba(11, 12, 14, .04), 0 8px 24px rgba(11, 12, 14, .06);
 }
 
+/* ── Dark — the same three colours, inverted ground ──────────────────────────
+   Not a different palette: black becomes the ground and the ink becomes near
+   white, while cerulean and the red stay the brand. The near-black carries a
+   blue cast rather than being neutral, so it sits under cerulean instead of
+   fighting it.
+
+   Both accents are LIGHTENED here. #0A6AA8 reads well on white and drops to
+   about 2.6:1 on a dark surface; #CC1818 is worse. Keeping the light values
+   would have made every link and every warning hard to read at night.
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --color-bg: #0A0D13;
+  --color-surface: #121722;
+  --color-raised: #1A2030;
+  --color-line: #232A3A;
+  --color-line-strong: #333C50;
+
+  --color-ink: #F2F5FA;
+  --color-muted: #99A4B8;
+  --color-faint: #768295;
+
+  --color-accent: #56B6F2;          /* cerulean, lifted to read on dark */
+  --color-accent-fill: #0A7ABF;     /* same fill as light: white on it clears 4.5:1 */
+  --color-on-accent: #FFFFFF;
+  --color-accent-soft: #11283C;
+  --color-accent-glow: #56B6F2;
+
+  --color-ok-bg: #11283C;
+  --color-ok-ink: #56B6F2;
+
+  --color-warn-bg: #3A2314;
+  --color-warn-ink: #F0A05C;
+
+  --color-danger: #FF2D2D;
+  --color-danger-fill: #E22828;
+  --color-danger-strong: #C81A1A;
+  --color-danger-ink: #FF7070;      /* the red, lifted for small text */
+  --color-danger-soft: #38161A;
+  --color-danger-line: #58242A;
+
+  --color-tap: rgba(86, 182, 242, 0.16);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .35), 0 10px 30px rgba(0, 0, 0, .3);
+}
+
 /* One gradient, cerulean into a deeper blue, for the single surface that
    earns it. A gradient everywhere is wallpaper, not design. */
 :root {
   --grad-accent: linear-gradient(135deg, #0B82CB 0%, #0A4E8A 100%);
   --grad-glow: radial-gradient(120% 80% at 85% 0%, rgba(23, 166, 236, .12), transparent 70%);
+}
+[data-theme="dark"] {
+  --grad-accent: linear-gradient(135deg, #0B82CB 0%, #073A66 100%);
+  --grad-glow: radial-gradient(120% 80% at 85% 0%, rgba(86, 182, 242, .14), transparent 70%);
 }
 
 /* ─── Immediate tap feedback on mobile ──────────────────────────────────────
@@ -233,7 +283,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .text-red-600  { color: var(--color-danger-ink); }
 .border-red-100,
 .border-red-200 { border-color: var(--color-danger-line) !important; }
-.bg-red-500    { background-color: var(--color-danger); color: #fff; }
+/* The filled red uses the darkened variant: white on true #FF2D2D is 3.71:1
+   and fails for button text. The bright red stays for borders and icons. */
+.bg-red-500    { background-color: var(--color-danger-fill); color: #fff; }
 .hover\:bg-red-600:hover { background-color: var(--color-danger-strong); color: #fff; }
 .hover\:bg-red-100:hover { background-color: var(--color-danger-soft); }
 .hover\:text-red-500:hover { color: var(--color-danger-ink); }

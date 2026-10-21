@@ -1178,6 +1178,35 @@ export async function updatePaymentScreenshot(paymentId, url) {
   await updateDoc(doc(db, 'payments', paymentId), { screenshotUrl: url })
 }
 
+// ─── PROFILE PICTURES ─────────────────────────────────────────────────────────
+// Stored the same way receipts are: a compressed data-URL in its OWN document,
+// not on the user doc. That matters for cost — the Students and Fees pages read
+// every student, and an avatar baked into each user doc would drag ~20KB per
+// student into every one of those reads.
+//
+// `hasPhoto` on the user doc is the cheap part: lists use it to decide between
+// initials and a real picture without fetching anything. The picture itself is
+// only read when a profile is actually opened.
+export async function savePhoto(uid, dataUrl, updatedBy = null) {
+  await setDoc(doc(db, 'photos', uid), {
+    dataUrl,
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  })
+  await updateDoc(doc(db, 'users', uid), { hasPhoto: true })
+}
+
+export async function getPhoto(uid) {
+  if (!uid) return null
+  const snap = await getDoc(doc(db, 'photos', uid))
+  return snap.exists() ? snap.data().dataUrl : null
+}
+
+export async function deletePhoto(uid) {
+  await deleteDoc(doc(db, 'photos', uid))
+  await updateDoc(doc(db, 'users', uid), { hasPhoto: deleteField() })
+}
+
 // ─── RECEIPTS (stored in Firestore, not Storage — reliable on any setup) ──────
 // The compressed image lives in its own doc so payment lists stay lightweight;
 // it's only fetched when staff actually open the receipt.

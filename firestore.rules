@@ -86,6 +86,14 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Profile pictures. A student may set and see their own; staff may see and
+    // set anyone's. Students deliberately cannot read each other's — the studio
+    // holds photographs of children, and there's no reason for one family to be
+    // able to pull another's.
+    match /photos/{uid} {
+      allow read, write: if isAuth() && (request.auth.uid == uid || isAdminOrTeacher());
+    }
+
     // Payment receipts (compressed images). A student can upload (create) their
     // receipt, but only staff can READ them — students never read receipts back,
     // so this keeps one student from seeing another's payment proof.

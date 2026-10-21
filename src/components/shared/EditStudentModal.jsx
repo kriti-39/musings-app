@@ -3,6 +3,7 @@ import { updateUser } from '../../firebase/db'
 import { RiCloseLine } from 'react-icons/ri'
 import { useAuth } from '../../context/AuthContext'
 import { validityLabel } from '../../utils/credits'
+import PhotoPicker from './PhotoPicker'
 
 const TIMEZONES = [
   'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney',
@@ -18,8 +19,8 @@ const FEE_TYPES = [
 
 // Edit a student's profile (teacher/admin only). Updates the Firestore user doc.
 // Login User ID & password are NOT editable here — those are auth-level changes.
-export default function EditStudentModal({ student, onClose, onSuccess }) {
-  const { role } = useAuth()
+export default function EditStudentModal({ student, photo = null, onClose, onSuccess }) {
+  const { user, role } = useAuth()
   const isAdmin = role === 'admin'
   const [form, setForm] = useState({
     name: student?.name || '',
@@ -75,6 +76,16 @@ export default function EditStudentModal({ student, onClose, onSuccess }) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {/* Saves on its own, straight away — it isn't part of the form, so a
+              picture can't be lost by closing without saving. */}
+          <PhotoPicker
+            uid={student.id}
+            name={form.name || student.name}
+            initialSrc={photo}
+            savedBy={user?.id}
+            onChange={() => onSuccess?.()}
+          />
+
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Full Name *</label>
             <input

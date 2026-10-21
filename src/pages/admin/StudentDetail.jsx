@@ -5,8 +5,10 @@ import TeacherLayout from '../../components/teacher/TeacherLayout'
 import { useAuth } from '../../context/AuthContext'
 import {
   getUser, getStudentAllClasses, getStudentPayments, getStudentRecurringSchedules,
-  cancelRecurringSchedule, confirmPayment, rejectPayment, hasRecording,
+  cancelRecurringSchedule, confirmPayment, rejectPayment, hasRecording, getPhoto,
 } from '../../firebase/db'
+import Avatar from '../../components/shared/Avatar'
+import { buildStudentStats } from '../../utils/studentStats'
 import {
   RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine, RiImageLine, RiAddLine, RiEdit2Line,
 } from 'react-icons/ri'
@@ -56,6 +58,7 @@ export default function StudentDetail() {
   const [loading, setLoading] = useState(true)
   const [detail, setDetail] = useState(null)   // class opened from the table
   const [period, setPeriod] = useState(ALL_PERIOD)
+  const [photo, setPhoto] = useState(null)
 
   const thisMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
 
@@ -71,6 +74,10 @@ export default function StudentDetail() {
     setPayments(p)
     setRecurring(r)
     setLoading(false)
+    // The picture lives in its own document and is only fetched here, never
+    // once per row in a list. Its failure must never hold up the profile.
+    if (s?.hasPhoto) getPhoto(id).then(setPhoto).catch(e => console.error('Photo failed to load:', e))
+    else setPhoto(null)
   }
 
   useEffect(() => { fetchAll() }, [id])
@@ -96,6 +103,7 @@ export default function StudentDetail() {
     .filter(c => c.status === 'pending' || (c.status === 'scheduled' && (c.scheduledAt?.toDate?.() ?? new Date()) >= now))
     .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
   const confirmedPayments = payments.filter(p => p.status === 'confirmed')
+  const stats = buildStudentStats(classes, payments)
 
   if (loading) return <Layout><p className="text-gray-400 text-sm">Loading...</p></Layout>
 
@@ -115,18 +123,56 @@ export default function StudentDetail() {
 
         {/* Profile */}
         <div className="bg-white rounded-xl border border-gray-100 p-6 mb-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-xl font-semibold text-gray-800">{student?.name}</h1>
+          <div className="flex items-start gap-4">
+            <Avatar name={student?.name} src={photo} size="lg" />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-semibold text-gray-800 truncate">{student?.name}</h1>
               <p className="text-sm text-gray-400 mt-0.5">{displayId(student)}</p>
+              {stats.drifting && (
+                <p className="text-xs text-amber-600 mt-1.5">
+                  No class for {stats.daysSinceLast} days — worth a word?
+                </p>
+              )}
             </div>
             <button onClick={() => setShowEdit(true)}
               className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors">
               <RiEdit2Line size={14} /> Edit
             </button>
           </div>
-          {/* Contact and fee first — the details actually needed day to day */}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 mt-4">
+
+          {/* What they add up to — the figures Guruji asks for when he opens someone */}
+          <div className="grid grid-cols-3 gap-3 mt-5 pt-5 border-t border-gray-50">
+            <div className="min-w-0">
+              <p className="text-xs text-gray-400">Paid in total</p>
+              <p className="text-lg font-semibold text-gray-800 tabular-nums leading-tight mt-0.5">
+                ₹{stats.totalPaid.toLocaleString('en-IN')}
+              </p>
+              <p className="text-[11px] text-gray-400 truncate">
+                over {stats.paymentCount} payment{stats.paymentCount === 1 ? '' : 's'}
+              </p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-400">Classes done</p>
+              <p className="text-lg font-semibold text-gray-800 tabular-nums leading-tight mt-0.5">
+                {stats.done}
+              </p>
+              <p className="text-[11px] text-gray-400 truncate">
+                {stats.missed > 0 ? `${stats.missed} missed` : stats.cancelled > 0 ? `${stats.cancelled} cancelled` : 'none missed'}
+              </p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-400">How often</p>
+              <p className="text-lg font-semibold text-gray-800 leading-tight mt-0.5 truncate">
+                {stats.frequency ? `${Math.round(stats.frequency * 10) / 10}/mo` : '—'}
+              </p>
+              <p className="text-[11px] text-gray-400 truncate">
+                {stats.lastClass ? `last ${fmtShortDate(stats.lastClass)}` : 'no classes yet'}
+              </p>
+            </div>
+          </div>
+
+          {/* Contact and fee — the details actually needed day to day */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3 mt-5 pt-5 border-t border-gray-50">
             {[
               { label: 'Phone', value: student?.phone || '—' },
               { label: 'Fee', value: student?.feeAmount ? `₹${student.feeAmount}` : '—' },
@@ -305,6 +351,7 @@ export default function StudentDetail() {
       {showEdit && student && (
         <EditStudentModal
           student={student}
+          photo={photo}
           onClose={() => setShowEdit(false)}
           onSuccess={fetchAll}
         />

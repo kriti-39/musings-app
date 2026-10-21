@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "musings-app-4ea36"
+    "default": "v2musingwithdeva",
+    "beta": "v2musingwithdeva",
+    "prod": "musings-app-4ea36"
   }
 }

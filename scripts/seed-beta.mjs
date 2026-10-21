@@ -20,11 +20,20 @@ import { getAuth } from 'firebase-admin/auth'
 import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore'
 
 // ─── Guard: never, ever the live project ─────────────────────────────────────
-const PRODUCTION = 'musings-app-4ea36'
+// The check is an EXACT match against the `beta` alias in .firebaserc, not a
+// guess at the name. A fuzzy test would have passed "v2musingwithdeva" only
+// because "deva" happens to contain "dev" — luck, not safety.
+const rc = JSON.parse(readFileSync(new URL('../.firebaserc', import.meta.url), 'utf8'))
+const BETA = rc.projects?.beta
+const PRODUCTION = rc.projects?.prod
 
 const keyPath = process.argv[2]
 if (!keyPath) {
   console.error('\nUsage: node scripts/seed-beta.mjs <path-to-beta-service-account.json>\n')
+  process.exit(1)
+}
+if (!BETA) {
+  console.error('\n  No "beta" project in .firebaserc — refusing to guess which project to fill.\n')
   process.exit(1)
 }
 
@@ -33,16 +42,18 @@ const key = JSON.parse(readFileSync(resolve(keyPath), 'utf8'))
 if (key.project_id === PRODUCTION) {
   console.error(`\n  REFUSING TO RUN.\n`)
   console.error(`  That key belongs to ${PRODUCTION} — the LIVE project, with real students.`)
-  console.error(`  This script creates test data and must only ever point at beta.\n`)
+  console.error(`  This script wipes the database before seeding. It must only ever point at beta.\n`)
+  process.exit(1)
+}
+
+if (key.project_id !== BETA) {
+  console.error(`\n  REFUSING TO RUN.\n`)
+  console.error(`  That key belongs to "${key.project_id}".`)
+  console.error(`  .firebaserc says beta is "${BETA}". Only that project may be seeded.\n`)
   process.exit(1)
 }
 
 console.log(`\nSeeding project: ${key.project_id}`)
-if (!/beta|test|dev|staging/i.test(key.project_id)) {
-  console.error(`\n  "${key.project_id}" doesn't look like a test project.`)
-  console.error(`  Expected something containing beta/test/dev/staging. Stopping to be safe.\n`)
-  process.exit(1)
-}
 
 initializeApp({ credential: cert(key), projectId: key.project_id })
 const db = getFirestore()

@@ -98,11 +98,66 @@
   --shadow-card: 0 1px 2px rgba(0, 0, 0, .35), 0 10px 30px rgba(0, 0, 0, .3);
 }
 
-/* One gradient, cerulean into a deeper blue, for the single surface that
-   earns it. A gradient everywhere is wallpaper, not design. */
+/* ── Gradients ───────────────────────────────────────────────────────────────
+   Reserved for ONE surface: the credit balance, which is the hero of the
+   student app. Its gradient shifts with the state — cerulean while there is
+   room, warm when the credits are nearly gone, neon red at zero.
+
+   That is how the red earns a bigger role without becoming decoration. It
+   appears often, and it still means the same thing every time it does: pay
+   attention. A red used as wallpaper stops being a warning.
+   ─────────────────────────────────────────────────────────────────────────── */
 :root {
   --grad-accent: linear-gradient(135deg, #0B82CB 0%, #0A4E8A 100%);
-  --grad-glow: radial-gradient(120% 80% at 85% 0%, rgba(23, 166, 236, .12), transparent 70%);
+  --grad-warn:   linear-gradient(135deg, #FF7A45 0%, #E22850 100%);
+  --grad-danger: linear-gradient(135deg, #FF4D4D 0%, #C41434 100%);
+  --grad-glow:   radial-gradient(120% 80% at 85% 0%, rgba(23, 166, 236, .12), transparent 70%);
+}
+[data-theme="dark"] {
+  --grad-accent: linear-gradient(135deg, #0B82CB 0%, #073A66 100%);
+  --grad-warn:   linear-gradient(135deg, #E8632F 0%, #B81E42 100%);
+  --grad-danger: linear-gradient(135deg, #E83A3A 0%, #9E0F2A 100%);
+  --grad-glow:   radial-gradient(120% 80% at 85% 0%, rgba(86, 182, 242, .14), transparent 70%);
+}
+
+/* ── The credit balance card ─────────────────────────────────────────────────
+   Carries its own colours rather than going through the token bridge: text on
+   a saturated gradient needs to be white at varying opacities, not the ink
+   and muted tokens, which are tuned for a flat surface.
+   ─────────────────────────────────────────────────────────────────────────── */
+.credit-card {
+  background-image: var(--grad-accent);
+  border: 0;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+.credit-card--soon  { background-image: var(--grad-warn); }
+.credit-card--empty { background-image: var(--grad-danger); }
+
+/* A soft highlight so the gradient reads as a surface, not a flat fill */
+.credit-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(90% 70% at 100% 0%, rgba(255, 255, 255, .18), transparent 65%);
+  pointer-events: none;
+}
+.credit-card > * { position: relative; z-index: 1; }
+
+.credit-card .c-label { color: rgba(255, 255, 255, .78); }
+.credit-card .c-value { color: #fff; }
+.credit-card .c-note  { color: rgba(255, 255, 255, .88); }
+.credit-card .c-pip         { background: rgba(255, 255, 255, .28); }
+.credit-card .c-pip--on     { background: #fff; }
+.credit-card .c-btn {
+  background: rgba(255, 255, 255, .95);
+  color: #0B0C0E;
+}
+.credit-card .c-btn--ghost {
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .4);
 }
 [data-theme="dark"] {
   --grad-accent: linear-gradient(135deg, #0B82CB 0%, #073A66 100%);

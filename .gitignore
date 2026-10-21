@@ -32,5 +32,10 @@ Musings_with_Deva_SOP.docx
 Devas_Classes_Technical_Documentation.pdf
 build_techdoc.py
 
-# Service account keys — never commit
+# Service account keys — never commit.
+# A key grants full admin access to its project, so these patterns are
+# deliberately broad: a renamed key is still a key.
 *firebase-adminsdk*.json
+*-key.json
+*service-account*.json
+beta-key.json

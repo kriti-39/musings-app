@@ -13,6 +13,11 @@ dist-ssr
 *.local
 .env
 .env.local
+# Every env file stays out of git — one rule, so nobody has to judge which
+# ones hold secrets. The beta values are public Firebase config and easy to
+# re-copy from the console if this file is ever lost.
+.env.beta
+.env.*.local
 
 # Editor directories and files
 .vscode/*

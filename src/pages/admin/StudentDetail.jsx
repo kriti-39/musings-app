@@ -142,18 +142,20 @@ export default function StudentDetail() {
 
           {/* What they add up to — the figures Guruji asks for when he opens someone */}
           <div className="grid grid-cols-3 gap-3 mt-5 pt-5 border-t border-gray-50">
+            {/* Three figures side by side even on a phone, so the numbers step
+                down a size on narrow screens rather than wrapping. */}
             <div className="min-w-0">
-              <p className="text-xs text-gray-400">Paid in total</p>
-              <p className="text-lg font-semibold text-gray-800 tabular-nums leading-tight mt-0.5">
+              <p className="text-xs text-gray-400 truncate">Paid</p>
+              <p className="text-base sm:text-lg font-semibold text-gray-800 tabular-nums leading-tight mt-0.5 truncate">
                 ₹{stats.totalPaid.toLocaleString('en-IN')}
               </p>
               <p className="text-[11px] text-gray-400 truncate">
-                over {stats.paymentCount} payment{stats.paymentCount === 1 ? '' : 's'}
+                {stats.paymentCount} payment{stats.paymentCount === 1 ? '' : 's'}
               </p>
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-400">Classes done</p>
-              <p className="text-lg font-semibold text-gray-800 tabular-nums leading-tight mt-0.5">
+              <p className="text-xs text-gray-400 truncate">Classes done</p>
+              <p className="text-base sm:text-lg font-semibold text-gray-800 tabular-nums leading-tight mt-0.5">
                 {stats.done}
               </p>
               <p className="text-[11px] text-gray-400 truncate">
@@ -161,12 +163,12 @@ export default function StudentDetail() {
               </p>
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-gray-400">How often</p>
-              <p className="text-lg font-semibold text-gray-800 leading-tight mt-0.5 truncate">
+              <p className="text-xs text-gray-400 truncate">How often</p>
+              <p className="text-base sm:text-lg font-semibold text-gray-800 leading-tight mt-0.5 truncate">
                 {stats.frequency ? `${Math.round(stats.frequency * 10) / 10}/mo` : '—'}
               </p>
               <p className="text-[11px] text-gray-400 truncate">
-                {stats.lastClass ? `last ${fmtShortDate(stats.lastClass)}` : 'no classes yet'}
+                {stats.lastClass ? fmtShortDate(stats.lastClass) : 'none yet'}
               </p>
             </div>
           </div>

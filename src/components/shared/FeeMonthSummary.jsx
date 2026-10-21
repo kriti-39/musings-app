@@ -17,13 +17,15 @@ export default function FeeMonthSummary({ students, payments, month }) {
   // The target is a floor when some students aren't on a flat monthly fee.
   const shortfall = Math.max(s.expected - s.received, 0)
 
+  // Labels are kept short on purpose: three money figures sit side by side even
+  // on a phone, and "Awaiting confirmation" would truncate to nonsense at 375px.
   const cards = [
     { key: 'received', label: 'Received', value: money(s.received), tone: 'text-green-700',
-      sub: `${s.paidCount} of ${s.students} students` },
-    { key: 'pending', label: 'Awaiting confirmation', value: money(s.pending), tone: 'text-amber-600',
-      sub: s.pendingCount ? `${s.pendingCount} to review` : 'nothing to review' },
-    { key: 'due', label: 'Still to come', value: s.expected ? money(shortfall) : '—', tone: 'text-gray-700',
-      sub: s.expected ? `of ${money(s.expected)} expected` : 'no monthly fees set' },
+      sub: `${s.paidCount} of ${s.students} paid` },
+    { key: 'pending', label: 'To confirm', value: money(s.pending), tone: 'text-amber-600',
+      sub: s.pendingCount ? `${s.pendingCount} to review` : 'none waiting' },
+    { key: 'due', label: 'Still due', value: s.expected ? money(shortfall) : '—', tone: 'text-gray-700',
+      sub: s.expected ? `of ${money(s.expected)}` : 'no fees set' },
   ]
 
   return (
@@ -31,7 +33,8 @@ export default function FeeMonthSummary({ students, payments, month }) {
       <div className="px-5 pt-4 pb-3">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="text-sm font-semibold text-gray-800">{monthLabel(month)}</h2>
-          <span className="text-[11px] text-gray-400">
+          {/* The explanation is worth having, but not worth two lines on a phone */}
+          <span className="hidden sm:block text-[11px] text-gray-400">
             a payment covering several months is split across them
           </span>
         </div>
@@ -40,7 +43,10 @@ export default function FeeMonthSummary({ students, payments, month }) {
           {cards.map(c => (
             <div key={c.key} className="min-w-0">
               <p className="text-xs text-gray-400 truncate">{c.label}</p>
-              <p className={`text-xl font-semibold tabular-nums leading-tight mt-0.5 ${c.tone}`}>{c.value}</p>
+              {/* A five-figure total has to fit in a third of a phone screen */}
+              <p className={`text-base sm:text-xl font-semibold tabular-nums leading-tight mt-0.5 ${c.tone}`}>
+                {c.value}
+              </p>
               <p className="text-[11px] text-gray-400 truncate mt-0.5">{c.sub}</p>
             </div>
           ))}

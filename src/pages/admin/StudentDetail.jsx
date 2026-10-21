@@ -142,12 +142,12 @@ export default function StudentDetail() {
           <div className="flex items-start gap-4">
             <Avatar name={student?.name} src={photo} size="lg" />
             <div className="min-w-0 flex-1">
-              <h1 className="text-xl font-semibold text-gray-800 truncate">{student?.name}</h1>
-              <div className="flex items-center gap-2 mt-1">
-                <p className="text-sm text-gray-400 truncate">{displayId(student)}</p>
-                {/* Staff only — a student never sees how they're tagged */}
-                <AttendanceTag student={student} classes={classes} onChange={fetchAll} editable />
-              </div>
+              {/* Wraps rather than truncates — this is the person's own
+                  profile, so their whole name belongs on it. */}
+              <h1 className="text-xl font-semibold text-gray-800 leading-tight break-words">
+                {student?.name}
+              </h1>
+              <p className="text-sm text-gray-400 mt-0.5">{displayId(student)}</p>
               {stats.drifting && (
                 <p className="text-xs text-amber-600 mt-1.5">
                   No class for {stats.daysSinceLast} days — worth a word?
@@ -187,9 +187,11 @@ export default function StudentDetail() {
               <p className="text-base sm:text-lg font-semibold text-gray-800 leading-tight mt-0.5 truncate">
                 {stats.frequency ? `${Math.round(stats.frequency * 10) / 10}/mo` : '—'}
               </p>
-              <p className="text-[11px] text-gray-400 truncate">
-                {stats.lastClass ? fmtShortDate(stats.lastClass) : 'none yet'}
-              </p>
+              {/* The tag lives with the number it's derived from, rather than
+                  beside the name where it crowded it out. Staff only. */}
+              <div className="mt-1">
+                <AttendanceTag student={student} classes={classes} onChange={fetchAll} editable />
+              </div>
             </div>
           </div>
 

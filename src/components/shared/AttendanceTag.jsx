@@ -55,7 +55,10 @@ export default function AttendanceTag({ student, classes, onChange, editable = f
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1.5 z-20 w-60 bg-white rounded-xl border border-gray-200 shadow-lg p-1.5">
+          {/* Anchored to the right edge so it opens inwards, and capped to the
+              viewport — in a three-column grid on a phone this sat in the last
+              column and ran off the screen. */}
+          <div className="absolute right-0 top-full mt-1.5 z-20 w-60 max-w-[calc(100vw-2.5rem)] bg-white rounded-xl border border-gray-200 shadow-lg p-1.5">
             <p className="text-[11px] text-gray-400 px-2.5 py-1.5">
               {computed
                 ? `Their classes say ${attendanceLabel(computed).toLowerCase()} — ${REGULAR_PER_MONTH} a month or more is regular.`

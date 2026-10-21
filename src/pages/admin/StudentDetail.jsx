@@ -19,6 +19,7 @@ import MarkPaidModal from '../../components/shared/MarkPaidModal'
 import EditStudentModal from '../../components/shared/EditStudentModal'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
 import CreditsCard from '../../components/shared/CreditsCard'
+import { usesCredits } from '../../utils/credits'
 import PeriodFilter, { ALL_PERIOD, filterByPeriod } from '../../components/shared/PeriodFilter'
 import { fmtShortDate } from '../../utils/timezone'
 
@@ -55,6 +56,9 @@ export default function StudentDetail() {
   const [section, setSection] = useState('upcoming') // upcoming | done | payments
   const [receiptId, setReceiptId] = useState(null)
   const [showRecord, setShowRecord] = useState(false)
+  // Bumped to ask the credits card above to open its Add dialog, so there is
+  // one grant flow on this page rather than two that can drift apart.
+  const [grantSignal, setGrantSignal] = useState(0)
   const [showEdit, setShowEdit] = useState(false)
   const [loading, setLoading] = useState(true)
   const [detail, setDetail] = useState(null)   // class opened from the table
@@ -192,7 +196,7 @@ export default function StudentDetail() {
 
         {/* Credits sit directly under the profile: it's the first thing staff
             need when a student rings up about booking. */}
-        <CreditsCard student={student} onChange={fetchAll} />
+        <CreditsCard student={student} onChange={fetchAll} openGrantSignal={grantSignal} />
 
         {/* Clickable mini-dashboard — also acts as the section selector */}
         <div className="grid grid-cols-3 gap-3 mb-5">
@@ -269,12 +273,28 @@ export default function StudentDetail() {
         {/* Payments — with inline Confirm / Decline */}
         {section === 'payments' && (
           <>
-          <div className="flex justify-end mb-3">
-            <button onClick={() => setShowRecord(true)}
-              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-              <RiAddLine size={16} /> Record Payment
-            </button>
-          </div>
+          {/* Guruji sees the history but takes no action on money — granting
+              credits and recording payments are the office's job.
+
+              For a student on credits "Record Payment" is the wrong verb
+              anyway: money and credits now arrive together, so the admin
+              grants credits and the payment is written as part of it. Only a
+              student still on the earlier arrangement gets a bare payment. */}
+          {!isTeacher && (
+            <div className="flex justify-end mb-3">
+              {usesCredits(student) ? (
+                <button onClick={() => setGrantSignal(n => n + 1)}
+                  className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                  <RiTicketLine size={16} /> Add credits
+                </button>
+              ) : (
+                <button onClick={() => setShowRecord(true)}
+                  className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                  <RiAddLine size={16} /> Record Payment
+                </button>
+              )}
+            </div>
+          )}
           <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
             {payments.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-10">No payment records yet.</p>

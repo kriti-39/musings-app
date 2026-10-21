@@ -25,7 +25,7 @@ const EXTEND_PRESETS = [
 // Guruji and admins both see the balance and the history; only an admin can
 // grant, extend or take back — that control was asked to sit in one pair of
 // hands.
-export default function CreditsCard({ student, onChange }) {
+export default function CreditsCard({ student, onChange, openGrantSignal = 0 }) {
   const { user, role } = useAuth()
   const isAdmin = role === 'admin'
 
@@ -56,6 +56,12 @@ export default function CreditsCard({ student, onChange }) {
   }, [studentId])
 
   useEffect(() => { refresh() }, [refresh])
+
+  // The Payments section lower down the page can ask for this dialog, so both
+  // places lead to the same grant flow instead of two that drift apart.
+  useEffect(() => {
+    if (openGrantSignal > 0 && isAdmin) { setShowGrant(true); setError('') }
+  }, [openGrantSignal, isAdmin])
 
   const summary = creditSummary(batches)
   const live = summary.liveBatches

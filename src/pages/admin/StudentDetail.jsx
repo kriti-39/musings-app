@@ -8,7 +8,7 @@ import {
   cancelRecurringSchedule, confirmPayment, rejectPayment, hasRecording, getPhoto, updateUser,
 } from '../../firebase/db'
 import Avatar from '../../components/shared/Avatar'
-import { buildStudentStats, attendanceFrom } from '../../utils/studentStats'
+import { buildStudentStats, attendanceFrom, attendance } from '../../utils/studentStats'
 import {
   RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine, RiImageLine, RiAddLine, RiEdit2Line,
   RiTicketLine,
@@ -120,6 +120,7 @@ export default function StudentDetail() {
     .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
   const confirmedPayments = payments.filter(p => p.status === 'confirmed')
   const stats = buildStudentStats(classes, payments)
+  const attendanceNow = attendance(student, classes)
 
   if (loading) return <Layout><p className="text-gray-400 text-sm">Loading...</p></Layout>
 
@@ -140,7 +141,17 @@ export default function StudentDetail() {
         {/* Profile */}
         <div className="bg-white rounded-xl border border-gray-100 p-6 mb-5">
           <div className="flex items-start gap-4">
-            <Avatar name={student?.name} src={photo} size="lg" />
+            {/* The ring says it at a glance; the label under it says it in
+                words, and for an admin the label is how you change it. */}
+            <div className="shrink-0 relative pb-2.5">
+              <Avatar name={student?.name} src={photo} gender={student?.gender}
+                size="lg" attendance={attendanceNow.tag} />
+              {attendanceNow.tag && (
+                <div className="absolute inset-x-0 -bottom-0.5 flex justify-center">
+                  <AttendanceTag student={student} classes={classes} onChange={fetchAll} editable pill />
+                </div>
+              )}
+            </div>
             <div className="min-w-0 flex-1">
               {/* Wraps rather than truncates — this is the person's own
                   profile, so their whole name belongs on it. */}
@@ -187,11 +198,9 @@ export default function StudentDetail() {
               <p className="text-base sm:text-lg font-semibold text-gray-800 leading-tight mt-0.5 truncate">
                 {stats.frequency ? `${Math.round(stats.frequency * 10) / 10}/mo` : '—'}
               </p>
-              {/* The tag lives with the number it's derived from, rather than
-                  beside the name where it crowded it out. Staff only. */}
-              <div className="mt-1">
-                <AttendanceTag student={student} classes={classes} onChange={fetchAll} editable />
-              </div>
+              <p className="text-[11px] text-gray-400 truncate">
+                {stats.lastClass ? `last ${fmtShortDate(stats.lastClass)}` : 'none yet'}
+              </p>
             </div>
           </div>
 

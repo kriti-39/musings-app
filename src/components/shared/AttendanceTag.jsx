@@ -14,7 +14,7 @@ const STYLES = {
 // Staff only — never rendered on anything a student sees. Worked out from
 // their classes (two a month or more is regular), with an admin able to pin it
 // either way for the cases the arithmetic can't know about.
-export default function AttendanceTag({ student, classes, onChange, editable = false }) {
+export default function AttendanceTag({ student, classes, onChange, editable = false, pill = false }) {
   const { role } = useAuth()
   const isAdmin = role === 'admin'
   const [open, setOpen] = useState(false)
@@ -36,7 +36,14 @@ export default function AttendanceTag({ student, classes, onChange, editable = f
     }
   }
 
-  const chip = (
+  // `pill` is the version that sits on the ring under an avatar: solid, tiny,
+  // and in the ring's own colour so the two read as one thing.
+  const chip = pill ? (
+    <span className={`att-pill att-ring--${tag} inline-flex items-center gap-1 text-[10px] leading-none px-2 py-1 rounded-full font-semibold uppercase whitespace-nowrap`}>
+      {pinned && <RiPushpinFill size={9} className="shrink-0 opacity-80" />}
+      {attendanceLabel(tag)}
+    </span>
+  ) : (
     <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${style}`}>
       {pinned && <RiPushpinFill size={10} className="shrink-0 opacity-70" />}
       {attendanceLabel(tag)}

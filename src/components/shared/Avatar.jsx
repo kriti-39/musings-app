@@ -45,8 +45,15 @@ const SIZES = {
 
 const GLYPH_SIZE = { sm: 16, md: 22, lg: 30, xl: 44 }
 
-export default function Avatar({ name, src = null, gender = null, size = 'md', className = '' }) {
-  const box = `${SIZES[size] || SIZES.md} rounded-full shrink-0 ${className}`
+export default function Avatar({
+  name, src = null, gender = null, size = 'md', className = '', attendance = null,
+}) {
+  // A band around the photo, LinkedIn-style. Never the only signal — whoever
+  // renders this with a ring also shows the word.
+  const ring = attendance === 'regular' || attendance === 'irregular'
+    ? `att-ring att-ring--${attendance}`
+    : ''
+  const box = `${SIZES[size] || SIZES.md} rounded-full shrink-0 ${ring} ${className}`
 
   if (src) {
     return (

@@ -120,6 +120,27 @@
   --grad-glow:   radial-gradient(120% 80% at 85% 0%, rgba(86, 182, 242, .14), transparent 70%);
 }
 
+/* ── Attendance ring on an avatar ────────────────────────────────────────────
+   A LinkedIn-style ring: a gap in the surface colour, then the ring itself,
+   so it reads as a band around the photo rather than a border on it. Drawn
+   with box-shadow so it costs no layout and never shifts the avatar.
+
+   The ring is never the only signal — a label sits under it — because colour
+   alone says nothing to someone who doesn't already know the convention.
+   ─────────────────────────────────────────────────────────────────────────── */
+.att-ring {
+  box-shadow: 0 0 0 3px var(--color-surface), 0 0 0 5px var(--att-colour);
+}
+.att-ring--regular   { --att-colour: var(--color-ok-ink); }
+.att-ring--irregular { --att-colour: var(--color-warn-ink); }
+
+/* The label, sitting on the ring at the bottom of the circle */
+.att-pill {
+  background: var(--att-colour);
+  color: var(--color-surface);
+  letter-spacing: .04em;
+}
+
 /* ── The credit balance card ─────────────────────────────────────────────────
    Carries its own colours rather than going through the token bridge: text on
    a saturated gradient needs to be white at varying opacities, not the ink

@@ -6,6 +6,7 @@ import { subscribeStudentCredits, expireStaleCredits } from '../../firebase/cred
 import {
   creditSummary, usesCredits, creditsWord, fmtExpiry, MAX_CREDITS,
 } from '../../utils/credits'
+import BuyCreditsModal from './BuyCreditsModal'
 
 // ─── A student's own credit balance ──────────────────────────────────────────
 // Live, because credits change from the other side: Guruji's office adds them
@@ -19,6 +20,7 @@ export default function CreditBalance({ compact = false, onCount }) {
   const { user } = useAuth()
   // null until the first snapshot lands, so nothing renders a misleading zero
   const [batches, setBatches] = useState(null)
+  const [buying, setBuying] = useState(false)
   const onCredits = usesCredits(user)
 
   useEffect(() => {
@@ -86,7 +88,7 @@ export default function CreditBalance({ compact = false, onCount }) {
           {none ? (
             <p className="text-xs text-red-600 mt-2 flex items-start gap-1.5">
               <RiErrorWarningLine size={13} className="shrink-0 mt-0.5" />
-              You'll need credits before you can book. Please speak to Guruji's office.
+              You'll need credits before you can book.
             </p>
           ) : (
             <p className={`text-xs mt-2 flex items-center gap-1.5 ${
@@ -101,12 +103,24 @@ export default function CreditBalance({ compact = false, onCount }) {
           )}
         </div>
 
-        {!none && (
-          <Link to="/student/book"
-            className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors">
-            Book
-          </Link>
-        )}
+        <div className="shrink-0 flex flex-col gap-2">
+          {!none && (
+            <Link to="/student/book"
+              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-xs font-semibold text-center transition-colors">
+              Book
+            </Link>
+          )}
+          {summary.canHold > 0 && (
+            <button onClick={() => setBuying(true)}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                none
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                  : 'border border-amber-200 text-amber-700 hover:bg-amber-50'
+              }`}>
+              Buy credits
+            </button>
+          )}
+        </div>
       </div>
 
       {/* A quiet row of pips — four is the whole allowance, so it reads at a glance */}
@@ -118,6 +132,16 @@ export default function CreditBalance({ compact = false, onCount }) {
             }`} />
           ))}
         </div>
+      )}
+
+      {/* The balance above is live, so credits appear here by themselves the
+          moment the webhook grants them — no refresh, no polling. */}
+      {buying && (
+        <BuyCreditsModal
+          student={user}
+          canHold={summary.canHold}
+          onClose={() => setBuying(false)}
+        />
       )}
     </div>
   )

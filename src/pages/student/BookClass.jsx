@@ -314,9 +314,10 @@ export default function BookClass() {
           </p>
         </div>
 
-        {/* Nothing is rendered for students on the earlier arrangement */}
+        {/* Compact here: this page is about the calendar, and the full card
+            was taking half a phone screen before anyone saw a date. */}
         <div className="mb-4">
-          <CreditBalance onCount={setCredits} />
+          <CreditBalance compact onCount={setCredits} />
         </div>
 
         {teacherLoadFailed && (

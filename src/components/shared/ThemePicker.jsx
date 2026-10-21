@@ -9,6 +9,10 @@ import { useTheme } from '../../context/ThemeContext'
 export default function ThemePicker() {
   const { choice, active, setTheme, themes } = useTheme()
 
+  // With a single look there is no choice to offer, and a one-option list is
+  // just clutter. Hides itself until a second theme exists.
+  if (themes.length < 2) return null
+
   const options = [
     {
       id: 'system',

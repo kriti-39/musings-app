@@ -2,30 +2,20 @@ import { createContext, useContext, useEffect, useState } from 'react'
 
 const ThemeContext = createContext()
 
-// Three complete looks, not a palette crossed with a light/dark switch.
+// One look for now — black, cerulean and neon red on a light ground. Riyaz
+// and Kaanch are parked, not deleted: the token layer below takes any number
+// of themes, so adding them back is a block of CSS variables and an entry
+// here, with no component changes.
+//
 // Not exported — consumers get it from the context as `themes`, which keeps
 // this file exporting components only.
 const THEMES = [
   {
     id: 'light',
     name: 'Light',
-    blurb: 'Warm paper. Easiest to read in daylight.',
+    blurb: 'Black, cerulean and a red kept for what matters.',
     dark: false,
-    swatch: ['#FAFAF8', '#B4531A', '#E07A2E'],
-  },
-  {
-    id: 'riyaz',
-    name: 'Riyaz',
-    blurb: 'The practice before dawn — indigo and marigold.',
-    dark: true,
-    swatch: ['#100E1C', '#5A4CC4', '#F0B855'],
-  },
-  {
-    id: 'kaanch',
-    name: 'Kaanch',
-    blurb: 'Glass. Almost no colour, and saffron where it counts.',
-    dark: true,
-    swatch: ['#0D0D0B', '#F4F3EE', '#F0914A'],
+    swatch: ['#F4F6FA', '#0B82CB', '#FF2D2D'],
   },
 ]
 
@@ -36,8 +26,12 @@ const isDark = (id) => THEMES.find(t => t.id === id)?.dark === true
 // a deliberate choice and is kept.
 const STORED = 'theme'
 
+// With only a light theme available there is nothing to follow the phone to,
+// so this returns light until a dark theme comes back.
 function systemTheme() {
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'riyaz' : 'light'
+  const dark = THEMES.find(t => t.dark)
+  if (!dark) return 'light'
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? dark.id : 'light'
 }
 
 function readStored() {

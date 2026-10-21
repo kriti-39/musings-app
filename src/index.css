@@ -1,118 +1,62 @@
 @import "tailwindcss";
 
-/* ─── THEME TOKENS ───────────────────────────────────────────────────────────
-   Three complete looks — Light, Riyaz and Kaanch — not a palette crossed with
-   a light/dark switch. Three combinations to keep honest instead of eight.
+/* ─── PALETTE ────────────────────────────────────────────────────────────────
+   Black, cerulean and neon red, on a light ground.
+
+   Black carries the words, cerulean carries every action, and the red is kept
+   for the two things that genuinely need attention — a missed class and a
+   destructive button. A third colour used everywhere stops meaning anything.
+
+   The supporting neutrals are COOL slate, not warm grey: cerulean is a cold
+   blue and warm greys turn muddy beside it.
 
    Declared in @theme so Tailwind generates real utilities (bg-surface,
-   text-ink, border-line …) that resolve to CSS variables at runtime. Changing
-   `data-theme` on <html> re-colours the whole app with no re-render and no
-   flash.
-
-   Light is the default, so these values are Light's. The blocks below
-   override them.
-
-   Naming is by ROLE, never by colour: `accent`, not `amber`. The whole reason
-   the old dark mode needed 70 rules redefining what `.bg-white` means is that
-   the components said white when they meant surface.
+   text-ink, border-line) that resolve to these variables, and so the whole
+   app can be re-coloured from one place.
    ─────────────────────────────────────────────────────────────────────────── */
 @theme {
-  --color-bg: #FAFAF8;              /* page ground */
+  --color-bg: #F4F6FA;              /* page ground */
   --color-surface: #FFFFFF;         /* cards, sheets */
-  --color-raised: #F4F3EF;          /* a step above the surface */
-  --color-line: #E6E5E0;            /* hairlines, card borders */
-  --color-line-strong: #D6D4CC;     /* input borders, dividers that must read */
+  --color-raised: #EBF0F7;          /* a step above the surface */
+  --color-line: #E2E8F1;            /* hairlines, card borders */
+  --color-line-strong: #CCD5E2;     /* inputs, dividers that must read */
 
-  --color-ink: #17160F;             /* headings, body */
-  --color-muted: #6E6C62;           /* captions, labels, metadata */
-  --color-faint: #A6A49A;           /* placeholders, disabled */
+  --color-ink: #0B0C0E;             /* black — headings and body */
+  --color-muted: #586175;           /* captions, labels, metadata */
+  --color-faint: #939EAE;           /* placeholders, disabled, timestamps */
 
-  --color-accent: #B4531A;          /* links, active state, the brand voice */
-  --color-accent-fill: #B4531A;     /* filled buttons */
-  --color-on-accent: #FFF8F2;       /* text on accent-fill */
-  --color-accent-soft: #F5E4D6;     /* tinted chips, ghost borders */
-  --color-accent-glow: #E07A2E;     /* progress pips, highlights */
-
-  --color-ok-bg: #ECEFE9;
-  --color-ok-ink: #3F5B36;
-  --color-warn-bg: #F8E9DC;
-  --color-warn-ink: #9D4A17;
-  --color-bad-bg: #F9E3E0;
-  --color-bad-ink: #A33A28;
-
-  /* One warm shadow, so cards lift without looking like a grey box */
-  --shadow-card: 0 1px 2px rgba(23, 22, 15, .04), 0 8px 24px rgba(23, 22, 15, .05);
-}
-
-/* ── Riyaz — the practice before dawn. Indigo ground, marigold warmth. ────── */
-html[data-theme="riyaz"] {
-  --color-bg: #100E1C;
-  --color-surface: #1A1730;
-  --color-raised: #221E3C;
-  --color-line: #2B2648;
-  --color-line-strong: #3A3460;
-
-  --color-ink: #EFECF8;
-  --color-muted: #9A94B5;
-  --color-faint: #6B6589;
-
-  --color-accent: #F0B855;
-  --color-accent-fill: #5A4CC4;
+  --color-accent: #0A6AA8;          /* cerulean, dark enough for small text */
+  --color-accent-fill: #0B82CB;     /* cerulean, vivid — filled buttons */
   --color-on-accent: #FFFFFF;
-  --color-accent-soft: #3C3470;
-  --color-accent-glow: #F0B855;
+  --color-accent-soft: #E3F1FB;     /* tinted chips and hovers */
+  --color-accent-glow: #17A6EC;     /* progress pips, highlights */
 
-  --color-ok-bg: #13301F;
-  --color-ok-ink: #6EDB9A;
-  --color-warn-bg: #3A2410;
-  --color-warn-ink: #F0B855;
-  --color-bad-bg: #3A1620;
-  --color-bad-ink: #F0829A;
+  /* Positive states borrow the brand rather than adding a fourth hue */
+  --color-ok-bg: #E3F1FB;
+  --color-ok-ink: #0A6AA8;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .25);
+  /* Attention — a class nobody turned up to */
+  --color-warn-bg: #FFECE6;
+  --color-warn-ink: #C2410C;
+
+  /* Neon red. Bright for fills, darkened for text, because #FF2D2D on white
+     is about 3.4:1 and fails for anything small. */
+  --color-danger: #FF2D2D;
+  --color-danger-strong: #DC1F1F;
+  --color-danger-ink: #CC1818;
+  --color-danger-soft: #FFE9E9;
+  --color-danger-line: #FFC9C9;
+
+  --color-tap: rgba(11, 130, 203, 0.14);
+
+  --shadow-card: 0 1px 2px rgba(11, 12, 14, .04), 0 8px 24px rgba(11, 12, 14, .06);
 }
 
-/* ── Kaanch — glass. Near-mono, one saffron accent that always means something. */
-html[data-theme="kaanch"] {
-  --color-bg: #0D0D0B;
-  --color-surface: #171714;
-  --color-raised: #1F1F1B;
-  --color-line: #2A2A25;
-  --color-line-strong: #3A3A33;
-
-  --color-ink: #F4F3EE;
-  --color-muted: #9C9A90;
-  --color-faint: #6E6C64;
-
-  --color-accent: #F0914A;
-  --color-accent-fill: #F4F3EE;
-  --color-on-accent: #0D0D0B;
-  --color-accent-soft: #3A342C;
-  --color-accent-glow: #F0914A;
-
-  --color-ok-bg: #1C2419;
-  --color-ok-ink: #9BBE8C;
-  --color-warn-bg: #33230F;
-  --color-warn-ink: #F0914A;
-  --color-bad-bg: #331A18;
-  --color-bad-ink: #E08A78;
-
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .3);
-}
-
-/* Theme-aware gradients. Kept to two, used on one or two surfaces each —
-   a gradient everywhere is wallpaper, not design. */
+/* One gradient, cerulean into a deeper blue, for the single surface that
+   earns it. A gradient everywhere is wallpaper, not design. */
 :root {
-  --grad-accent: linear-gradient(135deg, #C2601F 0%, #E07A2E 100%);
-  --grad-glow: radial-gradient(120% 80% at 80% 0%, rgba(224, 122, 46, .10), transparent 70%);
-}
-html[data-theme="riyaz"] {
-  --grad-accent: linear-gradient(135deg, #4B3FA7 0%, #7B5FD4 100%);
-  --grad-glow: radial-gradient(120% 80% at 80% 0%, rgba(240, 184, 85, .12), transparent 70%);
-}
-html[data-theme="kaanch"] {
-  --grad-accent: linear-gradient(135deg, #2A2A25 0%, #3A3A33 100%);
-  --grad-glow: radial-gradient(120% 80% at 80% 0%, rgba(240, 145, 74, .07), transparent 70%);
+  --grad-accent: linear-gradient(135deg, #0B82CB 0%, #0A4E8A 100%);
+  --grad-glow: radial-gradient(120% 80% at 85% 0%, rgba(23, 166, 236, .12), transparent 70%);
 }
 
 /* ─── Immediate tap feedback on mobile ──────────────────────────────────────
@@ -206,200 +150,112 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   }
 }
 
-/* ─── DARK MODE — GitHub-style dark blue ────────────────────────────────────
-   Deep navy bg · solid dark surfaces · golden gradient accents
+
+/* ─── TOKEN BRIDGE ───────────────────────────────────────────────────────────
+   The components still say `bg-white`, `text-gray-400`, `bg-amber-500` — the
+   vocabulary of the old look. Rather than rewrite thirty files in one
+   unreviewable change, those classes are re-pointed at the theme tokens here.
+   Change a token and the whole app follows.
+
+   These rules sit OUTSIDE Tailwind's layers, so they win against the utilities
+   they shadow without needing !important — except for borders, where Tailwind
+   sets the colour through several properties at once.
+
+   As screens are rebuilt they move to the semantic names (bg-surface,
+   text-ink, border-line) and drop out of this bridge. When the bridge is empty
+   the migration is finished.
    ─────────────────────────────────────────────────────────────────────────── */
 
-html.dark {
-  color-scheme: dark;
-}
+/* ── Grounds and surfaces ── */
+.bg-white      { background-color: var(--color-surface); }
+.bg-gray-50    { background-color: var(--color-bg); }
+.bg-gray-100   { background-color: var(--color-raised); }
 
-/* Deep navy gradient background */
-html.dark body {
-  background: linear-gradient(160deg, #0d1117 0%, #0d1321 50%, #0f172a 100%);
-  min-height: 100vh;
-  position: relative;
-}
+/* ── Text. Four weights of emphasis, mapped from the greys in use ── */
+.text-gray-900,
+.text-gray-800 { color: var(--color-ink); }
+.text-gray-700,
+.text-gray-600 { color: var(--color-muted); }
+.text-gray-500 { color: var(--color-muted); }
+.text-gray-400,
+.text-gray-300 { color: var(--color-faint); }
 
-/* Decorative ambient glows */
-html.dark body::before {
-  content: '';
-  position: fixed;
-  top: -180px;
-  right: -180px;
-  width: 560px;
-  height: 560px;
-  background: radial-gradient(circle, rgba(56, 139, 253, 0.13) 0%, transparent 65%);
-  border-radius: 50%;
-  pointer-events: none;
-}
+/* ── Rules and borders ── */
+.border-gray-50,
+.border-gray-100  { border-color: var(--color-line) !important; }
+.border-gray-200,
+.border-gray-300  { border-color: var(--color-line-strong) !important; }
+.divide-gray-50 > :not([hidden]) ~ :not([hidden]),
+.divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--color-line) !important; }
 
-html.dark body::after {
-  content: '';
-  position: fixed;
-  bottom: -180px;
-  left: -120px;
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, rgba(56, 139, 253, 0.13) 0%, transparent 65%);
-  border-radius: 50%;
-  pointer-events: none;
-}
+/* ── The brand. Cerulean carries every action. ── */
+.bg-amber-500,
+.bg-amber-600  { background-color: var(--color-accent-fill); color: var(--color-on-accent); }
+.hover\:bg-amber-600:hover,
+.hover\:bg-amber-500:hover { background-color: var(--color-accent); color: var(--color-on-accent); }
 
-/* Page wrapper transparent so gradient shows */
-html.dark .bg-gray-50 { background: transparent; }
+/* White text on a filled button is whatever reads on the fill, not literally white */
+.bg-amber-500.text-white,
+.bg-amber-600.text-white { color: var(--color-on-accent); }
 
-/* ── Solid surfaces — fully opaque ── */
-html.dark .bg-white {
-  background: #161b22;
-}
+.text-amber-600,
+.text-amber-700,
+.text-amber-800 { color: var(--color-accent); }
+.hover\:text-amber-700:hover { color: var(--color-accent); }
 
-html.dark aside.bg-white {
-  background: #0d1117;
-}
+.bg-amber-50,
+.bg-amber-100  { background-color: var(--color-accent-soft); }
+.hover\:bg-amber-100:hover { background-color: var(--color-accent-soft); }
 
-html.dark .bg-gray-100 {
-  background: #21262d;
-}
+.border-amber-100,
+.border-amber-200,
+.border-amber-300,
+.border-amber-400,
+.border-amber-500 { border-color: var(--color-accent) !important; }
+.hover\:border-amber-200:hover,
+.hover\:border-amber-300:hover { border-color: var(--color-accent) !important; }
 
-/* Status badge backgrounds */
-html.dark .bg-amber-50  { background: rgba(240, 192, 64, 0.12); }
-html.dark .bg-red-50    { background: rgba(239, 68, 68, 0.12); }
-html.dark .bg-green-50  { background: rgba(34, 197, 94, 0.1); }
-html.dark .bg-blue-50   { background: rgba(56, 139, 253, 0.1); }
+/* Focus rings follow the brand too, or the app has two accent colours */
+.focus\:ring-amber-400:focus,
+.ring-amber-400 { --tw-ring-color: var(--color-accent); }
 
-/* ── Golden gradient buttons — dark navy text on gold ── */
-html.dark .bg-amber-500 {
-  background: linear-gradient(135deg, #f5c518 0%, #c8920a 100%);
-  color: #0d1117;
-}
-html.dark .hover\:bg-amber-600:hover {
-  background: linear-gradient(135deg, #d4a80e 0%, #a97608 100%);
-  color: #0d1117;
-}
-html.dark .bg-amber-600 {
-  background: linear-gradient(135deg, #d4a80e 0%, #a97608 100%);
-  color: #0d1117;
-}
-/* Ensure text-white on golden buttons is overridden */
-html.dark .bg-amber-500.text-white,
-html.dark .bg-amber-600.text-white {
-  color: #0d1117;
-}
+/* ── Status. Positive is the brand; attention is the red; past is quiet. ── */
+.bg-green-50,
+.bg-green-100  { background-color: var(--color-ok-bg); }
+.text-green-600,
+.text-green-700 { color: var(--color-ok-ink); }
+.bg-green-500  { background-color: var(--color-accent-fill); }
+.hover\:bg-green-600:hover { background-color: var(--color-accent); }
 
-/* ── Borders / separators — all use the same subtle box-border tone in dark ──
-   Uses Tailwind's exact divide selector + !important so it always wins. */
-html.dark .border-gray-50,
-html.dark .border-gray-100 { border-color: #21262d !important; }
-html.dark .border-gray-200 { border-color: #30363d !important; }
-html.dark .divide-gray-50 > :not([hidden]) ~ :not([hidden]),
-html.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #21262d !important; }
-html.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #30363d !important; }
-/* Catch-all: any divide-y in dark mode defaults to the subtle box-border tone */
-html.dark [class*="divide-"] > :not([hidden]) ~ :not([hidden]) { border-color: #21262d; }
+.bg-red-50,
+.bg-red-100    { background-color: var(--color-danger-soft); }
+.text-red-500,
+.text-red-600  { color: var(--color-danger-ink); }
+.border-red-100,
+.border-red-200 { border-color: var(--color-danger-line) !important; }
+.bg-red-500    { background-color: var(--color-danger); color: #fff; }
+.hover\:bg-red-600:hover { background-color: var(--color-danger-strong); color: #fff; }
+.hover\:bg-red-100:hover { background-color: var(--color-danger-soft); }
+.hover\:text-red-500:hover { color: var(--color-danger-ink); }
 
-/* Cards get a very subtle gold shimmer on hover */
-html.dark .hover\:border-amber-200:hover { border-color: rgba(245, 197, 24, 0.35); }
+/* A class nobody turned up to — attention, but not alarm */
+.bg-orange-50  { background-color: var(--color-warn-bg); }
+.text-orange-600 { color: var(--color-warn-ink); }
 
-/* Active nav item — gold left accent bar */
-html.dark .bg-amber-50 {
-  background: rgba(245, 197, 24, 0.1);
-  border-left: 2px solid #f5c518;
-}
+.bg-blue-50    { background-color: var(--color-accent-soft); }
 
-/* ── Hover states ── */
-html.dark .hover\:bg-gray-50:hover  { background: #1c2128; }
-html.dark .hover\:bg-gray-100:hover { background: #21262d; }
-/* Clickable rows use hover:bg-amber-50 — in dark mode give them a subtle gold
-   tint over the dark surface (NOT Tailwind's pale cream, which hides the text). */
-html.dark .hover\:bg-amber-50:hover  { background: rgba(245, 197, 24, 0.1); }
-html.dark .hover\:bg-amber-100:hover { background: rgba(245, 197, 24, 0.16); }
-html.dark .hover\:border-amber-200:hover { border-color: rgba(240, 192, 64, 0.4); }
+/* ── Tap feedback matches the accent rather than the old amber ── */
+* { -webkit-tap-highlight-color: var(--color-tap); }
+.cursor-pointer:active { background-color: var(--color-tap); }
+.hover\:bg-amber-50:hover { background-color: var(--color-accent-soft); }
 
-/* ── Text — GitHub palette ── */
-html.dark .text-gray-800 { color: #e6edf3; }
-html.dark .text-gray-700 { color: #cdd9e5; }
-html.dark .text-gray-600 { color: #adbac7; }
-html.dark .text-gray-500 { color: #8b949e; }
-html.dark .text-gray-400 { color: #6e7681; }
-html.dark .hover\:text-gray-800:hover { color: #e6edf3; }
-html.dark .text-amber-600 { color: #f5c518; }
-html.dark .text-amber-800 { color: #fde68a; }
-
-/* ── Shadows ── */
-html.dark .shadow-sm  { box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
-html.dark .shadow-md  { box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
-html.dark .shadow-xl  {
-  box-shadow:
-    0 20px 40px rgba(0,0,0,0.6),
-    0 0 50px rgba(56,139,253,0.05);
-}
-
-/* ── Inputs ── */
-html.dark input:not([type="checkbox"]):not([type="radio"]),
-html.dark textarea,
-html.dark select {
-  background: #0d1117;
-  color: #e6edf3;
-  border-color: #30363d;
-}
-
-html.dark input::placeholder,
-html.dark textarea::placeholder {
-  color: #6e7681;
-}
-
-html.dark input:focus,
-html.dark textarea:focus,
-html.dark select:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(245, 197, 24, 0.35);
-  border-color: rgba(245, 197, 24, 0.5);
-}
-
-/* ── react-big-calendar dark overrides ── */
-html.dark .rbc-calendar           { background: transparent; color: #e6edf3; }
-html.dark .rbc-month-view,
-html.dark .rbc-time-view          { border-color: #21262d; }
-html.dark .rbc-header             { border-color: #21262d; color: #8b949e; }
-html.dark .rbc-day-bg             { background: transparent; }
-html.dark .rbc-day-bg + .rbc-day-bg { border-color: #21262d; }
-html.dark .rbc-today              { background: rgba(245, 197, 24, 0.06) !important; }
-html.dark .rbc-off-range-bg       { background: rgba(0,0,0,0.2); }
-html.dark .rbc-time-content,
-html.dark .rbc-time-header        { border-color: #21262d; }
-html.dark .rbc-timeslot-group     { border-color: #161b22; }
-html.dark .rbc-time-slot          { color: #6e7681; }
-html.dark .rbc-label              { color: #6e7681; }
-html.dark .rbc-toolbar button     {
-  color: #adbac7;
-  border-color: #30363d;
-  background: #161b22;
-}
-html.dark .rbc-toolbar button:hover { background: #21262d; }
-html.dark .rbc-toolbar button.rbc-active {
-  background: linear-gradient(135deg, #f5c518, #c8920a) !important;
-  border-color: transparent !important;
-  color: #0d1117 !important;
-}
-/* "Current time" marker — a thin subtle line with a small dot on the left,
-   so it clearly reads as a time indicator rather than a stray bright streak. */
-.rbc-current-time-indicator {
-  height: 1px !important;
-  background-color: rgba(245, 197, 24, 0.5) !important;
-  position: relative;
-}
-.rbc-current-time-indicator::before {
+/* ── The one gradient, on the one surface that earns it ── */
+.grad-accent { background-image: var(--grad-accent); }
+.grad-glow::before {
   content: '';
   position: absolute;
-  left: -3px;
-  top: -3px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #f5c518;
+  inset: 0;
+  background-image: var(--grad-glow);
+  pointer-events: none;
+  border-radius: inherit;
 }
-html.dark .rbc-current-time-indicator { background-color: rgba(245, 197, 24, 0.45) !important; }
-html.dark .rbc-date-cell          { color: #adbac7; }
-html.dark .rbc-date-cell.rbc-now  { color: #f5c518; }
-html.dark .rbc-show-more          { color: #f5c518; }

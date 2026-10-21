@@ -83,6 +83,18 @@ async function upsertLogin(uid, userId, name) {
       await auth.updateUser(uid, { email, password: PASSWORD, displayName: name })
       return 'updated'
     }
+    // The usual cause, and the raw message doesn't say so.
+    if (e.code === 'auth/configuration-not-found') {
+      console.error(`
+  Authentication isn't switched on for this project yet.
+
+  Firebase console -> Build -> Authentication -> Get started
+    -> Sign-in method -> Email/Password -> Enable -> Save
+
+  Then run this again. Firestore is fine; only the logins are missing.
+`)
+      process.exit(1)
+    }
     throw e
   }
 }

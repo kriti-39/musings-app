@@ -11,6 +11,7 @@ import Avatar from '../../components/shared/Avatar'
 import { buildStudentStats } from '../../utils/studentStats'
 import {
   RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine, RiImageLine, RiAddLine, RiEdit2Line,
+  RiTicketLine,
 } from 'react-icons/ri'
 import { displayId } from '../../utils/auth'
 import ReceiptModal from '../../components/shared/ReceiptModal'
@@ -281,8 +282,9 @@ export default function StudentDetail() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Months</th>
-                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Amount</th>
+                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Month</th>
+                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Credits</th>
+                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Paid</th>
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Method</th>
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Status</th>
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Action</th>
@@ -293,9 +295,31 @@ export default function StudentDetail() {
                     const isPending = p.status !== 'confirmed' && p.status !== 'rejected'
                     return (
                       <tr key={p.id} className={i !== payments.length - 1 ? 'border-b border-gray-50' : ''}>
-                        <td className="px-5 py-3.5 text-gray-700">{monthsLabel(p.months)}</td>
-                        <td className="px-5 py-3.5 text-gray-700 font-medium">₹{p.amount}</td>
-                        <td className="px-5 py-3.5 text-gray-500 capitalize">{p.method?.replace('_', ' ')}</td>
+                        <td className="px-5 py-3.5 text-gray-700 whitespace-nowrap">
+                          {monthsLabel(p.months) || '—'}
+                        </td>
+                        {/* What the money actually bought. A dash is a payment
+                            that wasn't for credits — a legacy monthly fee, or
+                            an admission fee. */}
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          {p.forCredits ? (
+                            <span className="inline-flex items-center gap-1.5 text-gray-700 font-medium">
+                              <RiTicketLine size={13} className="text-amber-600 shrink-0" />
+                              {p.forCredits}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-gray-700 font-medium tabular-nums whitespace-nowrap">
+                          ₹{Number(p.amount || 0).toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-5 py-3.5 text-gray-500 capitalize whitespace-nowrap">
+                          {p.method?.replace('_', ' ') || '—'}
+                          {p.submittedBy === 'gateway' && (
+                            <span className="block text-[11px] text-gray-400">online</span>
+                          )}
+                        </td>
                         <td className="px-5 py-3.5">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                             p.status === 'confirmed' ? 'bg-green-50 text-green-700'

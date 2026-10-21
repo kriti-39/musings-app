@@ -18,6 +18,12 @@ import { creditExpiry, validityLabel } from '../../src/utils/credits.js'
 export const config = { api: { bodyParser: false } }
 
 export default async function handler(req, res) {
+  // Logged before anything else, so "Razorpay never called us" and "it called
+  // and we rejected it" can be told apart from the Vercel logs alone. Chasing
+  // that difference without a line here cost an evening.
+  console.log('[webhook] hit', req.method, 'signature header:',
+    req.headers['x-razorpay-signature'] ? 'present' : 'MISSING')
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' })
 
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET
@@ -44,7 +50,11 @@ export default async function handler(req, res) {
   try { event = JSON.parse(raw) }
   catch { return res.status(400).json({ error: 'bad json' }) }
 
-  // Only a captured payment means money has actually moved.
+  console.log('[webhook] verified, event:', event?.event)
+
+  // Only a captured payment means money has actually moved. An *authorized*
+  // payment is money held, not taken — granting credits for one would hand
+  // over classes for a payment that might never complete.
   if (event?.event !== 'payment.captured') {
     return res.status(200).json({ ignored: event?.event || 'unknown' })
   }

@@ -4,7 +4,10 @@
 // amount, only a student and a number of credits, and this works out the rest.
 // Anything else and a student could edit the price on the way through.
 
-import { MAX_CREDITS } from './credits'
+// Explicit .js extension, unlike the rest of src/ — this file is imported by
+// the Vercel functions too, and Node's ESM loader doesn't guess extensions the
+// way Vite does. Vite is happy with either.
+import { MAX_CREDITS } from './credits.js'
 
 // A month's fee buys a month's classes. The studio charges per month and caps
 // credits at four, so one credit is a quarter of the monthly fee.

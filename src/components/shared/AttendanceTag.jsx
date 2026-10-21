@@ -53,43 +53,62 @@ export default function AttendanceTag({ student, classes, onChange, editable = f
   if (!editable || !isAdmin) return chip
 
   return (
-    <div className="relative">
-      <button onClick={() => setOpen(o => !o)} disabled={busy}
+    <>
+      <button onClick={() => setOpen(true)} disabled={busy}
         className="disabled:opacity-50" title="Set regular or irregular">
         {chip}
       </button>
 
+      {/* A centred dialog, not a dropdown. Anchored positioning kept putting
+          this off the edge of a phone — it hangs off a 64px avatar in one
+          place and the last column of a three-column grid in another, and
+          either way `right-0` opens it into nothing. A dialog has no anchor
+          to get wrong, and matches every other choice in the app. */}
       {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          {/* Anchored to the right edge so it opens inwards, and capped to the
-              viewport — in a three-column grid on a phone this sat in the last
-              column and ran off the screen. */}
-          <div className="absolute right-0 top-full mt-1.5 z-20 w-60 max-w-[calc(100vw-2.5rem)] bg-white rounded-xl border border-gray-200 shadow-lg p-1.5">
-            <p className="text-[11px] text-gray-400 px-2.5 py-1.5">
-              {computed
-                ? `Their classes say ${attendanceLabel(computed).toLowerCase()} — ${REGULAR_PER_MONTH} a month or more is regular.`
-                : 'Not enough classes yet to tell.'}
-            </p>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4"
+          onClick={() => setOpen(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-2 mb-[env(safe-area-inset-bottom)]"
+            onClick={e => e.stopPropagation()}>
+            <div className="px-3 pt-2 pb-3">
+              <p className="text-sm font-semibold text-gray-800">
+                {student?.name?.split(' ')[0] || 'This student'} — regular or irregular?
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                {computed
+                  ? `Their classes say ${attendanceLabel(computed).toLowerCase()}. ${REGULAR_PER_MONTH} a month or more counts as regular.`
+                  : 'Not enough classes yet to tell.'}
+              </p>
+            </div>
+
             {[
-              { v: null, label: 'Follow their classes' },
-              { v: 'regular', label: 'Always regular' },
-              { v: 'irregular', label: 'Always irregular' },
+              { v: null, label: 'Follow their classes', hint: 'Worked out from attendance, kept up to date' },
+              { v: 'regular', label: 'Always regular', hint: 'Ignore a quiet patch — illness, travel, exams' },
+              { v: 'irregular', label: 'Always irregular', hint: 'Keep the flag on however often they come' },
             ].map(o => {
               const active = (student?.attendanceTag ?? null) === o.v
               return (
                 <button key={o.label} onClick={() => set(o.v)} disabled={busy}
-                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-xs text-left transition-colors ${
-                    active ? 'bg-amber-50 text-amber-800 font-medium' : 'text-gray-600 hover:bg-gray-50'
+                  className={`w-full flex items-start justify-between gap-3 px-3 py-3 rounded-xl text-left transition-colors disabled:opacity-50 ${
+                    active ? 'bg-amber-50' : 'hover:bg-gray-50'
                   }`}>
-                  {o.label}
-                  {active && <RiCheckLine size={14} className="shrink-0" />}
+                  <span className="min-w-0">
+                    <span className={`block text-sm ${active ? 'font-semibold text-amber-800' : 'text-gray-700'}`}>
+                      {o.label}
+                    </span>
+                    <span className="block text-[11px] text-gray-400 mt-0.5">{o.hint}</span>
+                  </span>
+                  {active && <RiCheckLine size={17} className="shrink-0 text-amber-600 mt-0.5" />}
                 </button>
               )
             })}
+
+            <button onClick={() => setOpen(false)} disabled={busy}
+              className="w-full mt-1 py-2.5 text-sm text-gray-500 rounded-xl hover:bg-gray-50">
+              Cancel
+            </button>
           </div>
-        </>
+        </div>
       )}
-    </div>
+    </>
   )
 }

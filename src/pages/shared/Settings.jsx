@@ -7,6 +7,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import StudentLayout from '../../components/student/StudentLayout'
 import { RiUserLine, RiGlobalLine, RiNotification3Line } from 'react-icons/ri'
+import ThemePicker from '../../components/shared/ThemePicker'
 
 const TIMEZONES = [
   'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney',
@@ -56,6 +57,9 @@ export default function Settings() {
             <p className="text-xs text-gray-400 mt-4">To change your password, please contact your teacher or admin.</p>
           )}
         </div>
+
+        {/* How the app looks — everyone, on this device */}
+        <ThemePicker />
 
         {/* Notifications — students + teacher (admins use the in-app bell only) */}
         {(role === 'student' || role === 'teacher') && <NotificationSettings user={user} />}

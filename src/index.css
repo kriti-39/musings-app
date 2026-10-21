@@ -1,5 +1,120 @@
 @import "tailwindcss";
 
+/* ─── THEME TOKENS ───────────────────────────────────────────────────────────
+   Three complete looks — Light, Riyaz and Kaanch — not a palette crossed with
+   a light/dark switch. Three combinations to keep honest instead of eight.
+
+   Declared in @theme so Tailwind generates real utilities (bg-surface,
+   text-ink, border-line …) that resolve to CSS variables at runtime. Changing
+   `data-theme` on <html> re-colours the whole app with no re-render and no
+   flash.
+
+   Light is the default, so these values are Light's. The blocks below
+   override them.
+
+   Naming is by ROLE, never by colour: `accent`, not `amber`. The whole reason
+   the old dark mode needed 70 rules redefining what `.bg-white` means is that
+   the components said white when they meant surface.
+   ─────────────────────────────────────────────────────────────────────────── */
+@theme {
+  --color-bg: #FAFAF8;              /* page ground */
+  --color-surface: #FFFFFF;         /* cards, sheets */
+  --color-raised: #F4F3EF;          /* a step above the surface */
+  --color-line: #E6E5E0;            /* hairlines, card borders */
+  --color-line-strong: #D6D4CC;     /* input borders, dividers that must read */
+
+  --color-ink: #17160F;             /* headings, body */
+  --color-muted: #6E6C62;           /* captions, labels, metadata */
+  --color-faint: #A6A49A;           /* placeholders, disabled */
+
+  --color-accent: #B4531A;          /* links, active state, the brand voice */
+  --color-accent-fill: #B4531A;     /* filled buttons */
+  --color-on-accent: #FFF8F2;       /* text on accent-fill */
+  --color-accent-soft: #F5E4D6;     /* tinted chips, ghost borders */
+  --color-accent-glow: #E07A2E;     /* progress pips, highlights */
+
+  --color-ok-bg: #ECEFE9;
+  --color-ok-ink: #3F5B36;
+  --color-warn-bg: #F8E9DC;
+  --color-warn-ink: #9D4A17;
+  --color-bad-bg: #F9E3E0;
+  --color-bad-ink: #A33A28;
+
+  /* One warm shadow, so cards lift without looking like a grey box */
+  --shadow-card: 0 1px 2px rgba(23, 22, 15, .04), 0 8px 24px rgba(23, 22, 15, .05);
+}
+
+/* ── Riyaz — the practice before dawn. Indigo ground, marigold warmth. ────── */
+html[data-theme="riyaz"] {
+  --color-bg: #100E1C;
+  --color-surface: #1A1730;
+  --color-raised: #221E3C;
+  --color-line: #2B2648;
+  --color-line-strong: #3A3460;
+
+  --color-ink: #EFECF8;
+  --color-muted: #9A94B5;
+  --color-faint: #6B6589;
+
+  --color-accent: #F0B855;
+  --color-accent-fill: #5A4CC4;
+  --color-on-accent: #FFFFFF;
+  --color-accent-soft: #3C3470;
+  --color-accent-glow: #F0B855;
+
+  --color-ok-bg: #13301F;
+  --color-ok-ink: #6EDB9A;
+  --color-warn-bg: #3A2410;
+  --color-warn-ink: #F0B855;
+  --color-bad-bg: #3A1620;
+  --color-bad-ink: #F0829A;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .25);
+}
+
+/* ── Kaanch — glass. Near-mono, one saffron accent that always means something. */
+html[data-theme="kaanch"] {
+  --color-bg: #0D0D0B;
+  --color-surface: #171714;
+  --color-raised: #1F1F1B;
+  --color-line: #2A2A25;
+  --color-line-strong: #3A3A33;
+
+  --color-ink: #F4F3EE;
+  --color-muted: #9C9A90;
+  --color-faint: #6E6C64;
+
+  --color-accent: #F0914A;
+  --color-accent-fill: #F4F3EE;
+  --color-on-accent: #0D0D0B;
+  --color-accent-soft: #3A342C;
+  --color-accent-glow: #F0914A;
+
+  --color-ok-bg: #1C2419;
+  --color-ok-ink: #9BBE8C;
+  --color-warn-bg: #33230F;
+  --color-warn-ink: #F0914A;
+  --color-bad-bg: #331A18;
+  --color-bad-ink: #E08A78;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .3);
+}
+
+/* Theme-aware gradients. Kept to two, used on one or two surfaces each —
+   a gradient everywhere is wallpaper, not design. */
+:root {
+  --grad-accent: linear-gradient(135deg, #C2601F 0%, #E07A2E 100%);
+  --grad-glow: radial-gradient(120% 80% at 80% 0%, rgba(224, 122, 46, .10), transparent 70%);
+}
+html[data-theme="riyaz"] {
+  --grad-accent: linear-gradient(135deg, #4B3FA7 0%, #7B5FD4 100%);
+  --grad-glow: radial-gradient(120% 80% at 80% 0%, rgba(240, 184, 85, .12), transparent 70%);
+}
+html[data-theme="kaanch"] {
+  --grad-accent: linear-gradient(135deg, #2A2A25 0%, #3A3A33 100%);
+  --grad-glow: radial-gradient(120% 80% at 80% 0%, rgba(240, 145, 74, .07), transparent 70%);
+}
+
 /* ─── Immediate tap feedback on mobile ──────────────────────────────────────
    Native amber flash on tap + buttons press in + clickable rows/cards
    highlight the moment you touch them (before the action completes).

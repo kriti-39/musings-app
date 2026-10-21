@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
-import MarkPaidModal from '../../components/shared/MarkPaidModal'
 import ReceiptModal from '../../components/shared/ReceiptModal'
 import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment } from '../../firebase/db'
 import { paymentCoverage } from '../../utils/payment'
 import { useAuth } from '../../context/AuthContext'
 import FeeReportModal from '../../components/shared/FeeReportModal'
 import FeeMonthSummary from '../../components/shared/FeeMonthSummary'
-import { RiCheckLine, RiAddLine, RiCloseLine, RiImageLine, RiFileDownloadLine } from 'react-icons/ri'
+import { RiCheckLine, RiCloseLine, RiImageLine, RiFileDownloadLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -27,7 +26,6 @@ export default function TeacherFees() {
   const [payments, setPayments] = useState({})
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr())
   const [filter, setFilter] = useState('all') // all | paid | pending | unpaid
-  const [markPaid, setMarkPaid] = useState(null) // studentId
   const [receiptId, setReceiptId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showReport, setShowReport] = useState(false)
@@ -204,12 +202,10 @@ export default function TeacherFees() {
                             </>
                           )}
                         </div>
-                        {status === 'unpaid' && (
-                          <button onClick={() => setMarkPaid(s.id)}
-                            className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs hover:bg-amber-100 transition-colors">
-                            <RiAddLine size={13} /> Mark Paid
-                          </button>
-                        )}
+                        {/* No Mark Paid for Guruji. Recording money taken is
+                            the office's job — the same reason the credits
+                            card and a student's profile give him no money
+                            action either. He still sees everything. */}
                       </td>
                     </tr>
                   )
@@ -219,16 +215,6 @@ export default function TeacherFees() {
           </div>
         )}
       </div>
-
-      {markPaid && (
-        <MarkPaidModal
-          studentId={markPaid}
-          selectedMonth={selectedMonth}
-          staffId={user.id}
-          onClose={() => setMarkPaid(null)}
-          onSuccess={refreshPayments}
-        />
-      )}
 
       {receiptId && <ReceiptModal paymentId={receiptId.id} directUrl={receiptId.url} onClose={() => setReceiptId(null)} />}
 

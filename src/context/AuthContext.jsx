@@ -44,8 +44,15 @@ export function AuthProvider({ children }) {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
 
+  // Pull the profile again after the person edits it themselves. The
+  // visibility listener above already does this on focus, which is no help
+  // when the edit happens in the same tab.
+  async function refreshUser() {
+    if (auth.currentUser) await loadUserDoc(auth.currentUser)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, role, loading }}>
+    <AuthContext.Provider value={{ user, role, loading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

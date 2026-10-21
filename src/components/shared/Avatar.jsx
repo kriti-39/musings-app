@@ -1,8 +1,14 @@
+import { RiMenLine, RiWomenLine } from 'react-icons/ri'
+
 // ─── A person, as a circle ───────────────────────────────────────────────────
-// Falls back to initials on a colour derived from the name, so a student with
-// no photo still looks like someone rather than a grey blank — and so lists
-// stay cheap: the picture itself lives in its own Firestore document and is
-// only fetched on a profile page, never once per row.
+// Three fallbacks, in order: the photo if there is one, then a figure if the
+// person told us their gender, then their initials on a colour derived from
+// their name. Nobody gets a grey blank, and nobody is assigned a gender they
+// did not give — an unset gender falls through to initials rather than
+// guessing from the name.
+//
+// Lists stay cheap either way: the picture lives in its own Firestore
+// document and is fetched only on a profile, never once per row.
 
 const TONES = [
   'bg-amber-100 text-amber-700',
@@ -37,7 +43,9 @@ const SIZES = {
   xl: 'w-24 h-24 text-2xl',
 }
 
-export default function Avatar({ name, src = null, size = 'md', className = '' }) {
+const GLYPH_SIZE = { sm: 16, md: 22, lg: 30, xl: 44 }
+
+export default function Avatar({ name, src = null, gender = null, size = 'md', className = '' }) {
   const box = `${SIZES[size] || SIZES.md} rounded-full shrink-0 ${className}`
 
   if (src) {
@@ -50,12 +58,17 @@ export default function Avatar({ name, src = null, size = 'md', className = '' }
     )
   }
 
+  // A figure only when the person actually told us. Anything else — unset,
+  // 'other', 'prefer not to say' — falls through to initials rather than
+  // picking one for them.
+  const Glyph = gender === 'male' ? RiMenLine : gender === 'female' ? RiWomenLine : null
+
   return (
     <div
       aria-hidden="true"
       className={`${box} ${toneFor(name)} flex items-center justify-center font-semibold select-none`}
     >
-      {initials(name)}
+      {Glyph ? <Glyph size={GLYPH_SIZE[size] || GLYPH_SIZE.md} /> : initials(name)}
     </div>
   )
 }

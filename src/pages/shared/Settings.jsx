@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { updateUser } from '../../firebase/db'
-import { displayId } from '../../utils/auth'
 import { pushSupported, pushEnabledHere, enablePush, disablePush } from '../../firebase/messaging'
 import AdminLayout from '../../components/admin/AdminLayout'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import StudentLayout from '../../components/student/StudentLayout'
-import { RiUserLine, RiGlobalLine, RiNotification3Line } from 'react-icons/ri'
+import { RiGlobalLine, RiNotification3Line } from 'react-icons/ri'
 import ThemePicker from '../../components/shared/ThemePicker'
+import MyProfileCard from '../../components/shared/MyProfileCard'
 
 const TIMEZONES = [
   'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney',
@@ -42,21 +42,9 @@ export default function Settings() {
       <div className="max-w-xl mx-auto space-y-6">
         <h1 className="text-xl font-semibold text-gray-800">Settings</h1>
 
-        {/* Profile info (read-only) */}
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <RiUserLine size={18} className="text-gray-400" />
-            <h2 className="text-sm font-semibold text-gray-800">Profile</h2>
-          </div>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-gray-400">Name</span><span className="text-gray-700 font-medium">{user?.name || '—'}</span></div>
-            <div className="flex justify-between"><span className="text-gray-400">{role === 'student' ? 'User ID' : 'Email'}</span><span className="text-gray-700 font-medium">{displayId(user)}</span></div>
-            <div className="flex justify-between"><span className="text-gray-400">Role</span><span className="text-gray-700 font-medium capitalize">{role}</span></div>
-          </div>
-          {role === 'student' && (
-            <p className="text-xs text-gray-400 mt-4">To change your password, please contact your teacher or admin.</p>
-          )}
-        </div>
+        {/* Name, phone, photo and gender — editable by the person themselves.
+            User ID, role and anything to do with money are not. */}
+        <MyProfileCard />
 
         {/* How the app looks — everyone, on this device */}
         <ThemePicker />

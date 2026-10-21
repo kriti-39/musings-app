@@ -17,13 +17,15 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: 'Online payment is not set up yet.' })
   }
 
+  // No token at all is a 401 whatever else is wrong — checked before anything
+  // is initialised, so an unauthenticated probe can't be answered with a 500
+  // about the server's own configuration.
+  const authz = req.headers.authorization || ''
+  const idToken = authz.startsWith('Bearer ') ? authz.slice(7) : null
+  if (!idToken) return res.status(401).json({ error: 'unauthorized' })
+
   try {
     const admin = getAdmin()
-
-    // Who is asking. The uid comes from a verified token, never from the body.
-    const authz = req.headers.authorization || ''
-    const idToken = authz.startsWith('Bearer ') ? authz.slice(7) : null
-    if (!idToken) return res.status(401).json({ error: 'unauthorized' })
 
     let decoded
     try { decoded = await admin.auth().verifyIdToken(idToken) }

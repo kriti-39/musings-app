@@ -159,6 +159,14 @@
   color: #fff;
   border: 1px solid rgba(255, 255, 255, .4);
 }
+/* Unavailable rather than absent: the button keeps its place so the card
+   doesn't change shape, and the reason is on the line below it. */
+.credit-card .c-btn--off {
+  background: rgba(255, 255, 255, .10);
+  color: rgba(255, 255, 255, .55);
+  border: 1px solid rgba(255, 255, 255, .22);
+  cursor: not-allowed;
+}
 [data-theme="dark"] {
   --grad-accent: linear-gradient(135deg, #0B82CB 0%, #073A66 100%);
   --grad-glow: radial-gradient(120% 80% at 85% 0%, rgba(86, 182, 242, .14), transparent 70%);

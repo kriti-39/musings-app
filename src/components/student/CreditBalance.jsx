@@ -51,6 +51,7 @@ export default function CreditBalance({ compact = false, onCount }) {
   // warm when they are nearly out, neon red at zero. The red appears often
   // this way and still means the same thing every time.
   const tone = none ? 'credit-card--empty' : soon ? 'credit-card--soon' : ''
+  const full = summary.canHold === 0
 
   if (compact) {
     return (
@@ -84,15 +85,20 @@ export default function CreditBalance({ compact = false, onCount }) {
 
         {/* No Book button here. Every screen that shows this card already has
             one directly above it, and two of the same button stacked is just
-            a question about which one is the real one. */}
-        {summary.canHold > 0 && (
-          <button onClick={() => setBuying(true)}
-            className={`shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 ${
-              none ? 'c-btn' : 'c-btn--ghost'
-            }`}>
-            Buy credits
-          </button>
-        )}
+            a question about which one is the real one.
+
+            Buy always keeps its place — it used to disappear at the cap,
+            which left this side of the card blank and gave no hint why. */}
+        <button
+          onClick={() => setBuying(true)}
+          disabled={full}
+          title={full ? `You already hold the maximum of ${MAX_CREDITS} credits` : undefined}
+          className={`shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity ${
+            full ? 'c-btn--off' : `hover:opacity-90 ${none ? 'c-btn' : 'c-btn--ghost'}`
+          }`}
+        >
+          Buy credits
+        </button>
       </div>
 
       {/* Pips and the use-by date share the last row: four pips is the whole
@@ -122,6 +128,8 @@ export default function CreditBalance({ compact = false, onCount }) {
                 ? `Use by ${fmtExpiry(summary.nextExpiry)}`
                 : `${summary.nextExpiryCount} by ${fmtExpiry(summary.nextExpiry)}`}
               {summary.nextExpiryDays === 0 && ' — today'}
+              {/* Says why Buy is unavailable, so a greyed button isn't a puzzle */}
+              {full && ` · ${MAX_CREDITS} is the most you can hold`}
             </span>
           </p>
         )}

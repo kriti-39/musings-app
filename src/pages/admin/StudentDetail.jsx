@@ -5,10 +5,10 @@ import TeacherLayout from '../../components/teacher/TeacherLayout'
 import { useAuth } from '../../context/AuthContext'
 import {
   getUser, getStudentAllClasses, getStudentPayments, getStudentRecurringSchedules,
-  cancelRecurringSchedule, confirmPayment, rejectPayment, hasRecording, getPhoto,
+  cancelRecurringSchedule, confirmPayment, rejectPayment, hasRecording, getPhoto, updateUser,
 } from '../../firebase/db'
 import Avatar from '../../components/shared/Avatar'
-import { buildStudentStats } from '../../utils/studentStats'
+import { buildStudentStats, attendanceFrom } from '../../utils/studentStats'
 import {
   RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine, RiImageLine, RiAddLine, RiEdit2Line,
   RiTicketLine,
@@ -20,6 +20,7 @@ import EditStudentModal from '../../components/shared/EditStudentModal'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
 import CreditsCard from '../../components/shared/CreditsCard'
 import { usesCredits } from '../../utils/credits'
+import AttendanceTag from '../../components/shared/AttendanceTag'
 import PeriodFilter, { ALL_PERIOD, filterByPeriod } from '../../components/shared/PeriodFilter'
 import { fmtShortDate } from '../../utils/timezone'
 
@@ -83,6 +84,16 @@ export default function StudentDetail() {
     // once per row in a list. Its failure must never hold up the profile.
     if (s?.hasPhoto) getPhoto(id).then(setPhoto).catch(e => console.error('Photo failed to load:', e))
     else setPhoto(null)
+
+    // Keep the worked-out tag on the profile so the Students list can show and
+    // sort by it without reading every class for every student. Same lazy
+    // habit as the past-class and credit-expiry sweeps: whoever opens a
+    // student tidies it for everyone.
+    const computed = attendanceFrom(c)
+    if (computed && s?.attendanceComputed !== computed) {
+      updateUser(id, { attendanceComputed: computed })
+        .catch(e => console.error('Could not store the attendance tag:', e))
+    }
   }
 
   useEffect(() => { fetchAll() }, [id])
@@ -132,7 +143,11 @@ export default function StudentDetail() {
             <Avatar name={student?.name} src={photo} size="lg" />
             <div className="min-w-0 flex-1">
               <h1 className="text-xl font-semibold text-gray-800 truncate">{student?.name}</h1>
-              <p className="text-sm text-gray-400 mt-0.5">{displayId(student)}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-sm text-gray-400 truncate">{displayId(student)}</p>
+                {/* Staff only — a student never sees how they're tagged */}
+                <AttendanceTag student={student} classes={classes} onChange={fetchAll} editable />
+              </div>
               {stats.drifting && (
                 <p className="text-xs text-amber-600 mt-1.5">
                   No class for {stats.daysSinceLast} days — worth a word?

@@ -315,6 +315,7 @@ function GrantModal({ student, summary, busy, onClose, onGrant }) {
   // Default to filling them up to the cap — the usual case is a month's fees.
   const [qty, setQty] = useState(summary.canHold || 1)
   const [reason, setReason] = useState('')
+  const [confirming, setConfirming] = useState(false)
   // What this student is meant to pay, filled in for you and still editable —
   // the agreed fee isn't always the amount actually handed over.
   const [amount, setAmount] = useState(student?.feeAmount ? String(student.feeAmount) : '')
@@ -387,7 +388,27 @@ function GrantModal({ student, summary, busy, onClose, onGrant }) {
 
       <Actions busy={busy} onClose={onClose}
         label={paid > 0 ? `Add ${qty} · ₹${paid}` : `Add ${qty} ${creditsWord(qty)}`}
-        onGo={() => onGrant(qty, reason, paid, method)} />
+        onGo={() => setConfirming(true)} />
+
+      {/* A deliberate second look. Granting credits takes money and hands over
+          classes in one step, and the quantity and amount are both a tap away
+          from being wrong. */}
+      {confirming && (
+        <ConfirmDialog
+          title={`Add ${qty} ${creditsWord(qty)} for ${student?.name?.split(' ')[0] || 'this student'}?`}
+          message={
+            (paid > 0
+              ? `₹${paid.toLocaleString('en-IN')} will be recorded as received by ${method.replace('_', ' ')}, already confirmed. `
+              : 'No payment will be recorded. ') +
+            `The credits are valid until ${fmtExpiry(expiry)}, and the student is told straight away.`
+          }
+          confirmLabel={paid > 0 ? `Add ${qty} · ₹${paid}` : `Add ${qty}`}
+          variant="primary"
+          loading={busy}
+          onConfirm={() => onGrant(qty, reason, paid, method)}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
     </Modal>
   )
 }

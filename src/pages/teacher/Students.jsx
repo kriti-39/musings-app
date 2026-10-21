@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import AddAdminModal from '../../components/teacher/AddAdminModal'
 import { getAllStudentsIncludingInactive, getAdmins, deactivateStudent, reactivateStudent, deleteStudentCompletely } from '../../firebase/db'
+import { attendance } from '../../utils/studentStats'
+import AttendanceTag from '../../components/shared/AttendanceTag'
 import { RiSearchLine, RiUserLine, RiAddLine, RiUserUnfollowLine, RiUserFollowLine, RiDeleteBinLine } from 'react-icons/ri'
 import ConfirmDialog from '../../components/shared/ConfirmDialog'
 import { displayId } from '../../utils/auth'
@@ -10,6 +12,7 @@ import { displayId } from '../../utils/auth'
 const SORT_OPTIONS = [
   { value: 'name', label: 'Name' },
   { value: 'country', label: 'Country' },
+  { value: 'attendance', label: 'Regular first' },
   { value: 'createdAt', label: 'Date Joined' },
 ]
 
@@ -66,6 +69,10 @@ export default function TeacherStudents() {
     .sort((a, b) => {
       if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '')
       if (sortBy === 'country') return (a.country || '').localeCompare(b.country || '')
+      if (sortBy === 'attendance') {
+        const rank = s => ({ regular: 0, irregular: 1 }[attendance(s).tag] ?? 2)
+        return rank(a) - rank(b) || (a.name || '').localeCompare(b.name || '')
+      }
       if (sortBy === 'createdAt') return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
       return 0
     })
@@ -145,7 +152,12 @@ export default function TeacherStudents() {
                         onClick={() => navigate(`/teacher/students/${s.id}`)}
                         className={`cursor-pointer ${tab === 'deactivated' ? 'opacity-60' : 'hover:bg-amber-50'} transition-colors ${i !== filteredStudents.length - 1 ? 'border-b border-gray-50' : ''}`}>
                         <td className="px-5 py-3.5 font-medium text-gray-800">
-                          {s.name}
+                          <span className="flex items-center gap-2">
+                            {s.name}
+                            {/* Guruji sees the tag; only an admin can set it,
+                                which AttendanceTag enforces by role. */}
+                            {attendance(s).tag && <AttendanceTag student={s} />}
+                          </span>
                         </td>
                         <td className="px-5 py-3.5 text-gray-500">{displayId(s)}</td>
                         <td className="px-5 py-3.5 text-gray-500">{s.country || '—'}</td>

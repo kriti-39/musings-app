@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AddStudentModal from '../../components/admin/AddStudentModal'
 import { getAllStudentsIncludingInactive, deactivateStudent, reactivateStudent, deleteStudentCompletely } from '../../firebase/db'
+import { attendance } from '../../utils/studentStats'
+import AttendanceTag from '../../components/shared/AttendanceTag'
 import { RiAddLine, RiSearchLine, RiUserLine, RiUserUnfollowLine, RiUserFollowLine, RiDeleteBinLine } from 'react-icons/ri'
 import ConfirmDialog from '../../components/shared/ConfirmDialog'
 import { displayId } from '../../utils/auth'
@@ -10,6 +12,7 @@ import { displayId } from '../../utils/auth'
 const SORT_OPTIONS = [
   { value: 'name', label: 'Name' },
   { value: 'country', label: 'Country' },
+  { value: 'attendance', label: 'Regular first' },
   { value: 'createdAt', label: 'Date Joined' },
 ]
 
@@ -49,6 +52,10 @@ export default function AdminStudents() {
     .sort((a, b) => {
       if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '')
       if (sortBy === 'country') return (a.country || '').localeCompare(b.country || '')
+      if (sortBy === 'attendance') {
+        const rank = s => ({ regular: 0, irregular: 1 }[attendance(s).tag] ?? 2)
+        return rank(a) - rank(b) || (a.name || '').localeCompare(b.name || '')
+      }
       if (sortBy === 'createdAt') return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
       return 0
     })
@@ -145,7 +152,15 @@ export default function AdminStudents() {
                     className={`transition-colors ${tab === 'active' ? 'hover:bg-amber-50 cursor-pointer' : 'opacity-60'} ${i !== filtered.length - 1 ? 'border-b border-gray-50' : ''}`}
                   >
                     <td className="px-5 py-3.5 font-medium text-gray-800">
-                      {student.name}
+                      <span className="flex items-center gap-2">
+                        {student.name}
+                        {/* Read-only here — set it from the student's profile.
+                            A one-click toggle inside a clickable row would be
+                            a tag changed by mistake. */}
+                        {attendance(student).tag && (
+                          <AttendanceTag student={student} />
+                        )}
+                      </span>
                     </td>
                     <td className="px-5 py-3.5 text-gray-500">{displayId(student)}</td>
                     <td className="px-5 py-3.5 text-gray-500">{student.country || '—'}</td>

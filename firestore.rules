@@ -24,7 +24,28 @@ service cloud.firestore {
         || resource.data.role in ['admin', 'teacher']
       );
       allow create: if isAdminOrTeacher();
-      allow update: if isAuth() && (request.auth.uid == userId || isAdminOrTeacher());
+
+      // A person may edit their OWN profile, but only the parts that are
+      // genuinely theirs. Everything that decides money or power stays with
+      // staff: `role` (these very rules call role() to decide who is an
+      // admin, so writing it is privilege escalation), `billingMode` (set it
+      // to legacy and you book without credits forever), `feeAmount` and
+      // `feeType` (set your fee to ₹1 and buy four credits for 25 paise), and
+      // `isActive` (un-pause your own suspended account).
+      //
+      // Before this, the rule was simply "you may write to your own document",
+      // which was harmless when a profile held only a name and a phone number
+      // and became a hole the moment it started deciding prices.
+      allow update: if isAuth() && (
+        isAdminOrTeacher()
+        || (
+          request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name', 'phone', 'gender', 'timezone',
+            'notifReminderMinutes', 'fcmTokens', 'hasPhoto', 'updatedAt'
+          ])
+        )
+      );
       allow delete: if isAdmin();
     }
 

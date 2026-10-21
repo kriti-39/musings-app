@@ -68,66 +68,70 @@ export default function CreditBalance({ compact = false, onCount }) {
   }
 
   return (
-    <div className={`credit-card ${tone} rounded-2xl p-4`}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="c-label text-xs font-medium flex items-center gap-1.5">
-            <RiTicketLine size={13} /> Class credits
-          </p>
-
-          <div className="flex items-baseline gap-1.5 mt-1.5">
-            <span className="c-value text-4xl font-semibold leading-none tabular-nums">
-              {summary.available}
-            </span>
-            <span className="c-label text-sm">
-              {creditsWord(summary.available)} left
-            </span>
-          </div>
-
-          {none ? (
-            <p className="c-note text-xs mt-2 flex items-start gap-1.5">
-              <RiErrorWarningLine size={13} className="shrink-0 mt-0.5" />
-              You'll need credits before you can book.
-            </p>
-          ) : (
-            <p className={`c-note text-xs mt-2 flex items-center gap-1.5 ${soon ? 'font-medium' : ''}`}>
-              <RiTimeLine size={12} className="shrink-0" />
-              {summary.nextExpiryCount === summary.available
-                ? `Use by ${fmtExpiry(summary.nextExpiry)}`
-                : `${summary.nextExpiryCount} of them by ${fmtExpiry(summary.nextExpiry)}`}
-              {summary.nextExpiryDays === 0 && ' — today'}
-            </p>
-          )}
+    <div className={`credit-card ${tone} rounded-2xl px-4 py-3`}>
+      {/* The count and the actions share a line, and the "Class credits"
+          eyebrow is gone — "3 credits left" already says it. That removes two
+          rows from what was the tallest thing on the page. */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-baseline gap-1.5 min-w-0">
+          <RiTicketLine size={15} className="c-note shrink-0 self-center" />
+          <span className="c-value text-2xl font-semibold leading-none tabular-nums">
+            {summary.available}
+          </span>
+          <span className="c-label text-sm truncate">
+            {creditsWord(summary.available)} left
+          </span>
         </div>
 
-        <div className="shrink-0 flex flex-col gap-2">
+        <div className="shrink-0 flex items-center gap-2">
           {!none && (
             <Link to="/student/book"
-              className="c-btn px-4 py-2 rounded-lg text-xs font-semibold text-center transition-opacity hover:opacity-90">
+              className="c-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold text-center transition-opacity hover:opacity-90">
               Book
             </Link>
           )}
           {summary.canHold > 0 && (
             <button onClick={() => setBuying(true)}
-              className={`px-4 py-2 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 ${
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 ${
                 none ? 'c-btn' : 'c-btn--ghost'
               }`}>
-              Buy credits
+              Buy
             </button>
           )}
         </div>
       </div>
 
-      {/* A quiet row of pips — four is the whole allowance, so it reads at a glance */}
-      {!none && (
-        <div className="flex gap-1.5 mt-3">
-          {Array.from({ length: MAX_CREDITS }, (_, i) => (
-            <span key={i} className={`c-pip h-1.5 flex-1 rounded-full ${
-              i < summary.available ? 'c-pip--on' : ''
-            }`} />
-          ))}
-        </div>
-      )}
+      {/* Pips and the use-by date share the last row: four pips is the whole
+          allowance, so it reads at a glance, and the date earns no line of
+          its own. */}
+      <div className="flex items-center gap-2.5 mt-2.5">
+        {!none && (
+          <div className="flex gap-1 shrink-0 w-20">
+            {Array.from({ length: MAX_CREDITS }, (_, i) => (
+              <span key={i} className={`c-pip h-1 flex-1 rounded-full ${
+                i < summary.available ? 'c-pip--on' : ''
+              }`} />
+            ))}
+          </div>
+        )}
+
+        {none ? (
+          <p className="c-note text-[11px] flex items-center gap-1.5 min-w-0">
+            <RiErrorWarningLine size={12} className="shrink-0" />
+            <span className="truncate">You'll need credits before you can book.</span>
+          </p>
+        ) : (
+          <p className={`c-note text-[11px] flex items-center gap-1 min-w-0 ${soon ? 'font-semibold' : ''}`}>
+            <RiTimeLine size={11} className="shrink-0" />
+            <span className="truncate">
+              {summary.nextExpiryCount === summary.available
+                ? `Use by ${fmtExpiry(summary.nextExpiry)}`
+                : `${summary.nextExpiryCount} by ${fmtExpiry(summary.nextExpiry)}`}
+              {summary.nextExpiryDays === 0 && ' — today'}
+            </span>
+          </p>
+        )}
+      </div>
 
       {/* The balance above is live, so credits appear here by themselves the
           moment the webhook grants them — no refresh, no polling. */}

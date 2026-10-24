@@ -9,7 +9,7 @@ import {
   rechargeCreditForClass, flagCreditForReview, grantCredits,
 } from './credits'
 import { usesCredits } from '../utils/credits'
-import { createClassHoldingSlot, slotTakenError, slotIsFree } from './slots'
+import { createClassHoldingSlot, moveClassIntoSlot, slotTakenError, slotIsFree } from './slots'
 
 // Re-exported so the booking forms can ask "is this slot free?" without
 // reaching past db.js, which is where everything else talks to Firestore.
@@ -98,11 +98,10 @@ async function staffContext(studentId, date, teacherId = null) {
   return { name, when }
 }
 
-// Staff path. Refuses a time that already has a class, same as a student
-// booking does — one class per slot, whoever is doing the booking. Pass
-// allowOverlap when that is genuinely meant (a group lesson, a known
-// exception); the form asks before it does.
-export async function createClass(data, { allowOverlap = false } = {}) {
+// Staff path. Refuses a time that already has a class, exactly as a student
+// booking does — one class per slot, whoever is doing the booking, with no way
+// to override it.
+export async function createClass(data) {
   const ref = await createClassHoldingSlot({
     ...data,
     duration: Math.min(Math.max(Number(data.duration) || 60, 15), 180),
@@ -110,7 +109,7 @@ export async function createClass(data, { allowOverlap = false } = {}) {
     lessonNotes: data.lessonNotes || '',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  }, { allowOverlap })
+  })
   // Notify teacher and all admins about the new booking request
   if (data.status === 'pending') {
     const staffIds = await getStaffIds()
@@ -185,8 +184,6 @@ export async function createBooking({
   try {
     // The class and its slot locks commit together, so a second booking for
     // the same time cannot slip in between the check above and this write.
-    // forceStatus is staff saying they mean it, which is the one case allowed
-    // to sit on top of an existing class.
     ref = await createClassHoldingSlot({
       studentId, teacherId,
       scheduledAt: scheduledAt?.toDate ? scheduledAt : Timestamp.fromDate(startDate),
@@ -201,7 +198,7 @@ export async function createBooking({
       freeReason: freeClass ? (freeReason || '').trim() : '',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    }, { allowOverlap: Boolean(forceStatus) })
+    })
   } catch (e) {
     // The credit was already taken, so give it straight back — a failed write
     // must never cost the student a paid class. This now also covers losing a
@@ -526,14 +523,24 @@ export async function rejectClass(classId, studentId = null) {
   }
 }
 
-// Staff reschedules a class → notify student
+// Staff reschedules a class → notify student.
+// Moving a class is booking a different time, so it takes the slot like any
+// other booking and is refused if that time already has a class. Throws
+// 'slot-taken', and the class stays where it was.
 export async function rescheduleClass(classId, newScheduledAt, notifyStudentId = null) {
   const newDate = new Date(newScheduledAt)
-  await updateDoc(doc(db, 'classes', classId), {
+  const cls = await getClass(classId)
+  if (!cls) {
+    const err = new Error('That class no longer exists.')
+    err.code = 'no-class'
+    throw err
+  }
+
+  await moveClassIntoSlot(classId, {
     scheduledAt: Timestamp.fromDate(newDate),
     status: 'scheduled',
     updatedAt: serverTimestamp(),
-  })
+  }, { teacherId: cls.teacherId, scheduledAt: newDate, duration: cls.duration })
   if (notifyStudentId) {
     const when = await studentTimeLabel(notifyStudentId, newDate)
     await createNotification(notifyStudentId, 'class_rescheduled',
@@ -546,11 +553,20 @@ export async function rescheduleClass(classId, newScheduledAt, notifyStudentId =
 export async function requestReschedule(classId, newScheduledAt) {
   const newDate = new Date(newScheduledAt)
   const cls = await getClass(classId)
-  await updateDoc(doc(db, 'classes', classId), {
+  if (!cls) {
+    const err = new Error('That class no longer exists.')
+    err.code = 'no-class'
+    throw err
+  }
+
+  // A pending class still occupies its time — staff have to be able to see it
+  // on the calendar to confirm it — so a request to move into a taken slot is
+  // refused here rather than creating a clash for someone to sort out later.
+  await moveClassIntoSlot(classId, {
     scheduledAt: Timestamp.fromDate(newDate),
     status: 'pending',
     updatedAt: serverTimestamp(),
-  })
+  }, { teacherId: cls.teacherId, scheduledAt: newDate, duration: cls.duration })
   try {
     const staffIds = await getStaffIds()
     const { name, when } = await staffContext(cls?.studentId, newDate, cls?.teacherId)
@@ -864,24 +880,41 @@ export async function findRestorableClasses(groupId) {
 
 // Put back classes that a (now removed) block had cancelled, restoring each to
 // the status it held before, and telling the student the class is back on.
+// While the block stood, these classes were cancelled and their slots were
+// free for anyone to book — and someone may well have done. So a restore has
+// to take the slot back like any other booking, and a class whose time has
+// since gone to someone else stays cancelled rather than quietly becoming a
+// second class at the same hour.
+//
+// Returns { restored, taken } so the caller can say what actually happened;
+// `taken` holds the classes that could not come back.
 export async function restoreClassesFromBlock(classes) {
-  await Promise.all(classes.map(async (c) => {
+  const restored = []
+  const taken = []
+
+  // One at a time, not in parallel: two classes from the same block can share
+  // a slot (an old cancelled one and a newer one), and running them together
+  // would let both claim it.
+  for (const c of classes) {
     try {
-      await updateDoc(doc(db, 'classes', c.id), {
+      const start = c.scheduledAt?.toDate?.() ?? new Date(c.scheduledAt)
+      await moveClassIntoSlot(c.id, {
         status: c.statusBeforeBlock || 'scheduled',
         cancelledByBlock: null,
         statusBeforeBlock: null,
         // The class is back on, so there's nothing left to chase
         followUpNeeded: deleteField(),
         updatedAt: serverTimestamp(),
-      })
+      }, { teacherId: c.teacherId, scheduledAt: start, duration: c.duration })
+
       // The class is happening after all, so the credit that was handed back
       // when it was cancelled has to come out again.
       if (c.creditBatchId && c.creditRefundedAt) {
         try { await rechargeCreditForClass(c) }
         catch (e) { console.error('Restore: credit re-charge failed for', c.id, e) }
       }
-      const when = await studentTimeLabel(c.studentId, c.scheduledAt?.toDate?.())
+      restored.push(c)
+      const when = await studentTimeLabel(c.studentId, start)
       await createNotification(
         c.studentId, 'class_restored',
         when
@@ -890,9 +923,25 @@ export async function restoreClassesFromBlock(classes) {
         c.id, 'Class back on',
       )
     } catch (e) {
-      console.error('Class restore failed for', c.id, e)
+      if (e?.code === 'slot-taken') {
+        // Someone else has this time now. The class stays cancelled and the
+        // student keeps the credit they were already given back.
+        taken.push(c)
+        const when = await studentTimeLabel(c.studentId, c.scheduledAt?.toDate?.())
+        await createNotification(
+          c.studentId, 'class_not_restored',
+          when
+            ? `${when} has since been booked by someone else, so this class stays cancelled. Please pick another time.`
+            : 'That time has since been booked, so this class stays cancelled. Please pick another time.',
+          c.id, 'Class could not be restored',
+        ).catch(err => console.error('Restore: notify failed for', c.id, err))
+      } else {
+        console.error('Class restore failed for', c.id, e)
+      }
     }
-  }))
+  }
+
+  return { restored, taken }
 }
 
 // Delete every day of a grouped block in one go.

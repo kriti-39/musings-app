@@ -80,3 +80,20 @@ export function holdsSlot(cls) {
   if (!cls) return false
   return LIVE.has(cls.status || 'scheduled')
 }
+
+// Does this particular lock still bind? Two things have to be true: the class
+// it names is still going to happen, AND that class is still at a time which
+// covers this granule.
+//
+// The second half is what makes a reschedule safe. Moving a class writes a new
+// time but cannot reach back and tidy the locks it held at the old one, so
+// those locks are left naming a class that is live but somewhere else. Without
+// this check they would keep the old slot blocked for good — a class moved off
+// Tuesday would make Tuesday unbookable forever. Comparing against where the
+// class actually is now means any lock left behind by a move simply stops
+// binding, and the next person to want that time gets it.
+export function lockHolds(lockKey, cls) {
+  if (!holdsSlot(cls)) return false
+  const start = cls.scheduledAt?.toDate ? cls.scheduledAt.toDate() : new Date(cls.scheduledAt)
+  return granuleKeys(cls.teacherId, start, cls.duration).includes(lockKey)
+}

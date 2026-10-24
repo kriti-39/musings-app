@@ -15,6 +15,9 @@ export default function ManageAvailabilityModal({ onClose }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // Not an error — the block was lifted. Some classes just could not follow it
+  // back, because those times belong to someone else now.
+  const [notice, setNotice] = useState('')
   // Classes that would be cancelled by the pending block — shown for confirmation
   const [clash, setClash] = useState(null) // { classes, students }
   // Classes this block had cancelled, offered back when the block is removed
@@ -163,9 +166,20 @@ export default function ManageAvailabilityModal({ onClose }) {
     setSaving(true)
     setError('')
     try {
-      if (putBack) await restoreClassesFromBlock(restore.classes)
+      // Some of these times may have been booked by someone else while the
+      // block stood. Those classes stay cancelled — the student has been told
+      // — and whoever lifted the block needs to know it did not all come back.
+      let taken = []
+      if (putBack) ({ taken } = await restoreClassesFromBlock(restore.classes))
       await removeBlock(restore.group)
       setRestore(null)
+      if (taken.length > 0) {
+        setNotice(
+          `${taken.length} class${taken.length > 1 ? 'es' : ''} could not be put back — ` +
+          'those times have since been booked by someone else. ' +
+          'The student has been told to pick another time.'
+        )
+      }
     } catch (e) {
       console.error(e)
       setError('Failed to remove this block.')
@@ -253,6 +267,15 @@ export default function ManageAvailabilityModal({ onClose }) {
               />
             </div>
             {error && <p className="text-xs text-red-500">{error}</p>}
+            {notice && (
+              <div className="flex items-start justify-between gap-2 text-xs text-amber-800 bg-amber-50 rounded-lg px-3 py-2.5">
+                <span>{notice}</span>
+                <button type="button" onClick={() => setNotice('')}
+                  className="shrink-0 text-amber-600 hover:text-amber-800 font-medium">
+                  Got it
+                </button>
+              </div>
+            )}
             <button type="submit" disabled={saving}
               className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors">
               <RiAddLine size={16} />

@@ -20,7 +20,6 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
     isRecurring: false,
     frequency: 'weekly',
     endDate: '',
-    allowOverlap: false,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -107,7 +106,7 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
           recurringId: recurring.id,
           isRecurring: true,
           status: 'scheduled',
-        }, { allowOverlap: form.allowOverlap })))
+        })))
 
         occurrences.forEach((date, i) => {
           if (settled[i].status !== 'fulfilled') return
@@ -139,7 +138,7 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
           recurringId: null,
           isRecurring: false,
           status: 'scheduled',
-        }, { allowOverlap: form.allowOverlap })
+        })
         created.push({
           id: ref.id,
           studentId, teacherId: tId,
@@ -300,26 +299,16 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
             )}
           </div>
 
-          {/* A clash is a refusal, not a warning — one class per slot. The
-              override is here because a group lesson is a real thing, but it
-              has to be asked for rather than walked past. */}
+          {/* A clash is a refusal, not a warning. One class per slot, for
+              students and staff alike — there is no way past this. */}
           {overlap && (
-            <div className="text-xs bg-red-50 text-red-700 rounded-lg px-3 py-2.5 space-y-2">
-              <div className="flex items-start gap-2">
-                <RiErrorWarningLine size={15} className="shrink-0 mt-0.5" />
-                <span>
-                  {form.isRecurring
-                    ? 'The first of these classes falls on a time that already has one. Pick another time — any later occurrence that clashes will be skipped too.'
-                    : 'This time already has a class. Please pick another slot.'}
-                </span>
-              </div>
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input
-                  type="checkbox" name="allowOverlap" checked={form.allowOverlap}
-                  onChange={handleChange} className="mt-0.5 shrink-0"
-                />
-                <span>Schedule it anyway — two students at the same time, on purpose.</span>
-              </label>
+            <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2.5">
+              <RiErrorWarningLine size={15} className="shrink-0 mt-0.5" />
+              <span>
+                {form.isRecurring
+                  ? 'The first of these classes falls on a time that already has one. Please pick another slot — any later date that clashes will be skipped too.'
+                  : 'This time already has a class. Please pick another slot.'}
+              </span>
             </div>
           )}
 
@@ -345,7 +334,7 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
             {/* Held shut on a clash until the override is ticked, so the
                 refusal is visible before the tap rather than after it. */}
             <button
-              type="submit" disabled={loading || (overlap && !form.allowOverlap)}
+              type="submit" disabled={loading || overlap}
               className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium transition-colors disabled:bg-gray-200 disabled:text-gray-400"
             >
               {loading ? 'Scheduling...' : form.isRecurring ? 'Schedule Classes' : 'Schedule Class'}

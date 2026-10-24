@@ -1,6 +1,6 @@
 import { RiArrowDownSLine } from 'react-icons/ri'
 import { useState } from 'react'
-import { monthlyCollection, monthLabel } from '../../utils/feeReport'
+import { monthlyCollection, monthlyClasses, monthLabel } from '../../utils/feeReport'
 
 const money = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`
 
@@ -8,24 +8,31 @@ const money = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`
 // Staff-only: the headline figure for the selected month, with the per-student
 // breakdown a tap away. Students never see this — their own Fees page shows
 // only their own payments, deliberately.
-export default function FeeMonthSummary({ students, payments, month }) {
+export default function FeeMonthSummary({ students, payments, classes = [], month }) {
   const [open, setOpen] = useState(false)
   const s = monthlyCollection(students, payments, month)
+  // Counted by calendar month, not by anyone's credit period — see
+  // monthlyClasses. This is the one timeline every student shares.
+  const taught = monthlyClasses(classes, month, students)
 
   if (s.students === 0) return null
 
-  // The target is a floor when some students aren't on a flat monthly fee.
-  const shortfall = Math.max(s.expected - s.received, 0)
-
-  // Labels are kept short on purpose: three money figures sit side by side even
-  // on a phone, and "Awaiting confirmation" would truncate to nonsense at 375px.
+  // Labels are kept short on purpose: three figures sit side by side even on a
+  // phone, and "Awaiting confirmation" would truncate to nonsense at 375px.
+  //
+  // "Still due" used to sit in the third slot, worked out from each student's
+  // feeAmount. Students set their own amount when they pay now, so that figure
+  // would be a guess dressed up as a total — classes taught is both true and
+  // the thing actually being asked.
   const cards = [
     { key: 'received', label: 'Received', value: money(s.received), tone: 'text-green-700',
       sub: `${s.paidCount} of ${s.students} paid` },
+    { key: 'classes', label: 'Classes done', value: String(taught.done), tone: 'text-gray-800',
+      sub: taught.upcoming
+        ? `${taught.upcoming} still to come`
+        : taught.missed ? `${taught.missed} missed` : 'none upcoming' },
     { key: 'pending', label: 'To confirm', value: money(s.pending), tone: 'text-amber-600',
       sub: s.pendingCount ? `${s.pendingCount} to review` : 'none waiting' },
-    { key: 'due', label: 'Still due', value: s.expected ? money(shortfall) : '—', tone: 'text-gray-700',
-      sub: s.expected ? `of ${money(s.expected)}` : 'no fees set' },
   ]
 
   return (
@@ -52,10 +59,10 @@ export default function FeeMonthSummary({ students, payments, month }) {
           ))}
         </div>
 
-        {s.expectedUnknown > 0 && (
+        {taught.missed > 0 && (
           <p className="text-[11px] text-gray-400 mt-2.5">
-            {s.expectedUnknown} student{s.expectedUnknown > 1 ? 's are' : ' is'} not on a flat monthly
-            fee, so the expected figure is a minimum.
+            {taught.missed} class{taught.missed > 1 ? 'es' : ''} marked missed this month —
+            not counted as done.
           </p>
         )}
       </div>

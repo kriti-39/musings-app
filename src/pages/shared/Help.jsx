@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import AdminLayout from '../../components/admin/AdminLayout'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import StudentLayout from '../../components/student/StudentLayout'
-import { MAX_CREDITS, usesCredits, validityLabel } from '../../utils/credits'
+import { usesCredits, validityLabel, creditCap, classOptions } from '../../utils/credits'
 
 // ─── Help ────────────────────────────────────────────────────────────────────
 // One set of answers for everyone. Staff get asked these questions by students
@@ -18,11 +18,17 @@ function sections(student, isStaff) {
   // no credits section at all — the very part students ask them about.
   const onCredits = isStaff || usesCredits(student)
 
-  // A student is told their own window; staff are told both, since they
-  // answer for everybody.
+  // A student is told their own window and their own limit; staff are told
+  // both, since they answer for everybody.
   const validity = isStaff
-    ? '1 month for students in India and 6 weeks for students abroad'
+    ? '4 weeks for students in India and 6 weeks for students abroad'
     : validityLabel(student)
+  const cap = isStaff
+    ? '3 for students in India and up to 12 for students abroad'
+    : String(creditCap(student))
+  const choices = isStaff
+    ? '1, 2 or 3 in India; 1, 4, 6 or 12 abroad'
+    : classOptions(student).join(', ')
 
   return [
     {
@@ -54,16 +60,20 @@ function sections(student, isStaff) {
           a: 'One credit is one class. You buy credits in advance, and booking a class uses one. It saves settling up after every lesson.',
         },
         {
-          q: 'How do I get credits?',
-          a: 'Open "Fees" and tap "Buy credits". Choose how many, pay by card, UPI or netbanking, and they appear on your dashboard a moment later. You can also pay Guruji or the office directly and they will add them for you.',
+          q: 'How do I buy classes?',
+          a: `Open "Fees" and tap "Buy credits". You will be asked how many classes you want (${choices}) and what you are paying — type the amount you agreed with Guruji. Pay by card, UPI or netbanking, and the classes appear on your dashboard a moment later. You can also pay Guruji or the office directly and they will add them for you.`,
         },
         {
-          q: `Why can I only hold ${MAX_CREDITS}?`,
-          a: `${MAX_CREDITS} credits is a month of classes. The limit keeps anyone from paying a long way ahead and then losing it if plans change. Use one and you can buy another.`,
+          q: 'What amount should I enter?',
+          a: 'Whatever you agreed with Guruji for that many classes. The app does not set the price — fees differ from student to student — so it records what you type. If you are not sure of the amount, ask the office before paying rather than guessing.',
         },
         {
-          q: 'Do credits expire?',
-          a: `Yes — credits last ${validity}, counted from the day they are added, and the date is shown with the balance. If something comes up, Guruji or the office can extend them.`,
+          q: `How many can I hold at once?`,
+          a: `${cap}. It is a limit on how many are sitting unused, not a monthly allowance — the moment you use one, room opens up and you can buy again. Finish them all in a fortnight and you can buy more that same day.`,
+        },
+        {
+          q: 'When do they expire?',
+          a: `They last ${validity} from the day they are added, and then run to the end of that week — always a Sunday, so you are never counting to an odd weekday. The exact date is shown before you pay and again with your balance. If something comes up, Guruji or the office can extend it.`,
         },
         {
           q: 'What if my credits expired and I didn’t use them?',

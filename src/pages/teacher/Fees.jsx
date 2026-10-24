@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import ReceiptModal from '../../components/shared/ReceiptModal'
-import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment } from '../../firebase/db'
+import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment, getAllClassesForMonth } from '../../firebase/db'
 import { paymentCoverage } from '../../utils/payment'
 import { useAuth } from '../../context/AuthContext'
 import FeeReportModal from '../../components/shared/FeeReportModal'
@@ -36,6 +36,20 @@ export default function TeacherFees() {
     await Promise.all(allStudents.map(async s => { map[s.id] = await getStudentPayments(s.id) }))
     setPayments(map)
   }
+
+  // Classes for the selected calendar month, so the summary can say how many
+  // were actually taught. By calendar month and not by anyone's credit period:
+  // every student runs on their own now, and the shared month is the only
+  // thing that totals.
+  const [monthClasses, setMonthClasses] = useState([])
+  useEffect(() => {
+    let live = true
+    const [y, m] = selectedMonth.split('-').map(Number)
+    getAllClassesForMonth(y, m - 1)
+      .then(list => { if (live) setMonthClasses(list) })
+      .catch(e => { console.error('Classes for the month failed to load:', e); if (live) setMonthClasses([]) })
+    return () => { live = false }
+  }, [selectedMonth])
 
   useEffect(() => {
     async function fetch() {
@@ -108,7 +122,7 @@ export default function TeacherFees() {
         </div>
 
         {/* What the month actually brought in */}
-        {!loading && <FeeMonthSummary students={students} payments={payments} month={selectedMonth} />}
+        {!loading && <FeeMonthSummary students={students} payments={payments} classes={monthClasses} month={selectedMonth} />}
 
         {/* Summary — click a card to filter the list */}
         <div className="grid grid-cols-3 gap-4 mb-6">

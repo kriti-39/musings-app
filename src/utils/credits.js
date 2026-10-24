@@ -7,15 +7,33 @@
 // arithmetic — balances, expiry dates, the 4-at-a-time cap — can be tested
 // without a database and never disagrees between screens.
 
-// A student may hold at most this many UNUSED credits at any moment. It is a
-// cap on the balance, not a monthly allowance: spend one and you can be granted
-// one more.
-export const MAX_CREDITS = 4
+// ─── How many, and for how long ───────────────────────────────────────────────
+// A cap on the BALANCE, not a monthly allowance: spend one and room opens up
+// again straight away. A student who uses three classes in a fortnight can buy
+// three more that afternoon — which is why everybody ends up on their own
+// timeline rather than a shared calendar month.
+//
+// Indian students take up to three classes a period; students abroad up to
+// twelve, because they tend to buy in blocks around a visit or a stretch of
+// leave rather than weekly.
+export const INDIA_CAP = 3
+export const FOREIGN_CAP = 12
 
-// How long a batch stays valid. Indian students get a calendar month; students
-// abroad get six weeks, since their classes are harder to fit around the time
-// difference. Both are measured from the moment the credits are granted.
-export const FOREIGN_VALIDITY_DAYS = 42
+// How long a batch stays valid, before the rounding below.
+export const INDIA_VALIDITY_DAYS = 28    // four weeks
+export const FOREIGN_VALIDITY_DAYS = 42  // six weeks
+
+export function creditCap(student) {
+  return isIndianStudent(student) ? INDIA_CAP : FOREIGN_CAP
+}
+
+// What a student is offered when buying. Asked in CLASSES, never in "credits" —
+// a credit is our word for it, and a student booking a lesson is thinking about
+// lessons. One is always offered so somebody can top up a single class instead
+// of buying another whole block.
+export function classOptions(student) {
+  return isIndianStudent(student) ? [1, 2, 3] : [1, 4, 6, 12]
+}
 
 // Credits only apply to students put on the credit system. Everyone already on
 // the books keeps booking the way they always have until they're moved over —
@@ -39,7 +57,7 @@ export function isIndianStudent(student) {
 }
 
 export function validityLabel(student) {
-  return isIndianStudent(student) ? '1 month' : '6 weeks'
+  return isIndianStudent(student) ? '4 weeks' : '6 weeks'
 }
 
 // Adding "a month" to the 31st is undefined — there is no 31st of February.
@@ -71,12 +89,23 @@ export function endOfDay(date) {
   return d
 }
 
+// The Sunday on or after a date. A date that is already a Sunday stays put.
+//
+// Credits expire at the end of a WEEK rather than on whatever weekday they
+// happened to be bought on. A student who buys on a Wednesday would otherwise
+// be counting to a Wednesday four weeks later, which nobody does — people
+// think in weeks, and a week ends on Sunday. It always rounds forward, so the
+// rounding can only ever give a student more time, never less.
+export function nextSunday(date) {
+  const d = new Date(date)
+  d.setDate(d.getDate() + ((7 - d.getDay()) % 7))
+  return d
+}
+
 // When a batch granted at `from` runs out, for this student.
 export function creditExpiry(from, student) {
-  const start = new Date(from)
-  return endOfDay(
-    isIndianStudent(student) ? addCalendarMonth(start) : addDays(start, FOREIGN_VALIDITY_DAYS)
-  )
+  const days = isIndianStudent(student) ? INDIA_VALIDITY_DAYS : FOREIGN_VALIDITY_DAYS
+  return endOfDay(nextSunday(addDays(new Date(from), days)))
 }
 
 // ─── READING A BATCH ─────────────────────────────────────────────────────────
@@ -145,7 +174,13 @@ export function staleBatches(batches, now = Date.now()) {
 const SOON_DAYS = 7
 
 // One object with everything a screen needs to talk about a student's credits.
-export function creditSummary(batches, now = Date.now()) {
+//
+// `student` decides the cap, so it is passed in and handed back as `cap`.
+// Screens read `summary.cap` rather than a constant: the cap is three for an
+// Indian student and twelve for one abroad, and a single shared number was
+// quietly wrong for everybody the moment that became true.
+export function creditSummary(batches, now = Date.now(), student = null) {
+  const cap = creditCap(student)
   const list = batches || []
   const live = list.filter(b => isSpendable(b, now))
   const available = live.reduce((sum, b) => sum + batchRemaining(b), 0)
@@ -157,8 +192,9 @@ export function creditSummary(batches, now = Date.now()) {
 
   return {
     available,
-    canHold: Math.max(MAX_CREDITS - available, 0),   // how many more may be granted
-    atCap: available >= MAX_CREDITS,
+    cap,
+    canHold: Math.max(cap - available, 0),   // how many more may be granted
+    atCap: available >= cap,
     nextExpiry: next ? toDate(next.expiresAt) : null,
     nextExpiryDays: next ? daysLeft(next, now) : null,
     nextExpiryCount: next ? batchRemaining(next) : 0,
@@ -171,21 +207,24 @@ export function creditSummary(batches, now = Date.now()) {
 }
 
 // Whether `quantity` more credits may be granted right now, and why not.
-export function canGrant(batches, quantity, now = Date.now()) {
-  const { available, canHold } = creditSummary(batches, now)
+// `student` decides the cap, so leaving it out would judge an Indian student
+// against a cap of twelve.
+export function canGrant(batches, quantity, now = Date.now(), student = null) {
+  const { available, canHold, cap } = creditSummary(batches, now, student)
   const qty = Number(quantity) || 0
-  if (qty < 1) return { ok: false, reason: 'Enter how many credits to add.', available, canHold }
+  if (qty < 1) return { ok: false, reason: 'Choose how many classes.', available, canHold, cap }
   if (qty > canHold) {
     return {
       ok: false,
       available,
       canHold,
+      cap,
       reason: canHold === 0
-        ? `This student already holds the maximum of ${MAX_CREDITS} credits. Wait until some are used.`
-        : `That would take them over the ${MAX_CREDITS}-credit limit — you can add ${canHold} more.`,
+        ? `Already holding the most allowed (${cap}). Once a class is used, more can be added.`
+        : `That would go over the limit of ${cap} — ${canHold} more can be added.`,
     }
   }
-  return { ok: true, available, canHold }
+  return { ok: true, available, canHold, cap }
 }
 
 // ─── WORDING ─────────────────────────────────────────────────────────────────

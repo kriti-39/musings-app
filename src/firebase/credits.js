@@ -5,7 +5,7 @@ import {
 import { db } from './config'
 import { createNotification } from './notify'
 import {
-  MAX_CREDITS, creditExpiry, validityLabel, canGrant, spendOrder, staleBatches,
+  creditExpiry, validityLabel, canGrant, spendOrder, staleBatches,
   creditSummary, batchRemaining, endOfDay, addDays, addCalendarMonth, toDate,
   creditsWord, fmtExpiry,
 } from '../utils/credits'
@@ -77,19 +77,35 @@ export function groupByStudent(batches) {
 // fixed at this moment, so a later change to their country never moves credits
 // they already hold.
 //
-// `student` is passed in rather than looked up: the caller always has the
-// profile already, and it keeps this file free of a dependency on db.js.
+// `student` is normally passed in, since the caller usually has the profile
+// already. It is read here when it is not, because BOTH the cap and the expiry
+// now depend on it: judging a student abroad against India's cap of three would
+// refuse a grant they are entitled to, and silently. Read straight from
+// Firestore rather than through db.js, which imports this file.
+async function profileFor(studentId, student) {
+  if (student) return student
+  if (!studentId) return null
+  try {
+    const snap = await getDoc(doc(db, 'users', studentId))
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null
+  } catch (e) {
+    console.error('Could not read the profile for a credit grant:', e)
+    return null
+  }
+}
+
 export async function grantCredits({
-  studentId, student, quantity = MAX_CREDITS,
+  studentId, student, quantity,
   grantedBy = null, grantedByName = '', reason = '', paymentId = null,
   notify = true,
 }) {
   const qty = Number(quantity) || 0
+  const profile = await profileFor(studentId, student)
 
   // Re-read right before writing: the balance may have moved since the modal
   // opened (the student may have booked a class, or another admin added some).
   const existing = await getStudentCredits(studentId)
-  const verdict = canGrant(existing, qty)
+  const verdict = canGrant(existing, qty, Date.now(), profile)
   if (!verdict.ok) {
     const err = new Error(verdict.reason)
     err.code = 'credit-cap'
@@ -97,7 +113,7 @@ export async function grantCredits({
   }
 
   const now = new Date()
-  const expiresAt = creditExpiry(now, student)
+  const expiresAt = creditExpiry(now, profile)
 
   const ref = await addDoc(collection(db, COL), {
     studentId,
@@ -105,7 +121,7 @@ export async function grantCredits({
     used: 0,
     status: 'active',
     expiresAt: Timestamp.fromDate(expiresAt),
-    validity: validityLabel(student),
+    validity: validityLabel(profile),
     source: 'admin',
     reason: (reason || '').trim(),
     paymentId,
@@ -451,8 +467,11 @@ export function expireStaleCredits(batches, { notifyStudentId = null } = {}) {
 }
 
 // Read a student's credits and tidy them in one step — what most screens want.
-export async function loadCredits(studentId, { notifySelf = false } = {}) {
+export async function loadCredits(studentId, { notifySelf = false, student = null } = {}) {
   const raw = await getStudentCredits(studentId)
   const batches = expireStaleCredits(raw, { notifyStudentId: notifySelf ? studentId : null })
-  return { batches, summary: creditSummary(batches) }
+  // The cap is three in India and twelve abroad, so the summary needs the
+  // profile. Read it if the caller did not hand one over.
+  const profile = await profileFor(studentId, student)
+  return { batches, summary: creditSummary(batches, Date.now(), profile) }
 }

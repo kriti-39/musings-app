@@ -1,14 +1,27 @@
 // POST /api/payments/create-order
 //
-// A student asks to buy credits. The browser sends only WHO (via their Firebase
-// ID token) and HOW MANY — never an amount. The price is worked out here from
-// the student's own profile, and the studentId and quantity are written into
-// the order's `notes` so the webhook can trust them later without believing
-// anything the browser says.
+// A student asks to buy classes. WHO comes from their Firebase ID token and is
+// never taken from the browser. HOW MANY must be one of the options that
+// student is actually offered.
+//
+// THE AMOUNT IS THE STUDENT'S OWN. The studio agrees each fee privately, so the
+// app no longer computes a price — it records what the student says they are
+// paying. That is a deliberate choice and it means an underpayment is possible:
+// nothing here can tell ₹1500 from ₹1, only that both are numbers. The amount
+// is checked for range, written into the order's `notes` server-side, and the
+// webhook later confirms the captured payment matches the order it belongs to —
+// so the figure cannot be altered between checkout and capture, even though
+// nobody is checking whether it was the RIGHT figure to begin with.
 import { getAdmin } from '../_lib/firebaseAdmin.js'
 import { createOrder, keyId, gatewayReady, isTestMode } from '../_lib/razorpay.js'
-import { priceFor, priceProblem, toPaise } from '../../src/utils/pricing.js'
-import { canGrant, usesCredits } from '../../src/utils/credits.js'
+import { toPaise } from '../../src/utils/pricing.js'
+import { canGrant, usesCredits, classOptions } from '../../src/utils/credits.js'
+
+// Sanity bounds on a hand-typed amount. Not a price — the studio settles fees
+// privately and the app does not know them — just the range beyond which a
+// number is a typo rather than a payment.
+const MIN_RUPEES = 1
+const MAX_RUPEES = 200000
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' })
@@ -37,6 +50,21 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'quantity must be a whole number' })
     }
 
+    // The student now says what they are paying. The studio settles each fee
+    // privately, so the app no longer knows what a class should cost and does
+    // not pretend to — but the number still has to be a sane amount of money,
+    // or a typo becomes a ₹1 payment or a ₹900,000 one.
+    const rupees = req.body?.amountRupees
+    if (typeof rupees !== 'number' || !Number.isInteger(rupees)) {
+      return res.status(400).json({ error: 'Enter the amount in whole rupees.' })
+    }
+    if (rupees < MIN_RUPEES) {
+      return res.status(400).json({ error: `The amount must be at least ₹${MIN_RUPEES}.` })
+    }
+    if (rupees > MAX_RUPEES) {
+      return res.status(400).json({ error: `That amount looks wrong — ₹${MAX_RUPEES.toLocaleString('en-IN')} is the most this can take. Please check with the office.` })
+    }
+
     const db = admin.firestore()
     const snap = await db.doc(`users/${uid}`).get()
     if (!snap.exists) return res.status(404).json({ error: 'no such student' })
@@ -52,18 +80,27 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'This account does not use credits.' })
     }
 
+    // Only the options this student is actually offered — three classes for an
+    // Indian student, up to twelve for one abroad. The browser sends a number,
+    // and a number it was never shown is not one to take money for.
+    if (!classOptions(student).includes(quantity)) {
+      return res.status(400).json({
+        error: `${quantity} ${quantity === 1 ? 'class is' : 'classes are'} not an option for this account.`,
+      })
+    }
+
     // Would these credits even fit? Taking money for credits they can't hold
-    // would be the worst kind of bug.
+    // would be the worst kind of bug. The cap depends on the student, so the
+    // profile is passed in.
     const held = await db.collection('credits').where('studentId', '==', uid).get()
     const batches = held.docs.map(d => ({ id: d.id, ...d.data() }))
-    const verdict = canGrant(batches, quantity)
+    const verdict = canGrant(batches, quantity, Date.now(), student)
     if (!verdict.ok) return res.status(409).json({ error: verdict.reason })
 
-    const problem = priceProblem(student, quantity)
-    if (problem) return res.status(409).json({ error: problem })
-
-    const rupees = priceFor(student, quantity)
     const amountPaise = toPaise(rupees)
+    if (amountPaise === null) {
+      return res.status(400).json({ error: 'That amount could not be read.' })
+    }
 
     const order = await createOrder({
       amountPaise,

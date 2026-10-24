@@ -174,3 +174,50 @@ export function reportFileName(period) {
     ? `Fee-Report-${clean(monthLabel(period[0]))}.pdf`
     : `Fee-Report-${clean(monthLabel(period[0]))}-to-${clean(monthLabel(period[period.length - 1]))}.pdf`
 }
+
+// ─── Classes actually taught in a calendar month ─────────────────────────────
+// Credits now run on each student's own clock: somebody who buys three classes
+// on the 10th has until the Sunday four weeks later, and somebody who finishes
+// them early buys again the same week. So no two students share a "month", and
+// counting credit periods would never add up to anything the studio could use.
+//
+// This counts by the CALENDAR month a class was scheduled in, which is the one
+// timeline everybody shares — the answer to "how many classes did we do in
+// November, and what came in for them".
+//
+// A class counts as done when it was completed. A class marked missed is
+// deliberately excluded: the lesson did not happen, whatever became of the
+// credit. Cancelled and rejected classes never count.
+export function monthlyClasses(classes, month, students = null) {
+  const byStudent = {}
+  let done = 0, missed = 0, upcoming = 0
+
+  const nameOf = (id) => (students || []).find(s => s.id === id)?.name || '—'
+
+  for (const c of classes || []) {
+    const when = c.scheduledAt?.toDate?.() ?? (c.scheduledAt ? new Date(c.scheduledAt) : null)
+    if (!when || Number.isNaN(when.getTime())) continue
+    if (monthKey(when) !== month) continue
+
+    const status = c.status || 'scheduled'
+    if (status === 'cancelled' || status === 'rejected') continue
+
+    const row = byStudent[c.studentId] || (byStudent[c.studentId] = {
+      id: c.studentId, name: nameOf(c.studentId), done: 0, missed: 0, upcoming: 0,
+    })
+
+    if (c.missed) { missed++; row.missed++ }
+    else if (status === 'completed') { done++; row.done++ }
+    else { upcoming++; row.upcoming++ }
+  }
+
+  return {
+    month,
+    done,
+    missed,
+    upcoming,
+    students: Object.keys(byStudent).length,
+    rows: Object.values(byStudent).sort((a, b) =>
+      b.done - a.done || String(a.name).localeCompare(String(b.name))),
+  }
+}

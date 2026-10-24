@@ -8,7 +8,7 @@ import {
 } from '../../firebase/credits'
 import { grantCreditsWithPayment } from '../../firebase/db'
 import {
-  MAX_CREDITS, creditSummary, validityLabel, isIndianStudent, usesCredits,
+  creditSummary, validityLabel, isIndianStudent, usesCredits,
   batchRemaining, daysLeft, creditsWord, daysWord, expiresWord, fmtExpiry, toDate, creditExpiry,
   creditsNeedPayment, paymentProblem,
 } from '../../utils/credits'
@@ -64,7 +64,9 @@ export default function CreditsCard({ student, onChange, openGrantSignal = 0 }) 
     if (openGrantSignal > 0 && isAdmin) { setShowGrant(true); setError('') }
   }, [openGrantSignal, isAdmin])
 
-  const summary = creditSummary(batches)
+  // The student decides the cap, so it is passed in — without it this reads
+  // India's limit of three for everybody.
+  const summary = creditSummary(batches, Date.now(), student)
   const live = summary.liveBatches
   const past = batches
     .filter(b => !live.some(l => l.id === b.id))
@@ -133,7 +135,7 @@ export default function CreditsCard({ student, onChange, openGrantSignal = 0 }) 
             }`}>
               {summary.available}
             </span>
-            <span className="text-sm text-gray-400">/ {MAX_CREDITS} held</span>
+            <span className="text-sm text-gray-400">/ {summary.cap} held</span>
           </div>
 
           {summary.nextExpiry ? (
@@ -163,7 +165,7 @@ export default function CreditsCard({ student, onChange, openGrantSignal = 0 }) 
           <button
             onClick={() => { setShowGrant(true); setError('') }}
             disabled={summary.atCap}
-            title={summary.atCap ? `Already holding the maximum of ${MAX_CREDITS}` : 'Add credits'}
+            title={summary.atCap ? `Already holding the most allowed (${summary.cap})` : 'Add credits'}
             className="shrink-0 flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white px-3.5 py-2 rounded-lg text-xs font-medium transition-colors"
           >
             <RiAddLine size={14} /> Add
@@ -334,8 +336,8 @@ function GrantModal({ student, summary, busy, onClose, onGrant }) {
   return (
     <Modal title="Add credits" onClose={onClose}>
       <p className="text-xs text-gray-500">
-        {student?.name} holds {summary.available} of {MAX_CREDITS}.
-        {summary.canHold < MAX_CREDITS && ` You can add up to ${summary.canHold}.`}
+        {student?.name} holds {summary.available} of {summary.cap}.
+        {summary.canHold < summary.cap && ` You can add up to ${summary.canHold}.`}
       </p>
 
       <div className="mt-4">

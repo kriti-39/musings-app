@@ -3,7 +3,7 @@ import { RiTicketLine, RiTimeLine, RiErrorWarningLine } from 'react-icons/ri'
 import { useAuth } from '../../context/AuthContext'
 import { subscribeStudentCredits, expireStaleCredits } from '../../firebase/credits'
 import {
-  creditSummary, usesCredits, creditsWord, fmtExpiry, MAX_CREDITS,
+  creditSummary, usesCredits, creditsWord, fmtExpiry,
 } from '../../utils/credits'
 import BuyCreditsModal from './BuyCreditsModal'
 
@@ -34,7 +34,7 @@ export default function CreditBalance({ compact = false, onCount }) {
   }, [user, onCredits])
 
   const ready = !onCredits || batches !== null
-  const summary = creditSummary(batches || [])
+  const summary = creditSummary(batches || [], Date.now(), user)
 
   // Let the page above react (Book a Class is disabled at zero)
   useEffect(() => {
@@ -92,7 +92,7 @@ export default function CreditBalance({ compact = false, onCount }) {
         <button
           onClick={() => setBuying(true)}
           disabled={full}
-          title={full ? `You already hold the maximum of ${MAX_CREDITS} credits` : undefined}
+          title={full ? 'You are holding as many classes as you can at once' : undefined}
           className={`shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity ${
             full ? 'c-btn--off' : `hover:opacity-90 ${none ? 'c-btn' : 'c-btn--ghost'}`
           }`}
@@ -107,7 +107,7 @@ export default function CreditBalance({ compact = false, onCount }) {
       <div className="flex items-center gap-2.5 mt-2.5">
         {!none && (
           <div className="flex gap-1 shrink-0 w-20">
-            {Array.from({ length: MAX_CREDITS }, (_, i) => (
+            {Array.from({ length: summary.cap }, (_, i) => (
               <span key={i} className={`c-pip h-1 flex-1 rounded-full ${
                 i < summary.available ? 'c-pip--on' : ''
               }`} />
@@ -129,7 +129,7 @@ export default function CreditBalance({ compact = false, onCount }) {
                 : `${summary.nextExpiryCount} by ${fmtExpiry(summary.nextExpiry)}`}
               {summary.nextExpiryDays === 0 && ' — today'}
               {/* Says why Buy is unavailable, so a greyed button isn't a puzzle */}
-              {full && ` · ${MAX_CREDITS} is the most you can hold`}
+              {full && ` · ${summary.cap} is the most you can hold at once`}
             </span>
           </p>
         )}

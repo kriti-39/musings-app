@@ -1,27 +1,52 @@
 import { useState } from 'react'
-import { RiCloseLine, RiCheckLine, RiSecurePaymentLine, RiErrorWarningLine } from 'react-icons/ri'
+import { RiCloseLine, RiCheckLine, RiSecurePaymentLine } from 'react-icons/ri'
 import { auth } from '../../firebase/config'
 import { openCheckout, paymentsAvailableHere } from '../../utils/razorpayCheckout'
-import { MAX_CREDITS, creditsWord, validityLabel } from '../../utils/credits'
-import { priceFor, priceProblem } from '../../utils/pricing'
+import { classOptions, creditExpiry, fmtExpiry, validityLabel } from '../../utils/credits'
 
-// ─── A student buys credits ──────────────────────────────────────────────────
-// Deliberately does NOT claim the credits have arrived when the payment sheet
-// says it worked. The browser's word isn't proof — the webhook grants them,
-// and the balance on the page is live, so it updates by itself the moment that
-// lands. Until then this says "received, appearing shortly", which is the
+// ─── A student buys classes ──────────────────────────────────────────────────
+// Asked in CLASSES, not "credits": a credit is the studio's word for it, and
+// somebody booking a lesson is thinking about lessons. The options come from
+// the student's own account — three for an Indian student, up to twelve for one
+// abroad — so nobody is offered a number they cannot have.
+//
+// The AMOUNT is typed by the student. The studio agrees each fee privately, so
+// the app does not know what a class costs and does not guess; it records what
+// the student says they are paying. Nothing here can tell a right figure from a
+// wrong one, which is why the office reads the monthly report.
+//
+// It deliberately does NOT claim the credits have arrived when the payment
+// sheet says it worked. The browser's word isn't proof — the webhook grants
+// them, and the balance on the page is live, so it updates by itself the moment
+// that lands. Until then this says "received, appearing shortly", which is the
 // truth.
+const MIN_RUPEES = 1
+const MAX_RUPEES = 200000
+
 export default function BuyCreditsModal({ student, canHold, onClose }) {
-  const [qty, setQty] = useState(Math.min(canHold || 1, MAX_CREDITS))
+  // Only what this student may actually buy, and only what still fits.
+  const offered = classOptions(student).filter(n => n <= canHold)
+
+  const [qty, setQty] = useState(offered[0] ?? 1)
+  const [amount, setAmount] = useState('')
   const [stage, setStage] = useState('choose')   // choose | working | paid
   const [error, setError] = useState('')
 
-  const options = Array.from({ length: Math.max(canHold, 0) }, (_, i) => i + 1)
-  const price = priceFor(student, qty)
-  const problem = priceProblem(student, qty)
+  const rupees = Number(amount)
+  const amountOk = Number.isInteger(rupees) && rupees >= MIN_RUPEES && rupees <= MAX_RUPEES
+
+  // The real date, worked out the same way the server will: four weeks for an
+  // Indian student, six abroad, then out to the end of that week. Shown before
+  // they pay, because "4 weeks" and "until Sunday 22 November" are not equally
+  // useful to someone planning lessons.
+  const expiry = creditExpiry(new Date(), student)
 
   async function handlePay() {
     setError('')
+    if (!amountOk) {
+      setError(`Enter the amount you are paying, in whole rupees (₹${MIN_RUPEES}–₹${MAX_RUPEES.toLocaleString('en-IN')}).`)
+      return
+    }
     if (!paymentsAvailableHere()) {
       setError('Online payment only works on the deployed app, not the local dev server.')
       return
@@ -29,12 +54,12 @@ export default function BuyCreditsModal({ student, canHold, onClose }) {
 
     setStage('working')
     try {
-      // The server decides the price. We send only how many.
+      // How many, and what they are paying. Who comes from the token.
       const token = await auth.currentUser.getIdToken()
       const res = await fetch('/api/payments/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ quantity: qty }),
+        body: JSON.stringify({ quantity: qty, amountRupees: rupees }),
       })
       const order = await res.json()
       if (!res.ok) throw new Error(order?.error || 'Could not start the payment')
@@ -44,7 +69,7 @@ export default function BuyCreditsModal({ student, canHold, onClose }) {
         orderId: order.orderId,
         amountPaise: order.amount,
         studentName: order.studentName,
-        description: `${qty} class ${creditsWord(qty)}`,
+        description: `${qty} ${qty === 1 ? 'class' : 'classes'}`,
       })
 
       setStage('paid')
@@ -66,8 +91,8 @@ export default function BuyCreditsModal({ student, canHold, onClose }) {
           </div>
           <h2 className="text-lg font-semibold text-gray-800">Payment received</h2>
           <p className="text-sm text-gray-500 mt-2">
-            Your {qty} {creditsWord(qty)} will appear on this page in a moment — we wait for
-            the bank to confirm rather than taking the app's word for it.
+            Your {qty === 1 ? 'class' : `${qty} classes`} will appear on this page in a
+            moment — we wait for the bank to confirm rather than taking the app's word for it.
           </p>
           <button onClick={onClose}
             className="w-full mt-6 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium">
@@ -79,28 +104,12 @@ export default function BuyCreditsModal({ student, canHold, onClose }) {
   }
 
   // ── Nothing to sell ────────────────────────────────────────────────────────
-  if (canHold <= 0) {
+  if (offered.length === 0) {
     return (
-      <Shell title="Buy credits" onClose={onClose}>
+      <Shell title="Buy classes" onClose={onClose}>
         <p className="text-sm text-gray-500">
-          You already hold the maximum of {MAX_CREDITS} credits. You can buy more once
-          you've used some.
-        </p>
-        <button onClick={onClose}
-          className="w-full mt-5 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50">
-          Close
-        </button>
-      </Shell>
-    )
-  }
-
-  // ── Can't price it ─────────────────────────────────────────────────────────
-  if (problem) {
-    return (
-      <Shell title="Buy credits" onClose={onClose}>
-        <p className="text-sm text-gray-600 flex items-start gap-2">
-          <RiErrorWarningLine size={16} className="shrink-0 mt-0.5 text-amber-500" />
-          {problem}
+          You are holding as many classes as you can at once. Use one and you can
+          buy more straight away — there is no need to wait for the month to end.
         </p>
         <button onClick={onClose}
           className="w-full mt-5 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50">
@@ -113,35 +122,53 @@ export default function BuyCreditsModal({ student, canHold, onClose }) {
   // ── Choose ─────────────────────────────────────────────────────────────────
   const busy = stage === 'working'
   return (
-    <Shell title="Buy credits" onClose={busy ? undefined : onClose}>
+    <Shell title="Buy classes" onClose={busy ? undefined : onClose}>
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-2">How many classes</label>
-        <div className="flex gap-2">
-          {options.map(n => (
+        <label className="block text-xs font-medium text-gray-600 mb-2">
+          How many classes this month?
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {offered.map(n => (
             <button key={n} type="button" onClick={() => setQty(n)} disabled={busy}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 ${
+              className={`flex-1 min-w-[56px] py-2.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 ${
                 qty === n ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-200 text-gray-600 hover:border-amber-300'
               }`}>
               {n}
             </button>
           ))}
         </div>
-        {canHold < MAX_CREDITS && (
+        {canHold < Math.max(...classOptions(student)) && (
           <p className="text-[11px] text-gray-400 mt-1.5">
-            You can hold {canHold} more right now.
+            You can hold {canHold} more {canHold === 1 ? 'class' : 'classes'} right now.
           </p>
         )}
       </div>
 
-      <div className="mt-5 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-        <div className="flex items-baseline justify-between">
-          <span className="text-sm text-gray-600">{qty} {creditsWord(qty)}</span>
-          <span className="text-xl font-semibold text-gray-800 tabular-nums">
-            ₹{price.toLocaleString('en-IN')}
-          </span>
-        </div>
-        <p className="text-[11px] text-gray-400 mt-1">
-          Valid for {validityLabel(student)} from the moment they're added.
+      <div className="mt-5">
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Amount you are paying (₹)
+        </label>
+        <input
+          type="number" inputMode="numeric" min={MIN_RUPEES} max={MAX_RUPEES}
+          value={amount} onChange={e => setAmount(e.target.value)} disabled={busy}
+          placeholder="e.g. 1500"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50"
+        />
+        <p className="text-[11px] text-gray-400 mt-1.5">
+          Whatever you agreed with Guruji for {qty === 1 ? 'this class' : `these ${qty} classes`}.
+          If you are unsure of the amount, ask the office before paying.
+        </p>
+      </div>
+
+      {/* The date, not just the length. Someone planning lessons needs the day
+          they run out, and "4 weeks" is not that. */}
+      <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+        <p className="text-xs text-amber-900">
+          Use {qty === 1 ? 'it' : 'them'} by <span className="font-semibold">{fmtExpiry(expiry)}</span>
+        </p>
+        <p className="text-[11px] text-amber-700/80 mt-0.5">
+          Classes are valid {validityLabel(student)} from today, to the end of that week.
+          Use them all sooner and you can buy more right away.
         </p>
       </div>
 
@@ -151,10 +178,12 @@ export default function BuyCreditsModal({ student, canHold, onClose }) {
         </p>
       )}
 
-      <button onClick={handlePay} disabled={busy}
-        className="w-full mt-5 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-3 text-sm font-semibold disabled:opacity-50 transition-colors">
+      <button onClick={handlePay} disabled={busy || !amountOk}
+        className="w-full mt-5 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-3 text-sm font-semibold disabled:bg-gray-200 disabled:text-gray-400 transition-colors">
         <RiSecurePaymentLine size={17} />
-        {busy ? 'Opening payment…' : `Pay ₹${price.toLocaleString('en-IN')}`}
+        {busy
+          ? 'Opening payment…'
+          : amountOk ? `Pay ₹${rupees.toLocaleString('en-IN')}` : 'Enter an amount'}
       </button>
 
       <p className="text-[11px] text-gray-400 text-center mt-2.5">

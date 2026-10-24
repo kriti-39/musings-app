@@ -10,7 +10,7 @@
 //   3. Re-checking the amount against what we would have charged
 import { getAdmin } from '../_lib/firebaseAdmin.js'
 import { verifyWebhookSignature, readRawBody } from '../_lib/razorpay.js'
-import { priceFor, toPaise } from '../../src/utils/pricing.js'
+import { toPaise } from '../../src/utils/pricing.js'
 import { creditExpiry, validityLabel, canGrant } from '../../src/utils/credits.js'
 
 // Vercel would otherwise parse the JSON body for us, and parsing destroys the
@@ -122,19 +122,26 @@ async function grantForPayment(payment) {
   }
   const student = { id: studentId, ...studentSnap.data() }
 
-  // ── Did they pay what we asked? ────────────────────────────────────────────
-  // The order was created with a server-computed amount, so this should always
-  // match. It is checked anyway: if it ever doesn't, something is wrong enough
-  // that handing over credits would be the worse mistake.
-  const expectedPaise = toPaise(priceFor(student, quantity))
-  if (expectedPaise === null || payment.amount < expectedPaise) {
+  // ── Did they pay what the ORDER said? ──────────────────────────────────────
+  // The amount is the student's own figure now, so there is no price to check
+  // it against — the app does not know what a class costs for this student and
+  // will not guess. What it can still prove is that the money which arrived
+  // matches the order that was created: the figure went into `notes` server
+  // side at checkout, so a payment captured for less than its own order was
+  // altered somewhere in between.
+  //
+  // Worth being plain about the limit: this catches tampering, not
+  // underpayment. A student who types ₹1 and pays ₹1 passes here, by design.
+  const orderedPaise = toPaise(Number(payment.notes?.rupees))
+  if (orderedPaise !== null && payment.amount < orderedPaise) {
     await claimRef.update({
       status: 'underpaid',
-      expected: expectedPaise,
+      expected: orderedPaise,
       received: payment.amount,
+      needsStaff: true,
     })
-    console.error(`Payment ${paymentId}: expected ${expectedPaise} paise, got ${payment.amount}`)
-    return { ignored: 'amount mismatch' }
+    console.error(`Payment ${paymentId}: order said ${orderedPaise} paise, got ${payment.amount}`)
+    return { ignored: 'amount does not match the order' }
   }
 
   // ── Would these credits still fit? ─────────────────────────────────────────
@@ -149,7 +156,7 @@ async function grantForPayment(payment) {
   // extend what they hold, or refund. The student is told to expect that.
   const heldSnap = await db.collection('credits').where('studentId', '==', studentId).get()
   const heldBatches = heldSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-  const room = canGrant(heldBatches, quantity)
+  const room = canGrant(heldBatches, quantity, Date.now(), student)
   if (!room.ok) {
     await claimRef.update({
       status: 'over_cap',

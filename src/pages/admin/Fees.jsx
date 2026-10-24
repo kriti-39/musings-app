@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
 import ReceiptModal from '../../components/shared/ReceiptModal'
-import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment } from '../../firebase/db'
+import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment, getAllClassesForMonth } from '../../firebase/db'
 import { paymentCoverage } from '../../utils/payment'
 import { useAuth } from '../../context/AuthContext'
 import FeeReportModal from '../../components/shared/FeeReportModal'
@@ -44,6 +44,21 @@ export default function AdminFees() {
   }
 
   useEffect(() => { fetchAll() }, [])
+
+  // Classes for the selected calendar month, so the summary can say how many
+  // were actually taught. Deliberately by calendar month and not by anyone's
+  // credit period — every student is on their own now, and the shared month is
+  // the only thing that totals.
+  const [monthClasses, setMonthClasses] = useState([])
+  useEffect(() => {
+    let live = true
+    const [y, m] = selectedMonth.split('-').map(Number)
+    getAllClassesForMonth(y, m - 1)
+      .then(list => { if (live) setMonthClasses(list) })
+      .catch(e => { console.error('Classes for the month failed to load:', e); if (live) setMonthClasses([]) })
+    return () => { live = false }
+  }, [selectedMonth])
+
 
   function getStatusForMonth(studentId, month) {
     const list = payments[studentId] || []
@@ -90,7 +105,7 @@ export default function AdminFees() {
           <p className="text-gray-400 text-sm text-center py-16">Loading...</p>
         ) : (
           <>
-          <FeeMonthSummary students={students} payments={payments} month={selectedMonth} />
+          <FeeMonthSummary students={students} payments={payments} classes={monthClasses} month={selectedMonth} />
           <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

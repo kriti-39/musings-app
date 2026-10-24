@@ -3,7 +3,7 @@ import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
 import { getStudentPayments } from '../../firebase/db'
 import { loadCredits } from '../../firebase/credits'
-import { usesCredits, creditsWord, MAX_CREDITS } from '../../utils/credits'
+import { usesCredits, creditsWord, creditCap } from '../../utils/credits'
 import BuyCreditsModal from '../../components/student/BuyCreditsModal'
 import { RiTicketLine } from 'react-icons/ri'
 
@@ -34,7 +34,7 @@ export default function StudentFees() {
   async function refresh() {
     await fetchPayments()
     if (onCredits) {
-      try { setCredits((await loadCredits(user.id)).summary) }
+      try { setCredits((await loadCredits(user.id, { student: user })).summary) }
       catch (e) { console.error('Credits failed to load:', e) }
     }
   }
@@ -53,7 +53,7 @@ export default function StudentFees() {
             <button
               onClick={() => setBuying(true)}
               disabled={full}
-              title={full ? `You already hold the maximum of ${MAX_CREDITS} credits` : undefined}
+              title={full ? 'You are holding as many classes as you can at once' : undefined}
               className="shrink-0 flex items-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             >
               <RiTicketLine size={17} /> Buy credits
@@ -64,7 +64,7 @@ export default function StudentFees() {
         <p className="text-xs text-gray-400 mb-5 bg-gray-50 rounded-lg px-4 py-3">
           {onCredits
             ? `Every payment here buys class credits. ${
-                credits ? `You hold ${credits.available} of ${MAX_CREDITS} right now.` : ''
+                credits ? `You hold ${credits.available} of ${credits.cap} right now.` : ''
               }`
             : 'Payments recorded by Guruji or the office appear here.'}
         </p>
@@ -132,7 +132,7 @@ export default function StudentFees() {
       {buying && (
         <BuyCreditsModal
           student={user}
-          canHold={credits?.canHold ?? MAX_CREDITS}
+          canHold={credits?.canHold ?? creditCap(user)}
           onClose={() => { setBuying(false); refresh() }}
         />
       )}

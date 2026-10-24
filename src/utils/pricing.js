@@ -7,11 +7,13 @@
 // Explicit .js extension, unlike the rest of src/ — this file is imported by
 // the Vercel functions too, and Node's ESM loader doesn't guess extensions the
 // way Vite does. Vite is happy with either.
-import { MAX_CREDITS } from './credits.js'
+// Deliberately NOT the credit cap any more. The cap is per student (three in
+// India, twelve abroad) while "what a month costs" is still four classes for
+// the studio's own arithmetic. Tying the two together made one of them wrong.
 
 // A month's fee buys a month's classes. The studio charges per month and caps
 // credits at four, so one credit is a quarter of the monthly fee.
-export const CREDITS_PER_MONTH = MAX_CREDITS
+export const CREDITS_PER_MONTH = 4
 
 // Price in whole rupees for `quantity` credits, for this student.
 // Returns null when it can't be worked out — which must be treated as "ask an
@@ -22,7 +24,7 @@ export function priceFor(student, quantity) {
   // function that decides what to charge someone.
   if (typeof quantity !== 'number' || !Number.isInteger(quantity)) return null
   const qty = quantity
-  if (qty < 1 || qty > MAX_CREDITS) return null
+  if (qty < 1 || qty > CREDITS_PER_MONTH) return null
 
   const fee = Number(student?.feeAmount)
   if (!Number.isFinite(fee) || fee <= 0) return null
@@ -60,7 +62,7 @@ export function priceProblem(student, quantity) {
   if (typeof quantity !== 'number' || !Number.isInteger(quantity) || quantity < 1) {
     return 'Choose how many credits to buy.'
   }
-  if (quantity > MAX_CREDITS) return `You can hold at most ${MAX_CREDITS} credits.`
+  if (quantity > CREDITS_PER_MONTH) return `You can hold at most ${CREDITS_PER_MONTH} credits.`
 
   const fee = Number(student?.feeAmount)
   if (!Number.isFinite(fee) || fee <= 0) {

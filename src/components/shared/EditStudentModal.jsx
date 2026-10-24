@@ -30,6 +30,7 @@ export default function EditStudentModal({ student, photo = null, onClose, onSuc
     feeType: student?.feeType || 'monthly',
     feeAmount: student?.feeAmount ?? '',
     billingMode: student?.billingMode || 'legacy',
+    creditsWithoutPayment: student?.creditsWithoutPayment === true,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -53,7 +54,10 @@ export default function EditStudentModal({ student, photo = null, onClose, onSuc
         feeAmount: form.feeAmount === '' || form.feeAmount === null ? null : Number(form.feeAmount),
         // Only an admin can move someone onto (or off) the credit system, so
         // nobody else's save can change it by accident.
-        ...(isAdmin ? { billingMode: form.billingMode } : {}),
+        ...(isAdmin ? {
+          billingMode: form.billingMode,
+          creditsWithoutPayment: form.creditsWithoutPayment,
+        } : {}),
       })
       onSuccess?.()
       onClose()
@@ -169,6 +173,28 @@ export default function EditStudentModal({ student, photo = null, onClose, onSuc
                 <p className="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-2">
                   They'll need credits before they can book again — add some straight after saving.
                 </p>
+              )}
+
+              {/* Credits are classes already paid for, so adding them asks for
+                  the amount. This is the exception: a student the studio
+                  settles with some other way, whose credits the office adds
+                  directly. */}
+              {form.billingMode === 'credits' && (
+                <label className="flex items-start gap-2 mt-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.creditsWithoutPayment}
+                    onChange={e => setForm(f => ({ ...f, creditsWithoutPayment: e.target.checked }))}
+                    className="mt-0.5 shrink-0"
+                  />
+                  <span className="text-[11px] text-gray-500">
+                    <span className="block text-xs font-medium text-gray-700">
+                      Add credits without recording a payment
+                    </span>
+                    Only for students settled with outside the app. Leave this off and
+                    the office must enter what was paid before credits are added.
+                  </span>
+                </label>
               )}
             </div>
           )}

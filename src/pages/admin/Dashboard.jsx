@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import {
   getAdminDashboardStats, getAllClassesForMonth,
   getAllStudentsIncludingInactive, getAllPendingRequests, confirmClass, rejectClass,
-  sweepPastClasses
+  sweepPastClasses, hasNotes
 } from '../../firebase/db'
 import { RiCheckLine, RiCloseLine, RiCalendarLine } from 'react-icons/ri'
 
@@ -146,7 +146,7 @@ export default function AdminDashboard() {
                       <p className="text-sm font-medium text-gray-800">{students[cls.studentId]?.name || 'Student'}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {cls.duration || 60}m
-                        {cls.lessonNotes && <span className="ml-2 text-gray-500">· {cls.lessonNotes}</span>}
+                        {hasNotes(cls) && <span className="ml-2 text-gray-400">· has notes</span>}
                       </p>
                     </div>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-medium capitalize">{cls.status}</span>

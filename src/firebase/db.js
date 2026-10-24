@@ -8,12 +8,18 @@ import {
   consumeCredit, returnCredit, refundCreditForClass,
   rechargeCreditForClass, flagCreditForReview, grantCredits,
 } from './credits'
-import { usesCredits } from '../utils/credits'
+import { usesCredits, paymentProblem, creditsNeedPayment } from '../utils/credits'
 import { createClassHoldingSlot, moveClassIntoSlot, slotTakenError, slotIsFree } from './slots'
+import { saveClassDetail, firstUrl as firstUrlOf } from './classDetail'
+
+// How far ahead a student may book. Staff are not limited: they schedule
+// recurring series months out and arrange make-up classes in the past.
+export const BOOKING_WINDOW_DAYS = 7
 
 // Re-exported so the booking forms can ask "is this slot free?" without
 // reaching past db.js, which is where everything else talks to Firestore.
 export { slotIsFree }
+export { creditsNeedPayment }
 
 // ─── USERS ────────────────────────────────────────────────────────────────────
 
@@ -102,14 +108,22 @@ async function staffContext(studentId, date, teacherId = null) {
 // booking does — one class per slot, whoever is doing the booking, with no way
 // to override it.
 export async function createClass(data) {
+  const notes = (data.lessonNotes || '').trim()
+  // Kept off the class document on purpose — it goes to the detail doc below.
+  const rest = { ...data }
+  delete rest.lessonNotes
   const ref = await createClassHoldingSlot({
-    ...data,
+    ...rest,
     duration: Math.min(Math.max(Number(data.duration) || 60, 15), 180),
     markedDoneBy: null,
-    lessonNotes: data.lessonNotes || '',
+    hasNotes: !!notes,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
+  if (notes) {
+    try { await saveClassDetail(ref.id, { lessonNotes: notes }) }
+    catch (e) { console.error('Class created, but the note could not be saved:', e) }
+  }
   // Notify teacher and all admins about the new booking request
   if (data.status === 'pending') {
     const staffIds = await getStaffIds()
@@ -158,6 +172,38 @@ export async function createBooking({
   let overlap = false
   let status = forceStatus
 
+  // The caller's profile decides what may be booked, and whether anything is
+  // charged. Read before the slot work so a refusal costs nothing.
+  const profile = student || (studentId ? await getUser(studentId).catch(() => null) : null)
+
+  // A booking made by a student obeys the booking rules; one made by staff
+  // (forceStatus, or a class Guruji schedules) does not — they arrange make-up
+  // classes in the past and recurring series months ahead.
+  if (!forceStatus && !freeClass) {
+    if (profile?.isActive === false) {
+      const err = new Error('This account is paused. Please contact the studio.')
+      err.code = 'account-paused'
+      throw err
+    }
+    if (Number.isNaN(startDate.getTime())) {
+      const err = new Error('That date and time could not be read.')
+      err.code = 'bad-slot'
+      throw err
+    }
+    // The UI blocks past slots too, but it is the only thing that did — and the
+    // UI is not where this belongs.
+    if (startDate.getTime() <= Date.now()) {
+      const err = new Error('That time has already passed. Please pick a later slot.')
+      err.code = 'past-slot'
+      throw err
+    }
+    if (startDate.getTime() > Date.now() + BOOKING_WINDOW_DAYS * 86400000) {
+      const err = new Error(`Classes can be booked up to ${BOOKING_WINDOW_DAYS} days ahead.`)
+      err.code = 'outside-window'
+      throw err
+    }
+  }
+
   if (!status) {
     // Two classes can't share a time. This read is the fast, friendly no: it
     // catches the slot that was taken while the calendar sat open, and it
@@ -170,9 +216,7 @@ export async function createBooking({
   }
 
   // The credit is taken only once the slot is known to be free, so a clash never
-  // costs a student a class. Caller passes the profile when it already has it
-  // (the student's own device always does) to save a read.
-  const profile = student || (studentId ? await getUser(studentId).catch(() => null) : null)
+  // costs a student a class.
   const charge = !freeClass && usesCredits(profile)
   let creditBatchId = null
   if (charge) {
@@ -187,7 +231,10 @@ export async function createBooking({
     ref = await createClassHoldingSlot({
       studentId, teacherId,
       scheduledAt: scheduledAt?.toDate ? scheduledAt : Timestamp.fromDate(startDate),
-      duration: dur, lessonNotes,
+      duration: dur,
+      // The student's note to Guruji is text about them, so it goes to the
+      // detail document below rather than onto the shared class record.
+      hasNotes: !!(lessonNotes || '').trim(),
       isRecurring, recurringId,
       status,
       isOverlap: overlap,
@@ -208,6 +255,14 @@ export async function createBooking({
         console.error('Booking failed AND the credit could not be returned —', creditBatchId, err))
     }
     throw e
+  }
+
+  // Written after the class exists, because the rule guarding the detail
+  // document looks the class up to see whose it is. Wrapped: a note that fails
+  // to save must never undo a booking that succeeded.
+  if ((lessonNotes || '').trim()) {
+    try { await saveClassDetail(ref.id, { lessonNotes: lessonNotes.trim() }) }
+    catch (e) { console.error('Booked, but the note could not be saved:', e) }
   }
 
   // Notify staff: overlaps need confirmation, free bookings are just a heads-up.
@@ -605,35 +660,31 @@ export async function cancelClassByStudent(classId) {
   } catch (e) { console.error('Cancelled, staff notify failed:', e) }
 }
 
-// ─── RECORDINGS ───────────────────────────────────────────────────────────────
+// ─── RECORDINGS AND LESSON NOTES ──────────────────────────────────────────────
 // A recording is ONE free-text field: staff paste the whole thing straight from
 // Zoom — link, passcode, whatever — and the student sees it with the links
-// tappable and a copy button. Earlier recordings stored the link and title in
-// separate fields; the helpers below read both shapes.
+// tappable and a copy button.
+//
+// The text itself lives in classes/{id}/detail/d, not on the class document,
+// because the class document is readable by every signed-in user and these are
+// not. See src/firebase/classDetail.js. Only the two booleans stay out here, so
+// a list can show "has a recording" without reading anybody's private text.
 
-// The first web link inside a block of text, if any.
-export function firstUrl(text) {
-  const m = (text || '').match(/https?:\/\/\S+/)
-  return m ? m[0] : null
-}
-
-export function hasRecording(cls) {
-  return !!(cls?.recordingInfo?.trim() || cls?.recordingUrl?.trim())
-}
-
-// What to show the student — the pasted block, or a legacy title + link.
-export function recordingText(cls) {
-  if (cls?.recordingInfo?.trim()) return cls.recordingInfo.trim()
-  return [cls?.recordingTitle, cls?.recordingUrl].filter(t => t?.trim()).join('\n')
-}
+export {
+  getClassDetail, getClassDetails, hasRecording, recordingText,
+  recordingTitleOf, notesFrom, hasNotes, firstUrl,
+} from './classDetail'
 
 export async function saveRecording(classId, info, notifyStudentId = null) {
   const text = (info || '').trim()
-  await updateDoc(doc(db, 'classes', classId), {
+  await saveClassDetail(classId, {
     recordingInfo: text,
-    // Also kept so phones still running the previous version keep working
-    // until they pick up the update.
-    recordingUrl: firstUrl(text) || '',
+    recordingUrl: firstUrlOf(text) || '',
+  })
+  // The flag on the class is what lists filter on, so it is written after the
+  // text — a flag with no text behind it would show an empty recording.
+  await updateDoc(doc(db, 'classes', classId), {
+    hasRecording: !!text,
     updatedAt: serverTimestamp(),
   })
   if (notifyStudentId) {
@@ -646,8 +697,17 @@ export async function saveRecording(classId, info, notifyStudentId = null) {
 
 // Rename a recording (students use this on their own classes).
 export async function renameRecording(classId, title) {
+  await saveClassDetail(classId, { recordingTitle: (title || '').trim() })
+}
+
+// Lesson notes. Written by staff about the class, and by the student as a note
+// to Guruji when they book — the same field, which is why it is one of the
+// things another student must not be able to read.
+export async function saveLessonNotes(classId, notes) {
+  const text = (notes || '').trim()
+  await saveClassDetail(classId, { lessonNotes: text })
   await updateDoc(doc(db, 'classes', classId), {
-    recordingTitle: (title || '').trim(),
+    hasNotes: !!text,
     updatedAt: serverTimestamp(),
   })
 }
@@ -1015,6 +1075,19 @@ export async function grantCreditsWithPayment({
   note = '', staffId = null, staffName = '',
 }) {
   const paid = Number(amount) || 0
+
+  // Money first, credits second. Enforced here rather than only in the form,
+  // because the form is not the thing that must be right — a grant with no
+  // payment behind it cannot be reconciled later. Students the studio settles
+  // with outside the app are flagged as exempt on their profile.
+  const profile = student || (studentId ? await getUser(studentId).catch(() => null) : null)
+  const problem = paymentProblem(profile, paid)
+  if (problem) {
+    const err = new Error(problem)
+    err.code = 'payment-required'
+    throw err
+  }
+
   let paymentId = null
 
   if (paid > 0) {

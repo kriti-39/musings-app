@@ -12,6 +12,18 @@ service cloud.firestore {
     function isTeacher() { return isAuth() && role() == 'teacher'; }
     function isAdminOrTeacher() { return isAdmin() || isTeacher(); }
 
+    // The signed-in person's own profile, for the rules that depend on how the
+    // studio has set them up (billingMode, isActive) rather than on what their
+    // browser claims.
+    function me() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isStaffUser(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid))
+        && get(/databases/$(database)/documents/users/$(uid)).data.role in ['admin', 'teacher'];
+    }
+
     match /users/{userId} {
       // A user can read their own profile; staff can read everyone; and ANY
       // signed-in user can read staff (admin/teacher) profiles — students need
@@ -49,11 +61,129 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ─── Classes ───────────────────────────────────────────────────────────────
+    // Every signed-in user can READ a class document, and that is deliberate:
+    // the slot-lock transaction has to look up whoever currently holds a time in
+    // order to refuse a double booking, which means reading a class belonging to
+    // somebody else. The booking calendar needs the same thing to grey out busy
+    // slots.
+    //
+    // So this document carries SCHEDULING FACTS ONLY. Anything written about a
+    // student — Guruji's lesson notes, the recording link and its passcode —
+    // lives in the `detail` subcollection below, which only that student and
+    // staff can read. Putting them here made every student's notes and class
+    // recordings readable by all 92 students.
     match /classes/{classId} {
       allow read: if isAuth();
-      allow create: if isAuth() && (isAdminOrTeacher() || request.resource.data.studentId == request.auth.uid);
-      allow update: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
+
+      // What a student may book for themselves. Without these checks a student
+      // could write their own class document straight from a browser console:
+      // free of charge, at any time, of any length.
+      // Note on style: every optional field is reached through `'x' in d` first.
+      // Reading a field that is absent is an ERROR in rules, not null, and an
+      // error denies the whole write — so a bare `d.missed != true` refused
+      // every booking ever made, because a new class has no `missed` field.
+      // That mistake fails closed, which is the safe direction, but it fails
+      // closed on the paying customer.
+      function studentBooking() {
+        let d = request.resource.data;
+        let p = me();
+        let onCredits = ('billingMode' in p) && p.billingMode == 'credits';
+        return d.studentId == request.auth.uid
+          // A paused account cannot book. The payment endpoint already refuses
+          // them; this is the same answer for the free path.
+          && (!('isActive' in p) || p.isActive != false)
+          // Booked classes start life scheduled — never completed, never
+          // already marked done, never pre-flagged.
+          && d.status == 'scheduled'
+          && (!('markedDoneBy' in d) || d.markedDoneBy == null)
+          && (!('missed' in d) || d.missed != true)
+          && (!('creditReviewNeeded' in d) || d.creditReviewNeeded != true)
+          // In the future, and inside the booking window. Students book the
+          // week ahead; staff schedule further out, which is why this sits in
+          // the student branch only.
+          && d.scheduledAt is timestamp
+          && d.scheduledAt > request.time
+          && d.scheduledAt < request.time + duration.value(7, 'd')
+          && d.duration is int && d.duration >= 15 && d.duration <= 180
+          // A credit student must name a credit batch that is really theirs.
+          // Students on the old arrangement book without one. billingMode is
+          // staff-only, so neither branch can be chosen by the student.
+          && (
+            onCredits
+              ? (
+                ('paidWith' in d) && d.paidWith == 'credit'
+                && ('creditBatchId' in d) && d.creditBatchId is string
+                && exists(/databases/$(database)/documents/credits/$(d.creditBatchId))
+                && get(/databases/$(database)/documents/credits/$(d.creditBatchId)).data.studentId == request.auth.uid
+              )
+              : (!('paidWith' in d) || d.paidWith == null)
+          );
+      }
+
+      // The only changes a student may make to their own class. Each is one of
+      // the three things the app actually offers them, and nothing else gets
+      // through — in particular a student can never set a class back to
+      // `scheduled`, which is what made reviving a cancelled class and
+      // self-approving a reschedule possible.
+      function studentClassChange() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let changed = after.diff(before).affectedKeys();
+        return before.studentId == request.auth.uid
+          && after.studentId == before.studentId
+          && (
+            // 1. Call it off, or withdraw a request they already sent.
+            (
+              changed.hasOnly(['status', 'updatedAt'])
+              && after.status == 'cancelled'
+              && before.status in ['scheduled', 'pending']
+            )
+            // 2. Flag their own cancellation for staff to decide the credit.
+            //    Raising the flag is theirs; clearing it is not — clearing it
+            //    is how a student could make their own cancellation free.
+            || (
+              changed.hasOnly(['creditReviewNeeded', 'creditReviewReason', 'updatedAt'])
+              && after.creditReviewNeeded == true
+            )
+            // 3. Ask to move it. It goes to `pending` for staff to confirm, and
+            //    the new time obeys the same window as a fresh booking.
+            || (
+              changed.hasOnly(['scheduledAt', 'status', 'updatedAt'])
+              && after.status == 'pending'
+              && before.status in ['scheduled', 'pending']
+              && after.scheduledAt is timestamp
+              && after.scheduledAt > request.time
+              && after.scheduledAt < request.time + duration.value(7, 'd')
+            )
+            // 4. Mark a class that has already happened as done (the app tracks
+            //    student and teacher separately so both can confirm), and the
+            //    same shape covers the auto-complete sweep every client runs.
+            || (
+              changed.hasOnly(['status', 'markedDoneBy', 'updatedAt'])
+              && after.status == 'completed'
+              && after.markedDoneBy in ['student', 'both', 'auto']
+              && before.scheduledAt < request.time
+            )
+          );
+      }
+
+      allow create: if isAuth() && (isAdminOrTeacher() || studentBooking());
+      allow update: if isAuth() && (isAdminOrTeacher() || studentClassChange());
       allow delete: if isAdminOrTeacher();
+
+      // Lesson notes and the recording (link + passcode). Readable and writable
+      // by the student whose class it is, and by staff. Nobody else — this is
+      // the whole reason the subcollection exists.
+      match /detail/{docId} {
+        allow read, write: if isAuth() && (
+          isAdminOrTeacher()
+          || (
+            exists(/databases/$(database)/documents/classes/$(classId))
+            && get(/databases/$(database)/documents/classes/$(classId)).data.studentId == request.auth.uid
+          )
+        );
+      }
     }
 
     // One class per slot. A lock's id is derived from the teacher and the
@@ -61,16 +191,17 @@ service cloud.firestore {
     // document and only one commits — that contention is what actually
     // prevents a double booking, and it happens in the transaction, not here.
     //
-    // These rules therefore only keep locks tidy; they deliberately do not try
-    // to verify that a lock being overwritten is really free, because doing so
-    // would need a get() of the owning class for every granule and would blow
-    // the ten-document limit on a multi-granule booking. A student who went
-    // around the app could scribble on a lock, but they could equally write a
-    // class document directly — the booking rules above are where that is
-    // bounded, and nothing here makes it worse.
+    // A lock must name a class, so a student cannot blank one out to erase a
+    // slot's protection. Verifying that the named class is really free would
+    // need a get() per quarter hour, and a three-hour class claims thirteen of
+    // them — past the limit rules allow in one request. The class rules above
+    // are what bound a student's writes; this keeps the locks well-formed.
     match /slotLocks/{key} {
       allow read: if isAuth();
-      allow create, update: if isAuth();
+      allow create, update: if isAuth()
+        && request.resource.data.classId is string
+        && request.resource.data.classId != ''
+        && request.resource.data.teacherId is string;
       allow delete: if isAdminOrTeacher();
     }
 
@@ -84,17 +215,38 @@ service cloud.firestore {
       allow write: if isAdminOrTeacher();
     }
 
+    // Money is recorded by the studio, or by the payment gateway through the
+    // Admin SDK (which bypasses these rules entirely). A student never writes
+    // here: they used to, for the old "submit a payment" screen, and that is
+    // gone — leaving it open let a student invent a confirmed ₹99,999 payment
+    // for themselves and corrupt the fee report.
     match /payments/{id} {
       allow read: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
-      allow create: if isAuth() && (isAdminOrTeacher() || request.resource.data.studentId == request.auth.uid);
-      allow update: if isAdminOrTeacher();
+      allow create, update: if isAdminOrTeacher();
       allow delete: if isAdmin();
     }
 
     match /notifications/{id} {
       allow read: if isAuth() && (isAdminOrTeacher() || resource.data.userId == request.auth.uid);
-      allow create: if isAuth();
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+
+      // A student may notify STAFF — they have to, when they book or cancel —
+      // but not another student. Unrestricted, this was a way to send any
+      // family a convincing "fees overdue, pay this UPI id" message from
+      // inside the app they trust.
+      allow create: if isAuth() && (
+        isAdminOrTeacher()
+        || isStaffUser(request.resource.data.userId)
+      );
+
+      // Marking your own as read, and nothing else — not rewriting what it says.
+      allow update: if isAuth() && (
+        isAdminOrTeacher()
+        || (
+          resource.data.userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['isRead', 'readAt', 'updatedAt'])
+        )
+      );
       allow delete: if isAuth() && (isAdmin() || resource.data.userId == request.auth.uid);
     }
 
@@ -133,13 +285,11 @@ service cloud.firestore {
       allow read, write: if isAuth() && (request.auth.uid == uid || isAdminOrTeacher());
     }
 
-    // Payment receipts (compressed images). A student can upload (create) their
-    // receipt, but only staff can READ them — students never read receipts back,
-    // so this keeps one student from seeing another's payment proof.
+    // Payment receipts (compressed images). Staff only, both ways: students no
+    // longer submit payments, and while create was open to anyone signed in, a
+    // student could plant a receipt image on somebody else's payment.
     match /receipts/{paymentId} {
-      allow read: if isAdminOrTeacher();
-      allow create: if isAuth();
-      allow update, delete: if isAdminOrTeacher();
+      allow read, write: if isAdminOrTeacher();
     }
   }
 }

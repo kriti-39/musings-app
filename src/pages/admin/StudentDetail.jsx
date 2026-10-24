@@ -5,7 +5,7 @@ import TeacherLayout from '../../components/teacher/TeacherLayout'
 import { useAuth } from '../../context/AuthContext'
 import {
   getUser, getStudentAllClasses, getStudentPayments, getStudentRecurringSchedules,
-  cancelRecurringSchedule, confirmPayment, rejectPayment, hasRecording, getPhoto, updateUser,
+  cancelRecurringSchedule, confirmPayment, rejectPayment, hasRecording, hasNotes, getPhoto, updateUser,
 } from '../../firebase/db'
 import Avatar from '../../components/shared/Avatar'
 import { buildStudentStats, attendanceFrom, attendance } from '../../utils/studentStats'
@@ -487,7 +487,7 @@ function ClassTable({ classes, emptyText, onSelect }) {
                 </td>
                 <td className="px-4 py-3 text-gray-400 text-xs">
                   {hasRecording(c) && <span className="text-amber-600 mr-1">▶</span>}
-                  {c.lessonNotes || (hasRecording(c) ? 'Recording added' : '—')}
+                  {hasNotes(c) ? 'Has notes' : (hasRecording(c) ? 'Recording added' : '—')}
                 </td>
               </tr>
             )

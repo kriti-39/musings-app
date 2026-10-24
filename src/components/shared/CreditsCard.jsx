@@ -10,6 +10,7 @@ import { grantCreditsWithPayment } from '../../firebase/db'
 import {
   MAX_CREDITS, creditSummary, validityLabel, isIndianStudent, usesCredits,
   batchRemaining, daysLeft, creditsWord, daysWord, expiresWord, fmtExpiry, toDate, creditExpiry,
+  creditsNeedPayment, paymentProblem,
 } from '../../utils/credits'
 import ConfirmDialog from './ConfirmDialog'
 
@@ -324,6 +325,11 @@ function GrantModal({ student, summary, busy, onClose, onGrant }) {
   const expiry = creditExpiry(new Date(), student)
   const options = Array.from({ length: summary.canHold }, (_, i) => i + 1)
   const paid = Number(amount) || 0
+  // Payment before credits, unless this student is one the studio settles with
+  // outside the app. The data layer refuses either way; this is so the office
+  // sees why before they tap.
+  const exempt = !creditsNeedPayment(student)
+  const payBlocked = paymentProblem(student, amount)
 
   return (
     <Modal title="Add credits" onClose={onClose}>
@@ -367,8 +373,14 @@ function GrantModal({ student, summary, busy, onClose, onGrant }) {
           : 'No fee set on this profile. '}
         {paid > 0
           ? 'This is recorded as a confirmed payment against this month.'
-          : 'Leave it at 0 to add credits without recording a payment.'}
+          : exempt
+            ? 'This student is set up to be given credits without a payment recorded here.'
+            : 'Credits are added once the money is in — enter what was paid.'}
       </p>
+
+      {payBlocked && (
+        <p className="text-[11px] text-red-600 mt-1.5">{payBlocked}</p>
+      )}
 
       <div className="mt-4">
         <label className="block text-xs font-medium text-gray-600 mb-1">Note (optional)</label>
@@ -386,9 +398,9 @@ function GrantModal({ student, summary, busy, onClose, onGrant }) {
         </p>
       </div>
 
-      <Actions busy={busy} onClose={onClose}
+      <Actions busy={busy} onClose={onClose} disabled={!!payBlocked}
         label={paid > 0 ? `Add ${qty} · ₹${paid}` : `Add ${qty} ${creditsWord(qty)}`}
-        onGo={() => setConfirming(true)} />
+        onGo={() => { if (!payBlocked) setConfirming(true) }} />
 
       {/* A deliberate second look. Granting credits takes money and hands over
           classes in one step, and the quantity and amount are both a tap away
@@ -399,7 +411,7 @@ function GrantModal({ student, summary, busy, onClose, onGrant }) {
           message={
             (paid > 0
               ? `₹${paid.toLocaleString('en-IN')} will be recorded as received by ${method.replace('_', ' ')}, already confirmed. `
-              : 'No payment will be recorded. ') +
+              : 'No payment is being recorded — this student is settled with outside the app. ') +
             `The credits are valid until ${fmtExpiry(expiry)}, and the student is told straight away.`
           }
           confirmLabel={paid > 0 ? `Add ${qty} · ₹${paid}` : `Add ${qty}`}

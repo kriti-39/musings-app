@@ -221,3 +221,26 @@ export function balanceTone(summary) {
   if (summary.expiringSoon) return 'soon'
   return 'ok'
 }
+
+// ─── Must money be recorded before credits are? ──────────────────────────────
+// Yes, for everyone except the students the studio settles with outside the
+// app. Credits are classes already paid for, so a grant with no payment behind
+// it is either a mistake or a gift — and an app that lets one happen silently
+// cannot be reconciled afterwards.
+//
+// The exemption is a flag on the student, set by an admin: for a student on a
+// flexible arrangement, or one whose fees are handled in a way the app does not
+// model, the office adds credits directly and records the money elsewhere.
+// It lives on the profile, which students cannot edit.
+export function creditsNeedPayment(student) {
+  return student?.creditsWithoutPayment !== true
+}
+
+export function paymentProblem(student, amount) {
+  if (!creditsNeedPayment(student)) return null
+  const paid = Number(amount)
+  if (!Number.isFinite(paid) || paid <= 0) {
+    return 'Record the amount paid — credits are only added once the money is in.'
+  }
+  return null
+}

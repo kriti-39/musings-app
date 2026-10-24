@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   RiCloseLine, RiCalendarLine, RiTimeLine, RiUserLine, RiGlobalLine, RiVideoLine, RiTicketLine,
 } from 'react-icons/ri'
 import {
   cancelClass, rescheduleClass, markClassDone,
-  confirmClass, rejectClass, updateClass, deleteClass, saveRecording,
-  hasRecording, recordingText, staffReturnCredit, staffKeepCredit,
+  confirmClass, rejectClass, deleteClass, saveRecording, saveLessonNotes,
+  hasRecording, recordingText, notesFrom, getClassDetail,
+  staffReturnCredit, staffKeepCredit,
   markClassMissed, unmarkClassMissed,
 } from '../../firebase/db'
 import RecordingBlock from '../shared/RecordingBlock'
@@ -26,8 +27,25 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
   const [view, setView] = useState('detail') // detail | reschedule | notes | recording
   const [newDate, setNewDate] = useState('')
   const [newTime, setNewTime] = useState('')
-  const [notes, setNotes] = useState(cls.lessonNotes || '')
-  const [rec, setRec] = useState(recordingText(cls))
+  // The notes and the recording are not on the class document — they live in
+  // its detail document, which only this student and staff can read. Fetched
+  // when the modal opens rather than carried along in the list.
+  const [detail, setDetail] = useState(null)
+  const [notes, setNotes] = useState('')
+  const [rec, setRec] = useState('')
+
+  useEffect(() => {
+    let live = true
+    getClassDetail(cls.id)
+      .then(d => {
+        if (!live) return
+        setDetail(d)
+        setNotes(notesFrom(cls, d))
+        setRec(recordingText(cls, d))
+      })
+      .catch(e => console.error('Class detail failed to load:', e))
+    return () => { live = false }
+  }, [cls.id])   // eslint-disable-line react-hooks/exhaustive-deps
   const [loading, setLoading] = useState(false)
   const [confirm, setConfirm] = useState(null) // { title, message, confirmLabel, variant, action }
 
@@ -59,13 +77,13 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
   }
 
   async function handleSaveNotes() {
-    await handle(() => updateClass(cls.id, { lessonNotes: notes }))
+    await handle(() => saveLessonNotes(cls.id, notes))
   }
 
   async function handleSaveRecording() {
     if (!rec.trim()) return
     // Notify the student only the first time a recording is added
-    const notify = hasRecording(cls) ? null : cls.studentId
+    const notify = hasRecording(cls, detail) ? null : cls.studentId
     await handle(() => saveRecording(cls.id, rec, notify))
   }
 
@@ -205,10 +223,10 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
                 <button onClick={handleSaveNotes} disabled={loading} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50">Save</button>
               </div>
             </div>
-          ) : cls.lessonNotes ? (
+          ) : notesFrom(cls, detail) ? (
             <div className="bg-gray-50 rounded-xl px-4 py-3">
               <p className="text-xs font-medium text-gray-500 mb-1">Lesson Notes</p>
-              <p className="text-sm text-gray-700">{cls.lessonNotes}</p>
+              <p className="text-sm text-gray-700">{notesFrom(cls, detail)}</p>
             </div>
           ) : null}
 
@@ -233,7 +251,7 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
               </div>
             </div>
           ) : (
-            <RecordingBlock text={recordingText(cls)} />
+            <RecordingBlock text={recordingText(cls, detail)} />
           )}
 
           {/* Reschedule form */}
@@ -280,14 +298,14 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
               <button onClick={() => setView('notes')}
                 className="border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50 transition-colors"
               >
-                {cls.lessonNotes ? 'Edit Notes' : 'Add Notes'}
+                {notesFrom(cls, detail) ? 'Edit Notes' : 'Add Notes'}
               </button>
               {cls.status === 'completed' && (
                 <button onClick={() => setView('recording')}
                   className="flex items-center justify-center gap-1.5 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50 transition-colors"
                 >
                   <RiVideoLine size={15} className="shrink-0" />
-                  {hasRecording(cls) ? 'Edit Recording' : 'Add Recording'}
+                  {hasRecording(cls, detail) ? 'Edit Recording' : 'Add Recording'}
                 </button>
               )}
               {cls.status === 'scheduled' && (

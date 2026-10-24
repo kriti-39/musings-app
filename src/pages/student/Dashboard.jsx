@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getStudentAllClasses, markClassDone, cancelClassByStudent, requestReschedule, getTeacher, sweepPastClasses, hasRecording } from '../../firebase/db'
+import { getStudentAllClasses, markClassDone, cancelClassByStudent, requestReschedule, getTeacher, sweepPastClasses, hasRecording, hasNotes, notesFrom, getClassDetails } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 import { RiCalendarLine, RiAddLine, RiVideoLine } from 'react-icons/ri'
 import { LOCAL_TZ, tzCity, fmtTime, fmtLongDate } from '../../utils/timezone'
@@ -36,7 +36,12 @@ export default function StudentDashboard() {
 
   async function fetchClasses() {
     try {
-      setAll(sweepPastClasses(await getStudentAllClasses(user.id)))
+      const swept = sweepPastClasses(await getStudentAllClasses(user.id))
+      // Notes live in each class's detail document now, so they are fetched
+      // for the classes that have one — their own, so they may read them.
+      const needDetail = swept.filter(c => hasNotes(c) || hasRecording(c))
+      const details = await getClassDetails(needDetail.map(c => c.id))
+      setAll(swept.map(c => (details[c.id] ? { ...c, detail: details[c.id] } : c)))
     } catch (e) {
       console.error('Failed to fetch classes:', e)
     } finally {
@@ -180,7 +185,9 @@ function ClassCard({ cls, onAction, onPatch, tz, teacherTz }) {
               Teacher's time: {fmtTime(date, teacherTz)} ({tzCity(teacherTz)})
             </p>
           )}
-          {cls.lessonNotes && <p className="text-xs text-gray-500 mt-2 italic">"{cls.lessonNotes}"</p>}
+          {notesFrom(cls, cls.detail) && (
+            <p className="text-xs text-gray-500 mt-2 italic">"{notesFrom(cls, cls.detail)}"</p>
+          )}
           {cls.status === 'completed' && hasRecording(cls) && (
             // Goes to Recordings rather than straight to the link — the
             // passcode lives there too.

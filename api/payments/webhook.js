@@ -11,7 +11,7 @@
 import { getAdmin } from '../_lib/firebaseAdmin.js'
 import { verifyWebhookSignature, readRawBody } from '../_lib/razorpay.js'
 import { priceFor, toPaise } from '../../src/utils/pricing.js'
-import { creditExpiry, validityLabel } from '../../src/utils/credits.js'
+import { creditExpiry, validityLabel, canGrant } from '../../src/utils/credits.js'
 
 // Vercel would otherwise parse the JSON body for us, and parsing destroys the
 // exact bytes the signature was computed over.
@@ -135,6 +135,51 @@ async function grantForPayment(payment) {
     })
     console.error(`Payment ${paymentId}: expected ${expectedPaise} paise, got ${payment.amount}`)
     return { ignored: 'amount mismatch' }
+  }
+
+  // ── Would these credits still fit? ─────────────────────────────────────────
+  // create-order checked the cap when the order was made, but that was before
+  // the payment. In between, the office may have added credits by hand, or the
+  // student may have opened two checkouts while holding none and paid both.
+  // Without this, either route puts them over the four-credit cap the rest of
+  // the app treats as an invariant.
+  //
+  // The money has arrived, so this never silently keeps it: the event is parked
+  // as `over_cap` for the office to settle — add the credits once room appears,
+  // extend what they hold, or refund. The student is told to expect that.
+  const heldSnap = await db.collection('credits').where('studentId', '==', studentId).get()
+  const heldBatches = heldSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+  const room = canGrant(heldBatches, quantity)
+  if (!room.ok) {
+    await claimRef.update({
+      status: 'over_cap',
+      reason: room.reason || 'would exceed the credit cap',
+      needsStaff: true,
+    })
+    console.error(`Payment ${paymentId}: paid for ${quantity} but ${room.reason}`)
+    try {
+      const staff = await db.collection('users')
+        .where('role', 'in', ['admin', 'teacher']).get()
+      const msg = `${student.name || 'A student'} paid for ${quantity} credit${quantity === 1 ? '' : 's'}`
+        + ` but is at the limit. Nothing was added — please sort this out.`
+      await Promise.all([
+        ...staff.docs.map(d => db.collection('notifications').add({
+          userId: d.id, type: 'payment_over_cap', title: 'Paid, but over the credit limit',
+          message: msg, relatedClassId: null, isRead: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        })),
+        db.collection('notifications').add({
+          userId: studentId, type: 'payment_held', title: 'Payment received',
+          message: 'Your payment arrived, but you are at the four-credit limit, so they have not been added yet.'
+            + ' The office will be in touch — nothing is lost.',
+          relatedClassId: null, isRead: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }),
+      ])
+    } catch (e) {
+      console.error('over_cap recorded, notifications failed:', e)
+    }
+    return { ignored: 'over cap', needsStaff: true }
   }
 
   // ── Grant ──────────────────────────────────────────────────────────────────

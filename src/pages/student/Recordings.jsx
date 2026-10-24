@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getStudentAllClasses, renameRecording, hasRecording, recordingText } from '../../firebase/db'
+import { getStudentAllClasses, renameRecording, hasRecording, recordingText, recordingTitleOf, getClassDetails } from '../../firebase/db'
 import RecordingBlock from '../../components/shared/RecordingBlock'
 import { LOCAL_TZ, tzCity, fmtTime, fmtLongDate } from '../../utils/timezone'
 import { RiVideoLine, RiExternalLinkLine, RiPencilLine, RiCheckLine, RiCloseLine } from 'react-icons/ri'
@@ -14,8 +14,13 @@ export default function StudentRecordings() {
   async function fetchRecordings() {
     try {
       const all = await getStudentAllClasses(user.id)
+      // The class document only carries a flag; the link and passcode live in
+      // its detail document, so other students cannot read them. Filter on the
+      // flag first and fetch detail for just those — not for every class.
+      const withRec = all.filter(c => hasRecording(c))
+      const details = await getClassDetails(withRec.map(c => c.id))
       // Newest first (getStudentAllClasses already sorts descending)
-      setRecordings(all.filter(hasRecording))
+      setRecordings(withRec.map(c => ({ ...c, detail: details[c.id] || null })))
     } catch (e) {
       console.error('Failed to fetch recordings:', e)
     } finally {
@@ -29,7 +34,9 @@ export default function StudentRecordings() {
   }, [user])
 
   function patchTitle(id, title) {
-    setRecordings(prev => prev.map(c => (c.id === id ? { ...c, recordingTitle: title } : c)))
+    setRecordings(prev => prev.map(c => (
+      c.id === id ? { ...c, detail: { ...(c.detail || {}), recordingTitle: title } } : c
+    )))
   }
 
   const tz = user?.timezone || LOCAL_TZ
@@ -66,10 +73,10 @@ export default function StudentRecordings() {
 
 function RecordingCard({ cls, tz, onRename }) {
   const [editing, setEditing] = useState(false)
-  const [title, setTitle] = useState(cls.recordingTitle || '')
+  const [title, setTitle] = useState(recordingTitleOf(cls, cls.detail))
   const [saving, setSaving] = useState(false)
   const date = cls.scheduledAt?.toDate?.() ?? new Date()
-  const displayTitle = cls.recordingTitle || 'Class recording'
+  const displayTitle = recordingTitleOf(cls, cls.detail) || 'Class recording'
 
   async function handleSave() {
     setSaving(true)
@@ -101,7 +108,7 @@ function RecordingCard({ cls, tz, onRename }) {
                 className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50">
                 <RiCheckLine size={16} />
               </button>
-              <button onClick={() => { setEditing(false); setTitle(cls.recordingTitle || '') }}
+              <button onClick={() => { setEditing(false); setTitle(recordingTitleOf(cls, cls.detail)) }}
                 className="p-1.5 text-gray-400 hover:bg-gray-50 rounded-lg transition-colors">
                 <RiCloseLine size={16} />
               </button>
@@ -124,7 +131,7 @@ function RecordingCard({ cls, tz, onRename }) {
         </div>
       </div>
       <div className="mt-4">
-        <RecordingBlock text={recordingText(cls)} />
+        <RecordingBlock text={recordingText(cls, cls.detail)} />
       </div>
     </div>
   )

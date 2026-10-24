@@ -168,7 +168,8 @@ export default function BookClass() {
     const slotEnd = addMinutes(slotStart, duration)
     return events.some(e => e.type === 'blocked' && slotStart < e.end && slotEnd > e.start)
   }
-  // Overlaps another class → bookable, but needs teacher confirmation
+  // Overlaps another class → cannot be booked. One class per slot, so the
+  // answer is simply to pick another time.
   function hitsBusy(slotStart) {
     const slotEnd = addMinutes(slotStart, duration)
     return events.some(e => e.type === 'booked' && slotStart < e.end && slotEnd > e.start)
@@ -310,7 +311,7 @@ export default function BookClass() {
           <p className="text-sm text-gray-400 mt-1">
             {onCredits
               ? 'Tap a date, then a free time slot. Each class uses one credit.'
-              : 'Tap a date, then a free time slot to book instantly. Taken slots need teacher confirmation.'}
+              : 'Tap a date, then a free time slot to book instantly.'}
           </p>
         </div>
 
@@ -469,18 +470,15 @@ export default function BookClass() {
       {bookingSuccess && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
-            <div className={`mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-4 ${
-              bookingSuccess.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'
-            }`}>
+            {/* Always confirmed. A booking that clashes is refused outright
+                now, so there is no longer a "waiting for the teacher" state to
+                land in from here. */}
+            <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-4 bg-green-50 text-green-600">
               <RiCheckLine size={30} />
             </div>
-            <h2 className="text-lg font-semibold text-gray-800">
-              {bookingSuccess.status === 'pending' ? 'Request sent!' : 'Class booked!'}
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-800">Class booked!</h2>
             <p className="text-sm text-gray-500 mt-2">
-              {bookingSuccess.status === 'pending'
-                ? 'This time overlaps another class, so your teacher will confirm it shortly. You’ll get a notification once it’s confirmed.'
-                : 'Your class is confirmed and added to your schedule. See you there!'}
+              Your class is confirmed and added to your schedule. See you there!
             </p>
             <div className="flex gap-3 mt-6">
               <button

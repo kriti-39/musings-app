@@ -9,6 +9,11 @@ import {
   rechargeCreditForClass, flagCreditForReview, grantCredits,
 } from './credits'
 import { usesCredits } from '../utils/credits'
+import { createClassHoldingSlot, slotTakenError, slotIsFree } from './slots'
+
+// Re-exported so the booking forms can ask "is this slot free?" without
+// reaching past db.js, which is where everything else talks to Firestore.
+export { slotIsFree }
 
 // ─── USERS ────────────────────────────────────────────────────────────────────
 
@@ -93,15 +98,19 @@ async function staffContext(studentId, date, teacherId = null) {
   return { name, when }
 }
 
-export async function createClass(data) {
-  const ref = await addDoc(collection(db, 'classes'), {
+// Staff path. Refuses a time that already has a class, same as a student
+// booking does — one class per slot, whoever is doing the booking. Pass
+// allowOverlap when that is genuinely meant (a group lesson, a known
+// exception); the form asks before it does.
+export async function createClass(data, { allowOverlap = false } = {}) {
+  const ref = await createClassHoldingSlot({
     ...data,
     duration: Math.min(Math.max(Number(data.duration) || 60, 15), 180),
     markedDoneBy: null,
     lessonNotes: data.lessonNotes || '',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  })
+  }, { allowOverlap })
   // Notify teacher and all admins about the new booking request
   if (data.status === 'pending') {
     const staffIds = await getStaffIds()
@@ -151,15 +160,13 @@ export async function createBooking({
   let status = forceStatus
 
   if (!status) {
-    // Two classes can't share a time. The calendar already hides taken slots,
-    // but someone may have booked this one since it loaded — so the check is
-    // repeated here, as close to the write as possible.
+    // Two classes can't share a time. This read is the fast, friendly no: it
+    // catches the slot that was taken while the calendar sat open, and it
+    // happens BEFORE any credit is spent, so the common clash never touches
+    // the student's balance. It is not the guarantee — the transaction below
+    // is, for the case where two people tap the same slot at the same moment.
     const overlaps = await findOverlappingClasses(teacherId, startDate, dur)
-    if (overlaps.length > 0) {
-      const err = new Error('That time has already been booked.')
-      err.code = 'slot-taken'
-      throw err
-    }
+    if (overlaps.length > 0) throw slotTakenError()
     status = 'scheduled'
   }
 
@@ -176,7 +183,11 @@ export async function createBooking({
 
   let ref
   try {
-    ref = await addDoc(collection(db, 'classes'), {
+    // The class and its slot locks commit together, so a second booking for
+    // the same time cannot slip in between the check above and this write.
+    // forceStatus is staff saying they mean it, which is the one case allowed
+    // to sit on top of an existing class.
+    ref = await createClassHoldingSlot({
       studentId, teacherId,
       scheduledAt: scheduledAt?.toDate ? scheduledAt : Timestamp.fromDate(startDate),
       duration: dur, lessonNotes,
@@ -190,10 +201,11 @@ export async function createBooking({
       freeReason: freeClass ? (freeReason || '').trim() : '',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    })
+    }, { allowOverlap: Boolean(forceStatus) })
   } catch (e) {
     // The credit was already taken, so give it straight back — a failed write
-    // must never cost the student a paid class.
+    // must never cost the student a paid class. This now also covers losing a
+    // same-instant race for the slot, which arrives here as 'slot-taken'.
     if (creditBatchId) {
       await returnCredit(creditBatchId).catch(err =>
         console.error('Booking failed AND the credit could not be returned —', creditBatchId, err))

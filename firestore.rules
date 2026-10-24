@@ -56,6 +56,24 @@ service cloud.firestore {
       allow delete: if isAdminOrTeacher();
     }
 
+    // One class per slot. A lock's id is derived from the teacher and the
+    // quarter hour, so two bookings for the same time contend for the same
+    // document and only one commits — that contention is what actually
+    // prevents a double booking, and it happens in the transaction, not here.
+    //
+    // These rules therefore only keep locks tidy; they deliberately do not try
+    // to verify that a lock being overwritten is really free, because doing so
+    // would need a get() of the owning class for every granule and would blow
+    // the ten-document limit on a multi-granule booking. A student who went
+    // around the app could scribble on a lock, but they could equally write a
+    // class document directly — the booking rules above are where that is
+    // bounded, and nothing here makes it worse.
+    match /slotLocks/{key} {
+      allow read: if isAuth();
+      allow create, update: if isAuth();
+      allow delete: if isAdminOrTeacher();
+    }
+
     match /recurringSchedules/{id} {
       allow read: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
       allow write: if isAdminOrTeacher();

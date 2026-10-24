@@ -20,6 +20,7 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
     isRecurring: false,
     frequency: 'weekly',
     endDate: '',
+    allowOverlap: false,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -32,8 +33,9 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
     getTeacherId().then(setTeacherId)
   }, [])
 
-  // Warn (non-blocking) if the chosen slot already has a class or falls into
-  // a blocked (unavailable) period
+  // Does the chosen slot already have a class, or fall into a blocked period?
+  // A clash blocks the form (createClass would refuse it anyway); a blocked
+  // period is still only a warning, since that is the studio's own time.
   useEffect(() => {
     if (!teacherId || !form.date || !form.time) { setOverlap(false); setBlockedHit(null); return }
     let active = true
@@ -68,6 +70,7 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
       // Collected and handed back to the page so the calendar updates instantly,
       // without waiting on (or depending on) a re-fetch round trip.
       const created = []
+      let skipped = 0
       // The student reads their notification in their own timezone
       const studentTz = students.find(s => s.id === studentId)?.timezone || 'Asia/Kolkata'
 
@@ -91,7 +94,11 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
           8
         )
 
-        const refs = await Promise.all(occurrences.map(date => createClass({
+        // A series spans weeks, so some occurrences may clash and others be
+        // clear. Each is attempted on its own and the clashes are reported
+        // rather than silently skipped — otherwise a student is told about
+        // eight classes and only gets six.
+        const settled = await Promise.allSettled(occurrences.map(date => createClass({
           studentId,
           teacherId: tId,
           scheduledAt: Timestamp.fromDate(date),
@@ -100,17 +107,28 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
           recurringId: recurring.id,
           isRecurring: true,
           status: 'scheduled',
-        })))
-        occurrences.forEach((date, i) => created.push({
-          id: refs[i].id,
-          studentId, teacherId: tId,
-          scheduledAt: Timestamp.fromDate(date),
-          duration: Number(form.duration),
-          lessonNotes: form.notes,
-          recurringId: recurring.id,
-          isRecurring: true,
-          status: 'scheduled',
-        }))
+        }, { allowOverlap: form.allowOverlap })))
+
+        occurrences.forEach((date, i) => {
+          if (settled[i].status !== 'fulfilled') return
+          created.push({
+            id: settled[i].value.id,
+            studentId, teacherId: tId,
+            scheduledAt: Timestamp.fromDate(date),
+            duration: Number(form.duration),
+            lessonNotes: form.notes,
+            recurringId: recurring.id,
+            isRecurring: true,
+            status: 'scheduled',
+          })
+        })
+
+        if (created.length === 0) {
+          setError('Every date in this series already has a class. Please pick another time.')
+          setLoading(false)
+          return
+        }
+        skipped = occurrences.length - created.length
       } else {
         const ref = await createClass({
           studentId,
@@ -121,7 +139,7 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
           recurringId: null,
           isRecurring: false,
           status: 'scheduled',
-        })
+        }, { allowOverlap: form.allowOverlap })
         created.push({
           id: ref.id,
           studentId, teacherId: tId,
@@ -143,6 +161,7 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
           'class_scheduled',
           form.isRecurring
             ? `Starting ${when}, then ${form.frequency === 'weekly' ? 'every week' : 'every 2 weeks'}`
+              + (skipped ? ` (${skipped} date${skipped > 1 ? 's' : ''} skipped — already booked)` : '')
             : when,
           null,
           form.isRecurring ? 'Recurring classes scheduled' : 'New class scheduled',
@@ -153,7 +172,16 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
       onClose()
     } catch (err) {
       console.error(err)
-      setError('Something went wrong. Please try again.')
+      // Someone booked this slot while the form was open — the overlap check
+      // above runs on load, the refusal comes from the write itself.
+      if (err?.code === 'slot-taken') {
+        setOverlap(true)
+        setError('This time has just been booked by someone else. Please pick another slot.')
+      } else if (err?.code === 'bad-slot') {
+        setError('That date and time could not be read. Please set them again.')
+      } else {
+        setError('Something went wrong. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
@@ -272,10 +300,26 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
             )}
           </div>
 
-          {overlap && !form.isRecurring && (
-            <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
-              <RiErrorWarningLine size={15} className="shrink-0 mt-0.5" />
-              <span>This time already has a class. You can still schedule it (e.g. a group lesson).</span>
+          {/* A clash is a refusal, not a warning — one class per slot. The
+              override is here because a group lesson is a real thing, but it
+              has to be asked for rather than walked past. */}
+          {overlap && (
+            <div className="text-xs bg-red-50 text-red-700 rounded-lg px-3 py-2.5 space-y-2">
+              <div className="flex items-start gap-2">
+                <RiErrorWarningLine size={15} className="shrink-0 mt-0.5" />
+                <span>
+                  {form.isRecurring
+                    ? 'The first of these classes falls on a time that already has one. Pick another time — any later occurrence that clashes will be skipped too.'
+                    : 'This time already has a class. Please pick another slot.'}
+                </span>
+              </div>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox" name="allowOverlap" checked={form.allowOverlap}
+                  onChange={handleChange} className="mt-0.5 shrink-0"
+                />
+                <span>Schedule it anyway — two students at the same time, on purpose.</span>
+              </label>
             </div>
           )}
 
@@ -298,9 +342,11 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
             >
               Cancel
             </button>
+            {/* Held shut on a clash until the override is ticked, so the
+                refusal is visible before the tap rather than after it. */}
             <button
-              type="submit" disabled={loading}
-              className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+              type="submit" disabled={loading || (overlap && !form.allowOverlap)}
+              className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium transition-colors disabled:bg-gray-200 disabled:text-gray-400"
             >
               {loading ? 'Scheduling...' : form.isRecurring ? 'Schedule Classes' : 'Schedule Class'}
             </button>

@@ -4,7 +4,9 @@ import { useAuth } from '../../context/AuthContext'
 import AdminLayout from '../../components/admin/AdminLayout'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import StudentLayout from '../../components/student/StudentLayout'
-import { usesCredits, validityRangeLabel, creditCap, classOptions } from '../../utils/credits'
+import {
+  usesCredits, validityRangeLabel, validityWeeks, creditCap, classOptions, isIndianStudent,
+} from '../../utils/credits'
 
 // ─── Help ────────────────────────────────────────────────────────────────────
 // One set of answers for everyone. Staff get asked these questions by students
@@ -20,9 +22,18 @@ function sections(student, isStaff) {
 
   // A student is told their own window and their own limit; staff are told
   // both, since they answer for everybody.
-  const validity = isStaff
-    ? '4 weeks for students in India; abroad it depends on how many are bought — 2 weeks for one class, up to 15 for twelve'
-    : validityRangeLabel(student)
+  // How long a purchase lasts. In India it is one number; abroad it depends on
+  // the size, so the sizes and their windows are spelled out from the real
+  // rules — nothing here can drift away from what the app actually does.
+  const sizeWindows = (who) => classOptions(who)
+    .map(n => `${n === 1 ? 'one class lasts' : `${n} last`} ${validityWeeks(who, n)} weeks`)
+    .join(', ')
+
+  const expiry = isStaff
+    ? `In India any purchase lasts 4 weeks. Abroad it depends on the size: ${sizeWindows({ country: 'USA' })}.`
+    : isIndianStudent(student)
+      ? `They last ${validityRangeLabel(student)} from the day they are added.`
+      : `It depends how many you buy: ${sizeWindows(student)}, counted from the day they are added.`
   const cap = isStaff
     ? '3 for students in India and up to 12 for students abroad'
     : String(creditCap(student))
@@ -41,6 +52,10 @@ function sections(student, isStaff) {
         {
           q: 'Why can’t I pick some times?',
           a: 'A slot in red is already taken, or Guruji has marked himself unavailable. Only free slots can be booked — two classes can never share a time.',
+        },
+        {
+          q: 'Why can’t I book further ahead?',
+          a: 'You can book the next 7 days. For anything beyond that, ask Guruji — he can schedule it for you, and he books recurring classes months ahead.',
         },
         {
           q: 'Can I change or cancel a class?',
@@ -73,11 +88,11 @@ function sections(student, isStaff) {
         },
         {
           q: 'When do they expire?',
-          a: `They last ${validity} from the day they are added, and then run to the end of that week — always a Sunday, so you are never counting to an odd weekday. The exact date is shown before you pay and again with your balance. If something comes up, Guruji or the office can extend it.`,
+          a: `${expiry} It then runs to the end of that week — always a Sunday, so you are never counting to an odd weekday. The exact date is shown before you pay and again with your balance, so you always know the day.`,
         },
         {
-          q: 'What if my credits expired and I didn’t use them?',
-          a: 'Speak to Guruji or the office. They can bring expired credits back — it is a conversation, not a rule the app enforces against you.',
+          q: 'What if I can’t use them in time?',
+          a: 'Tell Guruji as early as you can, rather than once the date has gone. Illness, travel and exams are all ordinary and he would far rather hear about it in advance than find classes sitting unused.',
         },
         {
           q: 'I cancelled a class. Do I get the credit back?',
@@ -94,7 +109,7 @@ function sections(student, isStaff) {
       items: [
         {
           q: 'What does a class cost?',
-          a: 'Whatever was agreed with Guruji — your fee is on your profile and the app charges exactly that. If something looks wrong, ask the office rather than paying it.',
+          a: 'Whatever you agreed with Guruji. The app does not set a price — fees differ from student to student — so you enter the amount yourself when you buy. If you are not sure what it should be, ask the office before paying.',
         },
         {
           q: 'Is my card safe?',
@@ -116,6 +131,10 @@ function sections(student, isStaff) {
         {
           q: 'I forgot my password.',
           a: 'Ask Guruji or the office to reset it. There is no self-service reset — your login is a User ID, not an email address.',
+        },
+        {
+          q: 'It says my account is paused.',
+          a: 'Classes are on hold for now, so the app will not let you book. Nothing is lost — any classes you had paid for are kept and waiting. Speak to Guruji or the office about starting again.',
         },
         {
           q: 'Can I use this on my phone?',

@@ -113,7 +113,9 @@ export async function grantCredits({
   }
 
   const now = new Date()
-  const expiresAt = creditExpiry(now, profile)
+  // The window depends on the size of the purchase abroad, so the quantity
+  // goes in — without it a single top-up would be given a twelve-class window.
+  const expiresAt = creditExpiry(now, profile, qty)
 
   const ref = await addDoc(collection(db, COL), {
     studentId,
@@ -121,7 +123,7 @@ export async function grantCredits({
     used: 0,
     status: 'active',
     expiresAt: Timestamp.fromDate(expiresAt),
-    validity: validityLabel(profile),
+    validity: validityLabel(profile, qty),
     source: 'admin',
     reason: (reason || '').trim(),
     paymentId,
@@ -249,14 +251,15 @@ export async function refundCreditForClass(cls, student, reason = 'Class cancell
   if (!wentBack) {
     // The original batch is gone, lapsed or already whole — issue a new credit
     // so the student isn't out of pocket.
-    const expiresAt = creditExpiry(new Date(), student)
+    // A refund reissues one class, so it carries a single class's window.
+    const expiresAt = creditExpiry(new Date(), student, 1)
     await addDoc(collection(db, COL), {
       studentId: cls.studentId,
       quantity: 1,
       used: 0,
       status: 'active',
       expiresAt: Timestamp.fromDate(expiresAt),
-      validity: validityLabel(student),
+      validity: validityLabel(student, 1),
       source: 'refund',
       reason,
       refundedFromClassId: cls.id,

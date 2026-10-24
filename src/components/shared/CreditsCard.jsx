@@ -8,7 +8,7 @@ import {
 } from '../../firebase/credits'
 import { grantCreditsWithPayment } from '../../firebase/db'
 import {
-  creditSummary, validityLabel, isIndianStudent, usesCredits,
+  creditSummary, validityLabel, validityRangeLabel, isIndianStudent, usesCredits,
   batchRemaining, daysLeft, creditsWord, daysWord, expiresWord, fmtExpiry, toDate, creditExpiry,
   creditsNeedPayment, paymentProblem,
 } from '../../utils/credits'
@@ -157,7 +157,7 @@ export default function CreditsCard({ student, onChange, openGrantSignal = 0 }) 
 
           {/* India / abroad decides the window. Staff-side only, by design. */}
           <p className="text-[11px] text-gray-400 mt-1.5">
-            {isIndianStudent(student) ? 'India' : 'Overseas'} · credits last {validityLabel(student)}
+            {isIndianStudent(student) ? 'India' : 'Overseas'} · {validityRangeLabel(student)}
           </p>
         </div>
 
@@ -324,7 +324,7 @@ function GrantModal({ student, summary, busy, onClose, onGrant }) {
   const [amount, setAmount] = useState(student?.feeAmount ? String(student.feeAmount) : '')
   const [method, setMethod] = useState('cash')
 
-  const expiry = creditExpiry(new Date(), student)
+  const expiry = creditExpiry(new Date(), student, qty)
   const options = Array.from({ length: summary.canHold }, (_, i) => i + 1)
   const paid = Number(amount) || 0
   // Payment before credits, unless this student is one the studio settles with
@@ -393,7 +393,7 @@ function GrantModal({ student, summary, busy, onClose, onGrant }) {
 
       <div className="mt-4 bg-amber-50 rounded-lg px-3 py-2.5">
         <p className="text-xs text-amber-800">
-          Valid for {validityLabel(student)} — until <span className="font-semibold">{fmtExpiry(expiry)}</span>
+          Valid for {validityLabel(student, qty)} — until <span className="font-semibold">{fmtExpiry(expiry)}</span>
         </p>
         <p className="text-[11px] text-amber-700/70 mt-0.5">
           The student is told straight away. You can extend this later.

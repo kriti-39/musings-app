@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import AdminLayout from '../../components/admin/AdminLayout'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import StudentLayout from '../../components/student/StudentLayout'
-import { usesCredits, validityLabel, creditCap, classOptions } from '../../utils/credits'
+import { usesCredits, validityRangeLabel, creditCap, classOptions } from '../../utils/credits'
 
 // ─── Help ────────────────────────────────────────────────────────────────────
 // One set of answers for everyone. Staff get asked these questions by students
@@ -21,13 +21,13 @@ function sections(student, isStaff) {
   // A student is told their own window and their own limit; staff are told
   // both, since they answer for everybody.
   const validity = isStaff
-    ? '4 weeks for students in India and 6 weeks for students abroad'
-    : validityLabel(student)
+    ? '4 weeks for students in India; abroad it depends on how many are bought — 2 weeks for one class, up to 15 for twelve'
+    : validityRangeLabel(student)
   const cap = isStaff
     ? '3 for students in India and up to 12 for students abroad'
     : String(creditCap(student))
   const choices = isStaff
-    ? '1, 2 or 3 in India; 1, 4, 6 or 12 abroad'
+    ? '1, 2 or 3 in India; 1, 3, 4 or 12 abroad'
     : classOptions(student).join(', ')
 
   return [

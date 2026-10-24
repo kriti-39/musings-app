@@ -19,10 +19,6 @@
 export const INDIA_CAP = 3
 export const FOREIGN_CAP = 12
 
-// How long a batch stays valid, before the rounding below.
-export const INDIA_VALIDITY_DAYS = 28    // four weeks
-export const FOREIGN_VALIDITY_DAYS = 42  // six weeks
-
 export function creditCap(student) {
   return isIndianStudent(student) ? INDIA_CAP : FOREIGN_CAP
 }
@@ -32,7 +28,40 @@ export function creditCap(student) {
 // lessons. One is always offered so somebody can top up a single class instead
 // of buying another whole block.
 export function classOptions(student) {
-  return isIndianStudent(student) ? [1, 2, 3] : [1, 4, 6, 12]
+  return isIndianStudent(student) ? [1, 2, 3] : [1, 3, 4, 12]
+}
+
+// ─── How long a purchase lasts ───────────────────────────────────────────────
+// In India, any purchase runs for four weeks. A student there books around an
+// ordinary week and the studio is in the same city, so the size of the block
+// makes no difference to how long it takes to get through.
+export const INDIA_VALIDITY_WEEKS = 4
+
+// Abroad, the window depends on how many classes were bought: a single
+// top-up is meant to be used soon, while twelve is a term's worth of lessons
+// bought around a visit or a stretch of leave and needs room to breathe.
+const FOREIGN_WEEKS = { 1: 2, 3: 4, 4: 5, 12: 15 }
+
+// Weeks for a purchase of `quantity` classes by this student.
+//
+// The sizes above are the ones actually offered. Staff can grant any number,
+// so anything else takes the window of the largest size at or below it, plus a
+// week for each extra class — monotonic, and erring long. Erring long can only
+// give a student more time; erring short loses them a class they paid for.
+export function validityWeeks(student, quantity) {
+  if (isIndianStudent(student)) return INDIA_VALIDITY_WEEKS
+
+  const n = Math.max(Math.floor(Number(quantity) || 0), 1)
+  if (FOREIGN_WEEKS[n]) return FOREIGN_WEEKS[n]
+
+  const sizes = Object.keys(FOREIGN_WEEKS).map(Number).sort((a, b) => a - b)
+  const below = sizes.filter(s => s <= n).pop()
+  if (below === undefined) return FOREIGN_WEEKS[sizes[0]]
+  return FOREIGN_WEEKS[below] + (n - below)
+}
+
+export function validityDays(student, quantity) {
+  return validityWeeks(student, quantity) * 7
 }
 
 // Credits only apply to students put on the credit system. Everyone already on
@@ -56,8 +85,20 @@ export function isIndianStudent(student) {
   return true
 }
 
-export function validityLabel(student) {
-  return isIndianStudent(student) ? '4 weeks' : '6 weeks'
+// The window for a specific purchase, e.g. "5 weeks".
+export function validityLabel(student, quantity = null) {
+  const w = validityWeeks(student, quantity ?? creditCap(student))
+  return `${w} ${w === 1 ? 'week' : 'weeks'}`
+}
+
+// For somewhere there is no particular purchase in view — the Help page, or a
+// hint on a profile. In India it is one number; abroad it is a range, and
+// saying "6 weeks" there would be wrong for three of the four sizes.
+export function validityRangeLabel(student) {
+  if (isIndianStudent(student)) return `${INDIA_VALIDITY_WEEKS} weeks`
+  const sizes = classOptions(student)
+  const weeks = sizes.map(n => validityWeeks(student, n))
+  return `${Math.min(...weeks)} to ${Math.max(...weeks)} weeks, depending on how many you buy`
 }
 
 // Adding "a month" to the 31st is undefined — there is no 31st of February.
@@ -102,9 +143,11 @@ export function nextSunday(date) {
   return d
 }
 
-// When a batch granted at `from` runs out, for this student.
-export function creditExpiry(from, student) {
-  const days = isIndianStudent(student) ? INDIA_VALIDITY_DAYS : FOREIGN_VALIDITY_DAYS
+// When a batch of `quantity` classes granted at `from` runs out, for this
+// student. The quantity matters abroad, where the window grows with the size
+// of the purchase.
+export function creditExpiry(from, student, quantity = null) {
+  const days = validityDays(student, quantity ?? creditCap(student))
   return endOfDay(nextSunday(addDays(new Date(from), days)))
 }
 

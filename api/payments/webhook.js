@@ -191,7 +191,8 @@ async function grantForPayment(payment) {
 
   // ── Grant ──────────────────────────────────────────────────────────────────
   const now = new Date()
-  const expiresAt = creditExpiry(now, student)
+  // The window depends on how many classes were bought, abroad.
+  const expiresAt = creditExpiry(now, student, quantity)
   const rupees = payment.amount / 100
 
   const paymentRef = db.collection('payments').doc()
@@ -223,7 +224,7 @@ async function grantForPayment(payment) {
     used: 0,
     status: 'active',
     expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
-    validity: validityLabel(student),
+    validity: validityLabel(student, quantity),
     source: 'purchase',
     reason: 'Paid online',
     paymentId: paymentRef.id,

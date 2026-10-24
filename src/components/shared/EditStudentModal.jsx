@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { updateUser } from '../../firebase/db'
 import { RiCloseLine } from 'react-icons/ri'
 import { useAuth } from '../../context/AuthContext'
-import { validityLabel } from '../../utils/credits'
+import { validityRangeLabel } from '../../utils/credits'
 import PhotoPicker from './PhotoPicker'
 import TimezonePicker from './TimezonePicker'
 
@@ -148,7 +148,7 @@ export default function EditStudentModal({ student, photo = null, onClose, onSuc
               <div className="flex gap-2">
                 {[
                   { v: 'legacy', label: 'As before', hint: 'Books freely, fees handled outside the app' },
-                  { v: 'credits', label: 'Class credits', hint: `Needs credits to book · last ${validityLabel(form)}` },
+                  { v: 'credits', label: 'Class credits', hint: `Needs credits to book · ${validityRangeLabel(form)}` },
                 ].map(o => (
                   <button key={o.v} type="button"
                     onClick={() => setForm(f => ({ ...f, billingMode: o.v }))}

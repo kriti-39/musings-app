@@ -39,7 +39,7 @@ export default function BuyCreditsModal({ student, canHold, onClose }) {
   // Indian student, six abroad, then out to the end of that week. Shown before
   // they pay, because "4 weeks" and "until Sunday 22 November" are not equally
   // useful to someone planning lessons.
-  const expiry = creditExpiry(new Date(), student)
+  const expiry = creditExpiry(new Date(), student, qty)
 
   async function handlePay() {
     setError('')
@@ -167,7 +167,7 @@ export default function BuyCreditsModal({ student, canHold, onClose }) {
           Use {qty === 1 ? 'it' : 'them'} by <span className="font-semibold">{fmtExpiry(expiry)}</span>
         </p>
         <p className="text-[11px] text-amber-700/80 mt-0.5">
-          Classes are valid {validityLabel(student)} from today, to the end of that week.
+          {qty === 1 ? 'This class is' : `These ${qty} classes are`} valid {validityLabel(student, qty)} from today, to the end of that week.
           Use them all sooner and you can buy more right away.
         </p>
       </div>

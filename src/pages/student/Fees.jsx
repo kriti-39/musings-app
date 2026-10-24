@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react'
 import StudentLayout from '../../components/student/StudentLayout'
 import { useAuth } from '../../context/AuthContext'
-import { getStudentPayments, createPayment, saveReceipt } from '../../firebase/db'
+import { getStudentPayments } from '../../firebase/db'
 import { loadCredits } from '../../firebase/credits'
 import { usesCredits, creditsWord, MAX_CREDITS } from '../../utils/credits'
-import { compressImage } from '../../utils/image'
-import MonthPicker from '../../components/shared/MonthPicker'
 import BuyCreditsModal from '../../components/student/BuyCreditsModal'
-import { RiAddLine, RiCloseLine, RiUploadLine, RiTicketLine } from 'react-icons/ri'
+import { RiTicketLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -19,7 +17,6 @@ function monthLabel(m) {
 export default function StudentFees() {
   const { user } = useAuth()
   const [payments, setPayments] = useState([])
-  const [showAdd, setShowAdd] = useState(false)
   const [buying, setBuying] = useState(false)
   const [credits, setCredits] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -52,7 +49,7 @@ export default function StudentFees() {
         <div className="flex items-center justify-between gap-3 mb-6">
           <h1 className="text-xl font-semibold text-gray-800">Fees</h1>
 
-          {onCredits ? (
+          {onCredits && (
             <button
               onClick={() => setBuying(true)}
               disabled={full}
@@ -60,13 +57,6 @@ export default function StudentFees() {
               className="shrink-0 flex items-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             >
               <RiTicketLine size={17} /> Buy credits
-            </button>
-          ) : (
-            <button
-              onClick={() => setShowAdd(true)}
-              className="shrink-0 flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-            >
-              <RiAddLine size={18} /> Submit Payment
             </button>
           )}
         </div>
@@ -76,7 +66,7 @@ export default function StudentFees() {
             ? `Every payment here buys class credits. ${
                 credits ? `You hold ${credits.available} of ${MAX_CREDITS} right now.` : ''
               }`
-            : 'You can upload a screenshot or note cash payments here. Your teacher/admin will confirm once verified.'}
+            : 'Payments recorded by Guruji or the office appear here.'}
         </p>
 
         {loading ? (
@@ -139,14 +129,6 @@ export default function StudentFees() {
         )}
       </div>
 
-      {showAdd && (
-        <SubmitPaymentModal
-          studentId={user.id}
-          onClose={() => setShowAdd(false)}
-          onSuccess={refresh}
-        />
-      )}
-
       {buying && (
         <BuyCreditsModal
           student={user}
@@ -155,121 +137,5 @@ export default function StudentFees() {
         />
       )}
     </StudentLayout>
-  )
-}
-
-function SubmitPaymentModal({ studentId, onClose, onSuccess }) {
-  const [form, setForm] = useState({
-    amount: '',
-    method: 'bank_transfer',
-    months: [`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`],
-    note: '',
-  })
-  const [file, setFile] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!form.amount) return setError('Please enter the amount.')
-    if (form.months.length === 0) return setError('Select at least one month.')
-    setError('')
-    setLoading(true)
-    try {
-      const paymentData = {
-        studentId,
-        amount: Number(form.amount),
-        method: form.method,
-        months: form.months,
-        note: form.note,
-        submittedBy: 'student',
-        status: 'pending',
-      }
-      // Compress the receipt locally (no Storage dependency) and store it in Firestore.
-      let dataUrl = null
-      if (file) {
-        try { dataUrl = await compressImage(file) } catch (e) { console.error('Compress failed:', e) }
-      }
-      const newPayment = await createPayment({ ...paymentData, hasReceipt: !!dataUrl })
-      if (dataUrl) await saveReceipt(newPayment.id, dataUrl)
-      onSuccess()
-      onClose()
-    } catch (e) {
-      console.error(e)
-      setError('Something went wrong. Please try again.')
-      setLoading(false)
-    }
-  }
-
-  const METHODS = [
-    { value: 'bank_transfer', label: 'Bank Transfer' },
-    { value: 'upi', label: 'UPI' },
-    { value: 'cash', label: 'Cash' },
-    { value: 'other', label: 'Other' },
-  ]
-
-  return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl max-h-[90dvh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-800">Submit Payment</h2>
-          <button onClick={onClose}><RiCloseLine size={20} className="text-gray-400" /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-2">Paying for which months? (select one or more)</label>
-            <MonthPicker value={form.months} onChange={months => setForm(f => ({ ...f, months }))} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Amount (₹) *</label>
-              <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} required
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                placeholder="2000"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Payment Method</label>
-              <select value={form.method} onChange={e => { if (e.target.value === 'cash') setFile(null); setForm(f => ({ ...f, method: e.target.value })) }}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
-              >
-                {METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {form.method === 'cash' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Note</label>
-              <input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                placeholder="e.g. Paid to Deva sir on 5th May"
-              />
-            </div>
-          )}
-
-          {form.method !== 'cash' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Upload Screenshot (optional)</label>
-              <label className="flex items-center gap-2 border border-dashed border-gray-200 rounded-lg px-3 py-3 cursor-pointer hover:border-amber-300 transition-colors">
-                <RiUploadLine size={16} className="text-gray-400" />
-                <span className="text-sm text-gray-500">{file ? file.name : 'Attach payment proof'}</span>
-                <input type="file" accept="image/*" className="hidden" onChange={e => setFile(e.target.files[0])} />
-              </label>
-            </div>
-          )}
-
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50">Cancel</button>
-            <button type="submit" disabled={loading} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50">
-              {loading ? 'Submitting...' : 'Submit'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
   )
 }

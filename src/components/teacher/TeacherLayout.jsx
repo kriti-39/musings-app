@@ -7,8 +7,7 @@ import { useTheme } from '../../context/ThemeContext'
 import NotificationBell from '../shared/NotificationBell'
 import {
   RiDashboardLine, RiCalendarLine, RiMoneyDollarCircleLine, RiListCheck2,
-  RiMenuLine, RiLogoutBoxLine, RiSunLine, RiMoonLine, RiUserLine, RiSettings3Line
-} from 'react-icons/ri'
+  RiMenuLine, RiLogoutBoxLine, RiSunLine, RiMoonLine, RiUserLine, RiSettings3Line, RiQuestionLine } from 'react-icons/ri'
 
 const navItems = [
   { to: '/teacher/dashboard', icon: RiDashboardLine, label: 'Dashboard' },
@@ -17,6 +16,7 @@ const navItems = [
   { to: '/teacher/schedule', icon: RiCalendarLine, label: 'Schedule' },
   { to: '/teacher/fees', icon: RiMoneyDollarCircleLine, label: 'Fees' },
   { to: '/teacher/settings', icon: RiSettings3Line, label: 'Settings' },
+  { to: '/teacher/help', icon: RiQuestionLine, label: 'Help' },
 ]
 
 export default function TeacherLayout({ children }) {

@@ -24,6 +24,7 @@ import StudentFees from './pages/student/Fees'
 import StudentRecordings from './pages/student/Recordings'
 
 import Settings from './pages/shared/Settings'
+import Help from './pages/shared/Help'
 
 function RoleRedirect() {
   const { role, loading } = useAuth()
@@ -64,6 +65,11 @@ export default function App() {
           <Route path="/student/book" element={<ProtectedRoute allowedRoles={['student']}><BookClass /></ProtectedRoute>} />
           <Route path="/student/fees" element={<ProtectedRoute allowedRoles={['student']}><StudentFees /></ProtectedRoute>} />
           <Route path="/student/recordings" element={<ProtectedRoute allowedRoles={['student']}><StudentRecordings /></ProtectedRoute>} />
+
+          {/* Help — one set of answers for every role */}
+          <Route path="/admin/help" element={<ProtectedRoute allowedRoles={['admin']}><Help /></ProtectedRoute>} />
+          <Route path="/teacher/help" element={<ProtectedRoute allowedRoles={['teacher']}><Help /></ProtectedRoute>} />
+          <Route path="/student/help" element={<ProtectedRoute allowedRoles={['student']}><Help /></ProtectedRoute>} />
 
           {/* Settings — all roles */}
           <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><Settings /></ProtectedRoute>} />

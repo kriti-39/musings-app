@@ -8,12 +8,7 @@ import StudentLayout from '../../components/student/StudentLayout'
 import { RiGlobalLine, RiNotification3Line } from 'react-icons/ri'
 import ThemePicker from '../../components/shared/ThemePicker'
 import MyProfileCard from '../../components/shared/MyProfileCard'
-
-const TIMEZONES = [
-  'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney',
-  'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Chicago',
-  'America/Los_Angeles', 'America/Toronto', 'America/Vancouver', 'Pacific/Auckland',
-]
+import TimezonePicker from '../../components/shared/TimezonePicker'
 
 export default function Settings() {
   const { user, role } = useAuth()
@@ -66,10 +61,9 @@ export default function Settings() {
                 ? 'Your local timezone. Students see this as the teacher’s time when booking.'
                 : 'Class times are shown in this timezone.'}
             </p>
-            <select value={tz} onChange={e => setTz(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 mb-3">
-              {TIMEZONES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
-            </select>
+            <div className="mb-3">
+              <TimezonePicker value={tz} onChange={setTz} />
+            </div>
             {tzMsg && <p className="text-xs text-green-600 mb-3">{tzMsg}</p>}
             <button type="submit" disabled={tzLoading}
               className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">

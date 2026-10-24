@@ -4,12 +4,7 @@ import { RiCloseLine } from 'react-icons/ri'
 import { useAuth } from '../../context/AuthContext'
 import { validityLabel } from '../../utils/credits'
 import PhotoPicker from './PhotoPicker'
-
-const TIMEZONES = [
-  'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney',
-  'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Chicago',
-  'America/Los_Angeles', 'America/Toronto', 'America/Vancouver', 'Pacific/Auckland',
-]
+import TimezonePicker from './TimezonePicker'
 
 const FEE_TYPES = [
   { value: 'monthly', label: 'Monthly flat fee' },
@@ -119,12 +114,10 @@ export default function EditStudentModal({ student, photo = null, onClose, onSuc
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Timezone</label>
-            <select
-              name="timezone" value={form.timezone} onChange={handleChange}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
-            >
-              {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>)}
-            </select>
+            <TimezonePicker
+              value={form.timezone}
+              onChange={tz => setForm(f => ({ ...f, timezone: tz }))}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

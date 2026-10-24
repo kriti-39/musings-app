@@ -5,11 +5,69 @@
 
 export const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
 
-export const TIMEZONES = [
+// ─── Every timezone, not a shortlist ─────────────────────────────────────────
+// This used to be thirteen hand-picked zones, which was fine while every
+// student was in one of them and wrong the moment one wasn't — there was no
+// way to say Asia/Karachi or America/Sao_Paulo, and a student in the wrong
+// zone sees every class time wrong.
+//
+// The browser already knows all ~418 IANA zones, so the list comes from there.
+// The handful the studio actually uses stay pinned at the top of the picker,
+// because scrolling past Africa/Abidjan to reach Kolkata would be worse than
+// the short list ever was.
+export const COMMON_TIMEZONES = [
   'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney',
   'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Chicago',
   'America/Los_Angeles', 'America/Toronto', 'America/Vancouver', 'Pacific/Auckland',
 ]
+
+function allZones() {
+  try {
+    const all = Intl.supportedValuesOf?.('timeZone')
+    if (Array.isArray(all) && all.length > 0) return all
+  } catch {
+    // Intl.supportedValuesOf is recent; an older browser just gets the
+    // shortlist rather than an empty picker.
+  }
+  return COMMON_TIMEZONES
+}
+
+export const ALL_TIMEZONES = allZones()
+
+// Kept under its old name so every existing call site still works.
+export const TIMEZONES = ALL_TIMEZONES
+
+// The common ones first, then everything else alphabetically. A zone already
+// on the profile is included even if this browser has never heard of it — an
+// older alias like Asia/Calcutta must not silently vanish from someone's
+// profile just because the picker was opened.
+export function timezoneChoices(current = null) {
+  const seen = new Set()
+  const out = []
+  const add = (tz) => {
+    if (!tz || seen.has(tz)) return
+    seen.add(tz)
+    out.push(tz)
+  }
+  if (current) add(current)
+  COMMON_TIMEZONES.forEach(add)
+  ALL_TIMEZONES.forEach(add)
+  return out
+}
+
+// "+5:30", "-4:00", "+0:00" — what a person actually recognises a zone by.
+export function tzOffsetLabel(tz, date = new Date()) {
+  const mins = tzOffsetMinutes(tz, date)
+  if (!Number.isFinite(mins)) return ''
+  const sign = mins < 0 ? '-' : '+'
+  const abs = Math.abs(mins)
+  return `GMT${sign}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`
+}
+
+// "Kolkata · Asia/Kolkata · GMT+5:30" — searchable by city, region or offset.
+export function tzSearchText(tz) {
+  return `${tzCity(tz)} ${tz.replace(/[/_]/g, ' ')} ${tzOffsetLabel(tz)}`.toLowerCase()
+}
 
 // Short, friendly label for a timezone, e.g. "Asia/Kolkata" -> "Kolkata"
 export function tzCity(tz) {

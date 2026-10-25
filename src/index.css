@@ -23,7 +23,7 @@
 
   --color-ink: #0B0C0E;             /* black — headings and body */
   --color-muted: #586175;           /* captions, labels, metadata */
-  --color-faint: #6C7580;           /* placeholders, disabled, timestamps */
+  --color-faint: #646C77;           /* placeholders, disabled, timestamps */
 
   --color-accent: #0A6AA8;          /* cerulean, dark enough for small text */
   --color-accent-fill: #0A7ABF;     /* cerulean — darkened so white text clears 4.5:1 */
@@ -72,7 +72,7 @@
 
   --color-ink: #F2F5FA;
   --color-muted: #99A4B8;
-  --color-faint: #768295;
+  --color-faint: #7E8A9D;
 
   --color-accent: #56B6F2;          /* cerulean, lifted to read on dark */
   --color-accent-fill: #0A7ABF;     /* same fill as light: white on it clears 4.5:1 */
@@ -384,6 +384,41 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 * { -webkit-tap-highlight-color: var(--color-tap); }
 .cursor-pointer:active { background-color: var(--color-tap); }
 .hover\:bg-amber-50:hover { background-color: var(--color-accent-soft); }
+
+/* ── HOVER STATES ────────────────────────────────────────────────────────────
+   These were the hole in the bridge. The resting colours above were all
+   re-pointed at tokens, but the `hover:` variants of the neutral greys were
+   left as Tailwind shipped them — so on a dark theme the background went to
+   literal #F9FAFB (near-white) while the text stayed the dark theme's
+   near-white ink. Measured: 1.05:1. Not "hard to read"; invisible.
+   A hover is the one state nobody screenshots, which is why it survived a
+   contrast pass that covered everything at rest.
+
+   `--color-raised` already means "a step above the surface" and is defined per
+   theme, so every one of these resolves light on light and dark on dark:
+   ink reads 17.1:1 in light and 14.9:1 in dark. */
+.hover\:bg-gray-50:hover,
+.hover\:bg-gray-100:hover,
+.hover\:bg-white:hover { background-color: var(--color-raised); }
+
+/* Tinted hovers go to their own soft token rather than a grey, so a
+   destructive row still feels destructive on hover. */
+.hover\:bg-green-50:hover { background-color: var(--color-ok-bg); }
+.hover\:bg-red-50:hover { background-color: var(--color-danger-soft); }
+.hover\:bg-orange-50:hover { background-color: var(--color-warn-bg); }
+
+/* The same bug the other way round: `hover:text-gray-800` on an icon button
+   darkens the text, which is right on a white card and wrong on a dark one —
+   it walked toward the background instead of away from it. Hovering should
+   always move text TOWARDS the ink, whichever direction that is. */
+.hover\:text-gray-600:hover,
+.hover\:text-gray-700:hover,
+.hover\:text-gray-800:hover { color: var(--color-ink); }
+.hover\:text-amber-500:hover,
+.hover\:text-amber-600:hover,
+.hover\:text-amber-800:hover { color: var(--color-accent); }
+.hover\:text-green-600:hover { color: var(--color-ok-ink); }
+.hover\:text-red-600:hover { color: var(--color-danger-ink); }
 
 /* ── The one gradient, on the one surface that earns it ── */
 .grad-accent { background-image: var(--grad-accent); }

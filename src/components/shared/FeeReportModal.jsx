@@ -144,9 +144,9 @@ export default function FeeReportModal({ students, payments, onClose }) {
               <p className="text-xs font-medium text-gray-500 mb-2">{periodLabel(report.period)}</p>
               <div className="grid grid-cols-3 gap-2 text-center">
                 {[
-                  { label: 'To collect', value: t.withDues, color: 'text-red-500' },
-                  { label: 'Awaiting', value: t.awaiting, color: 'text-amber-600' },
-                  { label: 'Paid', value: t.fullyPaid, color: 'text-green-600' },
+                  { label: 'Paid', value: t.paidCount, color: 'text-green-600' },
+                  { label: 'No payment', value: t.quietCount, color: 'text-gray-400' },
+                  { label: 'Students', value: t.students, color: 'text-gray-700' },
                 ].map(c => (
                   <div key={c.label}>
                     <p className={`text-xl font-semibold tabular-nums ${c.color}`}>{c.value}</p>
@@ -160,14 +160,17 @@ export default function FeeReportModal({ students, payments, onClose }) {
                   ₹{t.received.toLocaleString('en-IN')}
                 </span>
               </div>
-              {t.outstanding > 0 && (
+              {t.awaiting > 0 && (
                 <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>Outstanding{t.outstandingUnknown ? ' (monthly fees only)' : ''}</span>
-                  <span className="font-medium text-red-500 tabular-nums">
-                    ₹{t.outstanding.toLocaleString('en-IN')}
+                  <span>Still to confirm</span>
+                  <span className="font-medium text-amber-600 tabular-nums">
+                    ₹{t.awaiting.toLocaleString('en-IN')}
                   </span>
                 </div>
               )}
+              <p className="text-[11px] text-gray-400 mt-2">
+                Counted by the date each payment arrived.
+              </p>
             </div>
           )}
 

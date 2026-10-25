@@ -24,7 +24,19 @@ export default function TeacherFees() {
   const { user } = useAuth()
   const [students, setStudents] = useState([])
   const [payments, setPayments] = useState({})
-  const [selectedMonth, setSelectedMonth] = useState(currentMonthStr())
+  // One month or several — the totals follow the whole selection. Never empty.
+  const [selectedMonths, setSelectedMonths] = useState([currentMonthStr()])
+  const selectedMonth = selectedMonths[selectedMonths.length - 1] || currentMonthStr()
+
+  function toggleMonth(m) {
+    setSelectedMonths(prev => {
+      if (prev.includes(m)) {
+        const next = prev.filter(x => x !== m)
+        return next.length ? next : prev      // never clear the last one
+      }
+      return [...prev, m].sort()
+    })
+  }
   const [filter, setFilter] = useState('all') // all | paid | pending | unpaid
   const [receiptId, setReceiptId] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -44,12 +56,14 @@ export default function TeacherFees() {
   const [monthClasses, setMonthClasses] = useState([])
   useEffect(() => {
     let live = true
-    const [y, m] = selectedMonth.split('-').map(Number)
-    getAllClassesForMonth(y, m - 1)
-      .then(list => { if (live) setMonthClasses(list) })
-      .catch(e => { console.error('Classes for the month failed to load:', e); if (live) setMonthClasses([]) })
+    Promise.all(selectedMonths.map(mk => {
+      const [y, m] = mk.split('-').map(Number)
+      return getAllClassesForMonth(y, m - 1)
+    }))
+      .then(lists => { if (live) setMonthClasses(lists.flat()) })
+      .catch(e => { console.error('Classes for the months failed to load:', e); if (live) setMonthClasses([]) })
     return () => { live = false }
-  }, [selectedMonth])
+  }, [selectedMonths.join(',')])   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     async function fetch() {
@@ -110,9 +124,10 @@ export default function TeacherFees() {
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {months.map(m => (
-              <button key={m} onClick={() => setSelectedMonth(m)}
+              <button key={m} onClick={() => toggleMonth(m)}
+                aria-pressed={selectedMonths.includes(m)}
                 className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  selectedMonth === m ? 'bg-amber-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-amber-300'
+                  selectedMonths.includes(m) ? 'bg-amber-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-amber-300'
                 }`}
               >
                 {monthLabel(m)}
@@ -122,7 +137,7 @@ export default function TeacherFees() {
         </div>
 
         {/* What the month actually brought in */}
-        {!loading && <FeeMonthSummary students={students} payments={payments} classes={monthClasses} month={selectedMonth} />}
+        {!loading && <FeeMonthSummary students={students} payments={payments} classes={monthClasses} months={selectedMonths} />}
 
         {/* Summary — click a card to filter the list */}
         <div className="grid grid-cols-3 gap-4 mb-6">

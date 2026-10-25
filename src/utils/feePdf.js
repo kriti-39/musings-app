@@ -4,11 +4,17 @@
 // Amounts are written as "Rs." rather than the rupee sign: jsPDF's built-in
 // fonts have no glyph for it, and it would come out as a stray character.
 
-import { monthsLabel, periodLabel, reportFileName } from './feeReport'
+import { periodLabel, reportFileName } from './feeReport'
 
 const AMBER = [245, 158, 11]
 const INK = [31, 41, 55]
 const MUTED = [107, 114, 128]
+
+// "28 Sep" — the date the money arrived, which is the whole point of this report.
+function fmtDay(d) {
+  if (!d) return '-'
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+}
 
 const rs = n => `Rs. ${Number(n || 0).toLocaleString('en-IN')}`
 
@@ -40,13 +46,14 @@ export async function buildFeeReportDoc(report, { studioName = "Deva's Classes" 
 
   // ── Summary strip ──
   const t = report.totals
+  // No "with dues" and no "outstanding": on credits a class cannot be booked
+  // until it is paid for, so a debt is not a state a student can be in.
   const summary = [
     ['Students', String(t.students)],
-    ['Paid', String(t.fullyPaid)],
-    ['With dues', String(t.withDues)],
-    ['Awaiting', String(t.awaiting)],
+    ['Paid', String(t.paidCount)],
     ['Received', rs(t.received)],
-    ['Outstanding', t.outstandingUnknown ? `${rs(t.outstanding)} +` : rs(t.outstanding)],
+    ...(t.classesDone !== null ? [['Classes done', String(t.classesDone)]] : []),
+    ...(t.awaitingCount ? [['To confirm', rs(t.awaiting)]] : []),
   ]
   const boxW = (pageWidth - margin * 2) / summary.length
   doc.setDrawColor(229, 231, 235).setLineWidth(0.7)
@@ -81,24 +88,24 @@ export async function buildFeeReportDoc(report, { studioName = "Deva's Classes" 
     y += 10
   }
 
-  // ── 1. Still to collect ──
-  if (report.toCollect.length) {
-    sectionHeading('To collect', `${report.toCollect.length} student${report.toCollect.length > 1 ? 's' : ''}`)
+  // ── 1. What came in ──
+  if (report.paid.length) {
+    sectionHeading('Received', `${report.paid.length} student${report.paid.length > 1 ? 's' : ''}`)
     autoTable(doc, {
       ...tableBase,
       startY: y,
-      head: [['Student', 'Phone', 'Country', 'Months not paid', 'Due']],
-      body: report.toCollect.map(r => [
+      head: [['Student', 'Country', 'Paid on', 'Classes', 'Received']],
+      body: report.paid.map(r => [
         r.name,
-        r.phone || '-',
         r.country || '-',
-        monthsLabel(r.unpaid),
-        r.due === null ? '-' : rs(r.due),
+        r.paidOn.map(x => fmtDay(x.date)).join(', ') || '-',
+        r.classesDone === null ? '-' : String(r.classesDone),
+        rs(r.received),
       ]),
       columnStyles: {
         0: { fontStyle: 'bold' },
-        3: { textColor: [185, 28, 28] },
-        4: { halign: 'right' },
+        3: { halign: 'center' },
+        4: { halign: 'right', textColor: [21, 128, 61] },
       },
     })
     y = doc.lastAutoTable.finalY + 24
@@ -107,41 +114,37 @@ export async function buildFeeReportDoc(report, { studioName = "Deva's Classes" 
   // ── 2. Submitted but not yet confirmed (staff action, not chasing) ──
   if (report.awaiting.length) {
     if (y > doc.internal.pageSize.getHeight() - 140) { doc.addPage(); y = margin }
-    sectionHeading('Awaiting your confirmation', 'payment submitted, not yet verified')
+    sectionHeading('Awaiting your confirmation', 'payment recorded, not yet verified')
     autoTable(doc, {
       ...tableBase,
       startY: y,
-      head: [['Student', 'Phone', 'Months']],
-      body: report.awaiting.map(r => [r.name, r.phone || '-', monthsLabel(r.pending)]),
-      columnStyles: { 0: { fontStyle: 'bold' }, 2: { textColor: [180, 83, 9] } },
+      head: [['Student', 'Phone', 'Amount']],
+      body: report.awaiting.map(r => [r.name, r.phone || '-', rs(r.awaiting)]),
+      columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', textColor: [180, 83, 9] } },
     })
     y = doc.lastAutoTable.finalY + 24
   }
 
-  // ── 3. Paid in full ──
-  if (report.settled.length) {
+  // ── 3. Nobody paid in this period. Not a list to chase — a student who
+  //       bought nothing simply had classes left, or took a break. ──
+  if (report.quiet.length) {
     if (y > doc.internal.pageSize.getHeight() - 140) { doc.addPage(); y = margin }
-    sectionHeading('Paid', `${report.settled.length} student${report.settled.length > 1 ? 's' : ''}`)
+    sectionHeading('No payment in this period', `${report.quiet.length} student${report.quiet.length > 1 ? 's' : ''}`)
     autoTable(doc, {
       ...tableBase,
       startY: y,
-      head: [['Student', 'Country', 'Months paid', 'Received']],
-      body: report.settled.map(r => [
+      head: [['Student', 'Country', 'Classes']],
+      body: report.quiet.map(r => [
         r.name,
         r.country || '-',
-        monthsLabel(r.paid),
-        rs(r.received),
+        r.classesDone === null ? '-' : String(r.classesDone),
       ]),
-      columnStyles: {
-        0: { fontStyle: 'bold' },
-        2: { textColor: [21, 128, 61] },
-        3: { halign: 'right' },
-      },
+      columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'center' } },
     })
     y = doc.lastAutoTable.finalY + 24
   }
 
-  if (!report.toCollect.length && !report.awaiting.length && !report.settled.length) {
+  if (!report.paid.length && !report.awaiting.length && !report.quiet.length) {
     doc.setFont('helvetica', 'normal').setFontSize(10).setTextColor(...MUTED)
     doc.text('No fee records for this period.', margin, y)
   }

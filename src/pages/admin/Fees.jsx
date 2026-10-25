@@ -25,7 +25,23 @@ export default function AdminFees() {
   const { user } = useAuth()
   const [students, setStudents] = useState([])
   const [payments, setPayments] = useState({})
-  const [selectedMonth, setSelectedMonth] = useState(currentMonthStr())
+  // One month or several. Tapping toggles; the totals and the table both
+  // follow the whole selection, so "Sep and Oct together" is one tap away.
+  // Never empty — an empty selection would show nothing and look broken.
+  const [selectedMonths, setSelectedMonths] = useState([currentMonthStr()])
+  // The single month the table header and Mark Paid default to: the latest one
+  // picked, which is what somebody recording a payment almost always means.
+  const selectedMonth = selectedMonths[selectedMonths.length - 1] || currentMonthStr()
+
+  function toggleMonth(m) {
+    setSelectedMonths(prev => {
+      if (prev.includes(m)) {
+        const next = prev.filter(x => x !== m)
+        return next.length ? next : prev      // never clear the last one
+      }
+      return [...prev, m].sort()
+    })
+  }
   const [loading, setLoading] = useState(true)
   const [addModal, setAddModal] = useState(null) // { studentId, defaultAmount } | { payment }
   const [receiptId, setReceiptId] = useState(null)
@@ -50,14 +66,17 @@ export default function AdminFees() {
   // credit period — every student is on their own now, and the shared month is
   // the only thing that totals.
   const [monthClasses, setMonthClasses] = useState([])
+  const monthsKey = selectedMonths.join(',')
   useEffect(() => {
     let live = true
-    const [y, m] = selectedMonth.split('-').map(Number)
-    getAllClassesForMonth(y, m - 1)
-      .then(list => { if (live) setMonthClasses(list) })
-      .catch(e => { console.error('Classes for the month failed to load:', e); if (live) setMonthClasses([]) })
+    Promise.all(selectedMonths.map(mk => {
+      const [y, m] = mk.split('-').map(Number)
+      return getAllClassesForMonth(y, m - 1)
+    }))
+      .then(lists => { if (live) setMonthClasses(lists.flat()) })
+      .catch(e => { console.error('Classes for the months failed to load:', e); if (live) setMonthClasses([]) })
     return () => { live = false }
-  }, [selectedMonth])
+  }, [monthsKey])   // eslint-disable-line react-hooks/exhaustive-deps
 
 
   function getStatusForMonth(studentId, month) {
@@ -90,9 +109,10 @@ export default function AdminFees() {
             {months.map(m => (
               <button
                 key={m}
-                onClick={() => setSelectedMonth(m)}
+                onClick={() => toggleMonth(m)}
+                aria-pressed={selectedMonths.includes(m)}
                 className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  selectedMonth === m ? 'bg-amber-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-amber-300'
+                  selectedMonths.includes(m) ? 'bg-amber-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-amber-300'
                 }`}
               >
                 {monthLabel(m)}
@@ -105,7 +125,7 @@ export default function AdminFees() {
           <p className="text-gray-400 text-sm text-center py-16">Loading...</p>
         ) : (
           <>
-          <FeeMonthSummary students={students} payments={payments} classes={monthClasses} month={selectedMonth} />
+          <FeeMonthSummary students={students} payments={payments} classes={monthClasses} months={selectedMonths} />
           <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

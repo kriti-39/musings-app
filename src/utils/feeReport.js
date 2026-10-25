@@ -1,7 +1,22 @@
-// Builds the fee-collection report shown in the modal and written to the PDF.
-// Kept free of React and Firebase so the numbers are easy to follow: it takes
-// the students and payments the Fees page already loaded, plus the months the
-// staff picked, and works out who owes what.
+// Builds the fee report shown in the modal and written to the PDF. Kept free of
+// React and Firebase so the numbers are easy to follow: it takes the students
+// and payments the Fees page already loaded, plus the months staff picked, and
+// works out what came in.
+//
+// ─── Money belongs to the month it ARRIVED ───────────────────────────────────
+// This used to work off a `months` array on each payment — "which months is
+// this fee for" — and split a multi-month payment evenly across them. That made
+// sense while students were billed in arrears and could owe for a month they
+// had already been taught.
+//
+// On credits nobody can owe anything: classes are paid for before they are
+// booked. So "due", "unpaid", "to collect" and "outstanding" no longer describe
+// anything that can happen, and the only honest question is what money came in
+// and when. A fee taken on 28 September is September's, whatever months the
+// classes fall in.
+//
+// `months` is still written on a payment, because it records what was agreed
+// and is worth having on a receipt. Nothing in this file totals by it.
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -20,106 +35,137 @@ export function monthsLabel(list) {
   return (list || []).map(monthLabel).join(', ')
 }
 
-// A month counts as paid once a payment covering it is confirmed; a submitted
-// but unconfirmed payment is 'pending' — that needs staff action, not chasing.
-export function monthStatus(payments, month) {
-  const found = (payments || []).find(p => p.months?.includes(month) && p.status !== 'rejected')
-  if (!found) return 'unpaid'
-  return found.status === 'confirmed' ? 'paid' : 'pending'
+// ─── When did this money arrive? ─────────────────────────────────────────────
+// `submittedAt` is a server timestamp written on every payment the app has ever
+// created, so it is the real date. `confirmedAt` is the fallback for anything
+// odd, and the old `months` array is the last resort so a legacy row still
+// lands somewhere sensible rather than disappearing from every total.
+// One month or many. A bare string is accepted because spreading one gives
+// its CHARACTERS — '2026-09' becomes ['2','0','2','6','-','0','9'] — which
+// matches nothing and silently reports zero. A total that reads 0 rather than
+// failing is the worst kind of wrong, so the shape is normalised here instead
+// of trusted at every call site.
+function toMonths(months) {
+  if (typeof months === 'string') return months ? [months] : []
+  return [...(months || [])].filter(Boolean)
 }
 
-// ─── WHAT ONE MONTH BROUGHT IN ───────────────────────────────────────────────
-// A payment can cover several months at one total. For a per-month figure that
-// is SPLIT evenly across the months it covers — ₹6000 for Jun–Aug counts ₹2000
-// in each — so the twelve monthly figures add up to the year instead of
-// counting the same ₹6000 three times.
+export function paymentDate(payment) {
+  for (const field of ['submittedAt', 'confirmedAt']) {
+    const v = payment?.[field]
+    const d = v?.toDate?.() ?? (v ? new Date(v) : null)
+    if (d && !Number.isNaN(d.getTime())) return d
+  }
+  return null
+}
+
+export function paymentMonth(payment) {
+  const d = paymentDate(payment)
+  if (d) return monthKey(d)
+  // Pre-dates the timestamp, or a hand-written row: fall back to the earliest
+  // month it was tagged with.
+  const tagged = (payment?.months || []).filter(Boolean).sort()
+  return tagged[0] || null
+}
+
+// Did this payment land in any of the months being looked at?
+export function paidWithin(payment, months) {
+  const m = paymentMonth(payment)
+  return !!m && (months || []).includes(m)
+}
+
+// Does this payment count towards money received? Rejected never does; a
+// payment still awaiting confirmation is money the studio has not agreed it
+// has, so it is reported separately rather than in the total.
+export function isReceived(payment) {
+  return payment?.status === 'confirmed'
+}
+
+// ─── WHAT CAME IN, OVER ONE MONTH OR SEVERAL ─────────────────────────────────
+// `months` is an array, so the same function answers "September" and
+// "September + October" without a second code path. A payment is counted ONCE,
+// at its full amount, in the month the money arrived — never split, because
+// splitting would mean no single month matched the bank statement.
 //
-// (The period report above deliberately does the opposite: there the whole
-// payment is counted once across the whole selected range, which is right when
-// you're asking "what came in for these months together".)
-export function paymentMonthShare(payment, month) {
-  const months = (payment?.months || []).filter(Boolean)
-  if (!months.includes(month)) return 0
-  const amount = Number(payment.amount) || 0
-  return months.length > 1 ? amount / months.length : amount
-}
+// There is no `expected` and no `unpaid`. On credits a student pays before
+// booking, so there is nothing to be owed and nothing to chase; a student with
+// no payment this month simply did not buy classes this month.
+export function monthlyCollection(students, paymentsMap, months) {
+  const period = toMonths(months).sort()
 
-export function monthlyCollection(students, paymentsMap, month) {
   const rows = (students || []).map(s => {
     const list = paymentsMap?.[s.id] || []
     let received = 0
-    let pending = 0
+    let awaiting = 0
+    const counted = []
+
     for (const p of list) {
       if (p.status === 'rejected') continue
-      const share = paymentMonthShare(p, month)
-      if (!share) continue
-      if (p.status === 'confirmed') received += share
-      else pending += share
+      if (!paidWithin(p, period)) continue
+      const amount = Number(p.amount) || 0
+      if (isReceived(p)) { received += amount; counted.push(p) }
+      else awaiting += amount
     }
-    // Only a monthly fee can be turned into an expected amount; per-class and
-    // flexible students depend on classes taken, so they're left out of the
-    // target rather than guessed at.
-    const expected = s.feeType === 'monthly' ? Number(s.feeAmount) || 0 : 0
+
     return {
       id: s.id,
       name: s.name || '—',
-      received, pending, expected,
+      received,
+      awaiting,
+      payments: counted,
+      feeAmount: Number(s.feeAmount) || 0,
       feeType: s.feeType || '',
-      status: received > 0 ? 'paid' : pending > 0 ? 'pending' : 'unpaid',
+      // "paid" here means "paid something in this period", not "settled up" —
+      // there is no such thing as settled up any more.
+      status: received > 0 ? 'paid' : awaiting > 0 ? 'awaiting' : 'none',
     }
   })
 
   const sum = (key) => rows.reduce((t, r) => t + r[key], 0)
 
   return {
-    month,
+    months: period,
     rows,
     received: Math.round(sum('received')),
-    pending: Math.round(sum('pending')),
-    expected: Math.round(sum('expected')),
+    awaiting: Math.round(sum('awaiting')),
     paidCount: rows.filter(r => r.status === 'paid').length,
-    pendingCount: rows.filter(r => r.status === 'pending').length,
-    unpaidCount: rows.filter(r => r.status === 'unpaid').length,
+    awaitingCount: rows.filter(r => r.status === 'awaiting').length,
     students: rows.length,
-    // Students whose fee can't be turned into a number, so the target is a
-    // floor rather than the whole truth.
-    expectedUnknown: rows.filter(r => r.feeType && r.feeType !== 'monthly').length,
   }
 }
 
-export function buildFeeReport(students, paymentsMap, months) {
-  const period = [...(months || [])].sort()
+// The report behind the modal and the PDF. Same basis as the summary above:
+// what arrived, in the months picked.
+//
+// It no longer has a "to collect" section or an outstanding figure. Those
+// existed to chase a student who had been taught and not yet paid, which the
+// credit system makes impossible — a class cannot be booked until it is paid
+// for. Reporting a debt that cannot exist would be worse than reporting
+// nothing.
+export function buildFeeReport(students, paymentsMap, months, classes = null) {
+  const period = toMonths(months).sort()
+  const taught = classes ? classesInMonths(classes, period) : null
 
   const rows = (students || []).map(s => {
     const list = paymentsMap?.[s.id] || []
-    const paid = []
-    const pending = []
-    const unpaid = []
 
-    for (const m of period) {
-      const st = monthStatus(list, m)
-      if (st === 'paid') paid.push(m)
-      else if (st === 'pending') pending.push(m)
-      else unpaid.push(m)
-    }
-
-    // Money actually received for this period. A single payment can cover
-    // several months, so each payment is counted once at its full amount.
     let received = 0
-    const counted = new Set()
+    let awaiting = 0
+    const paidOn = []
+
     for (const p of list) {
-      if (p.status !== 'confirmed') continue
-      if (!p.months?.some(m => period.includes(m))) continue
-      if (counted.has(p.id)) continue
-      counted.add(p.id)
-      received += Number(p.amount) || 0
+      if (p.status === 'rejected') continue
+      if (!paidWithin(p, period)) continue
+      const amount = Number(p.amount) || 0
+      if (isReceived(p)) {
+        received += amount
+        paidOn.push({ month: paymentMonth(p), date: paymentDate(p), amount, method: p.method || '' })
+      } else {
+        awaiting += amount
+      }
     }
 
-    // Only a monthly fee can be turned into an amount owed; per-class and
-    // flexible students depend on classes taken, so those are left blank
-    // rather than guessed at.
-    const monthlyFee = s.feeType === 'monthly' ? Number(s.feeAmount) || 0 : 0
-    const due = monthlyFee ? monthlyFee * unpaid.length : null
+    paidOn.sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0))
 
     return {
       id: s.id,
@@ -128,36 +174,54 @@ export function buildFeeReport(students, paymentsMap, months) {
       country: s.country || '',
       feeAmount: Number(s.feeAmount) || 0,
       feeType: s.feeType || '',
-      paid, pending, unpaid,
       received,
-      due,
+      awaiting,
+      paidOn,
+      classesDone: taught ? (taught.byStudent[s.id]?.done || 0) : null,
     }
   })
 
-  const toCollect = rows.filter(r => r.unpaid.length > 0)
-    .sort((a, b) => b.unpaid.length - a.unpaid.length || a.name.localeCompare(b.name))
-  const awaiting = rows.filter(r => r.pending.length > 0)
-    .sort((a, b) => a.name.localeCompare(b.name))
-  const settled = rows.filter(r => r.unpaid.length === 0 && r.pending.length === 0 && r.paid.length > 0)
-    .sort((a, b) => a.name.localeCompare(b.name))
+  const byName = (a, b) => String(a.name).localeCompare(String(b.name))
+  const paid = rows.filter(r => r.received > 0)
+    .sort((a, b) => b.received - a.received || byName(a, b))
+  const awaiting = rows.filter(r => r.awaiting > 0).sort(byName)
+  const quiet = rows.filter(r => r.received === 0 && r.awaiting === 0).sort(byName)
 
   return {
     period,
     rows,
-    toCollect,
+    paid,
     awaiting,
-    settled,
+    quiet,
     totals: {
       students: rows.length,
-      fullyPaid: settled.length,
-      withDues: toCollect.length,
-      awaiting: awaiting.length,
+      paidCount: paid.length,
+      awaitingCount: awaiting.length,
+      quietCount: quiet.length,
       received: rows.reduce((sum, r) => sum + r.received, 0),
-      // Only students on a monthly fee contribute a figure here
-      outstanding: rows.reduce((sum, r) => sum + (r.due || 0), 0),
-      outstandingUnknown: toCollect.filter(r => r.due === null).length,
+      awaiting: rows.reduce((sum, r) => sum + r.awaiting, 0),
+      classesDone: taught ? taught.done : null,
     },
   }
+}
+
+// Classes taught across a set of months, for the report. Same rule as
+// monthlyClasses below: completed only, missed counted apart.
+function classesInMonths(classes, period) {
+  const set = new Set(period)
+  const byStudent = {}
+  let done = 0
+  for (const c of classes || []) {
+    const when = c.scheduledAt?.toDate?.() ?? (c.scheduledAt ? new Date(c.scheduledAt) : null)
+    if (!when || Number.isNaN(when.getTime())) continue
+    if (!set.has(monthKey(when))) continue
+    const status = c.status || 'scheduled'
+    if (status !== 'completed' || c.missed) continue
+    done++
+    byStudent[c.studentId] = byStudent[c.studentId] || { done: 0 }
+    byStudent[c.studentId].done++
+  }
+  return { done, byStudent }
 }
 
 // Short label for the period, used in headings and the file name

@@ -23,6 +23,9 @@ export default function AddStudentModal({ onClose, onSuccess }) {
     timezone: 'Asia/Kolkata',
     feeType: 'monthly',
     feeAmount: '',
+    // null = follow their classes. Set it here only when the studio already
+    // knows, which is usually a student moving over from outside the app.
+    attendanceTag: null,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -52,6 +55,9 @@ export default function AddStudentModal({ onClose, onSuccess }) {
         timezone: form.timezone,
         feeType: form.feeType,
         feeAmount: form.feeAmount ? Number(form.feeAmount) : null,
+        // Pinned only if staff chose; otherwise absent, and the arithmetic
+        // decides once there are classes to count.
+        ...(form.attendanceTag ? { attendanceTag: form.attendanceTag } : {}),
         // Everyone added from now on books with credits. Students already on the
         // books are left exactly as they were.
         billingMode: 'credits',
@@ -165,6 +171,39 @@ export default function AddStudentModal({ onClose, onSuccess }) {
                 placeholder="2000"
               />
             </div>
+          </div>
+
+          {/* Regular or irregular. Normally left alone: with no classes yet there
+              is nothing to work it out from, and it starts following their
+              attendance as soon as there is. Worth setting now only when the
+              studio already knows — someone moving over from outside the app,
+              or a student returning after a long gap. Staff-only, always: this
+              is never shown to the student. */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-2">Attendance</label>
+            <div className="flex gap-2">
+              {[
+                { v: null, label: 'Follow their classes', hint: 'Works itself out' },
+                { v: 'regular', label: 'Regular', hint: 'Always treat as regular' },
+                { v: 'irregular', label: 'Irregular', hint: 'Flag from the start' },
+              ].map(o => (
+                <button
+                  key={o.label} type="button"
+                  onClick={() => setForm(f => ({ ...f, attendanceTag: o.v }))}
+                  className={`flex-1 text-left px-3 py-2 rounded-lg border transition-colors ${
+                    form.attendanceTag === o.v
+                      ? 'border-amber-400 bg-amber-50'
+                      : 'border-gray-200 hover:border-amber-200'
+                  }`}
+                >
+                  <span className="block text-xs font-medium text-gray-800">{o.label}</span>
+                  <span className="block text-[11px] text-gray-400 mt-0.5">{o.hint}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1.5">
+              Only you and Guruji see this. It can be changed any time from their profile.
+            </p>
           </div>
 
           <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-3 py-2.5">

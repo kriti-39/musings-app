@@ -154,8 +154,9 @@ export default function TeacherStudents() {
                         <td className="px-5 py-3.5 font-medium text-gray-800">
                           <span className="flex items-center gap-2">
                             {s.name}
-                            {/* Guruji sees the tag; only an admin can set it,
-                                which AttendanceTag enforces by role. */}
+                            {/* Read-only here; it is set from the student's own
+                                profile, where the dialog has room to explain
+                                what the arithmetic already thinks. */}
                             {attendance(s).tag && <AttendanceTag student={s} />}
                           </span>
                         </td>

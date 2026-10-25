@@ -16,7 +16,11 @@ const STYLES = {
 // either way for the cases the arithmetic can't know about.
 export default function AttendanceTag({ student, classes, onChange, editable = false, pill = false }) {
   const { role } = useAuth()
-  const isAdmin = role === 'admin'
+  // Guruji marks this as well as the office. He is the one who notices a
+  // student drifting, often weeks before the arithmetic does — making him ask
+  // an admin to record it was friction for no gain. Students still never see
+  // it, which is the part that matters.
+  const isStaff = role === 'admin' || role === 'teacher'
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -50,7 +54,7 @@ export default function AttendanceTag({ student, classes, onChange, editable = f
     </span>
   )
 
-  if (!editable || !isAdmin) return chip
+  if (!editable || !isStaff) return chip
 
   return (
     <>

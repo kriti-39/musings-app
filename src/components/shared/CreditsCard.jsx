@@ -324,7 +324,9 @@ function GrantModal({ student, summary, busy, onClose, onGrant }) {
   const [amount, setAmount] = useState(student?.feeAmount ? String(student.feeAmount) : '')
   const [method, setMethod] = useState('cash')
 
-  const expiry = creditExpiry(new Date(), student, qty)
+  // Stacks on what the student already holds, exactly as the grant itself
+  // will — so the office is quoting the date the student will really get.
+  const expiry = creditExpiry(summary.topUpFrom || new Date(), student, qty)
   const options = Array.from({ length: summary.canHold }, (_, i) => i + 1)
   const paid = Number(amount) || 0
   // Payment before credits, unless this student is one the studio settles with

@@ -141,6 +141,7 @@ export default function CreditBalance({ compact = false, onCount }) {
         <BuyCreditsModal
           student={user}
           canHold={summary.canHold}
+          topUpFrom={summary.topUpFrom}
           onClose={() => setBuying(false)}
         />
       )}

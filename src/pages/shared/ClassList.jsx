@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { getTeacherAllClasses, getAllClassesDesc, getAllStudentsIncludingInactive, sweepPastClasses } from '../../firebase/db'
 import { RiCalendarLine } from 'react-icons/ri'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
@@ -18,6 +19,16 @@ const TABS = [
   { key: 'cancelled', label: 'Cancelled' },
 ]
 
+// Which tab a class belongs on, from its own status.
+function tabForClass(cls) {
+  const status = cls.status || 'scheduled'
+  const date = cls.scheduledAt?.toDate?.() ?? new Date()
+  if (status === 'cancelled' || status === 'rejected') return 'cancelled'
+  if (status === 'completed') return 'completed'
+  if (status === 'pending' || date >= new Date()) return 'upcoming'
+  return 'completed'
+}
+
 export default function ClassList({ teacherId, Layout, showAll = false }) {
   const [classes, setClasses] = useState([])
   const [students, setStudents] = useState({})
@@ -25,6 +36,7 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
   const [tab, setTab] = useState('upcoming')
   const [detail, setDetail] = useState(null)
   const [period, setPeriod] = useState(ALL_PERIOD)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   async function fetchAll() {
     if (!showAll && !teacherId) return
@@ -46,22 +58,53 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
 
   useEffect(() => { fetchAll() }, [teacherId, showAll])
 
+  // ?class=<id> — a notification pointing at one particular class.
+  //
+  // Read straight off the URL rather than copied into state by an effect. The
+  // URL is already the source of truth, and mirroring it meant a render that
+  // showed the wrong tab before a second one corrected it. Derived this way
+  // there is only ever one answer, and arriving from a notification while
+  // ALREADY on this page works too — there is no mount to hang the effect on.
+  const focusId = searchParams.get('class')
+  const focused = focusId ? classes.find(c => c.id === focusId) || null : null
+
+  // While a class is being pointed at, the list shows the tab that class
+  // actually lives on and drops the period filter. A cancelled class is not in
+  // Upcoming, and an old one is filtered out by period — either way the class
+  // would be missing from the list behind the dialog, which reads as "it's
+  // gone" rather than "it's on another tab".
+  const activeTab = focused ? tabForClass(focused) : tab
+  const activePeriod = focused ? ALL_PERIOD : period
+  const openClass = focused || detail
+
+  // Closing the class, or choosing a tab by hand, hands control back to the
+  // list: the parameter goes, and with it the forced tab.
+  function release(next = {}) {
+    setDetail(null)
+    if (next.tab) setTab(next.tab)
+    if (focusId) {
+      const params = new URLSearchParams(searchParams)
+      params.delete('class')
+      setSearchParams(params, { replace: true })
+    }
+  }
+
   const now = new Date()
   const filtered = classes.filter(c => {
     const date = c.scheduledAt?.toDate?.() ?? new Date()
     // treat missing/null status as 'scheduled' for legacy classes
     const status = c.status || 'scheduled'
-    if (tab === 'upcoming') return status === 'pending' || (status === 'scheduled' && date >= now)
-    if (tab === 'completed') return status === 'completed'
-    if (tab === 'cancelled') return status === 'cancelled' || status === 'rejected'
+    if (activeTab === 'upcoming') return status === 'pending' || (status === 'scheduled' && date >= now)
+    if (activeTab === 'completed') return status === 'completed'
+    if (activeTab === 'cancelled') return status === 'cancelled' || status === 'rejected'
     return false
   }).sort((a, b) => {
     const ta = a.scheduledAt?.seconds ?? 0, tb = b.scheduledAt?.seconds ?? 0
     // Upcoming: soonest first (ascending). Past tabs: most recent first (descending).
-    return tab === 'upcoming' ? ta - tb : tb - ta
+    return activeTab === 'upcoming' ? ta - tb : tb - ta
   })
 
-  const visible = filterByPeriod(filtered, period, c => c.scheduledAt?.toDate?.())
+  const visible = filterByPeriod(filtered, activePeriod, c => c.scheduledAt?.toDate?.())
 
   return (
     <Layout>
@@ -80,9 +123,9 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
 
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-6">
           {TABS.map(t => (
-            <button key={t.key} onClick={() => { setTab(t.key); setPeriod(ALL_PERIOD) }}
+            <button key={t.key} onClick={() => { release({ tab: t.key }); setPeriod(ALL_PERIOD) }}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                tab === t.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                activeTab === t.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}>
               {t.label}
             </button>
@@ -147,12 +190,12 @@ export default function ClassList({ teacherId, Layout, showAll = false }) {
         )}
       </div>
 
-      {detail && (
+      {openClass && (
         <ClassDetailModal
-          cls={detail}
-          studentName={students[detail.studentId]?.name || 'Student'}
-          studentTimezone={students[detail.studentId]?.timezone}
-          onClose={() => setDetail(null)}
+          cls={openClass}
+          studentName={students[openClass.studentId]?.name || 'Student'}
+          studentTimezone={students[openClass.studentId]?.timezone}
+          onClose={() => release()}
           onUpdate={fetchAll}
         />
       )}

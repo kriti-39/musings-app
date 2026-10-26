@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { RiCloseLine, RiCheckLine, RiSecurePaymentLine } from 'react-icons/ri'
 import { auth } from '../../firebase/config'
 import { openCheckout, paymentsAvailableHere } from '../../utils/razorpayCheckout'
@@ -23,7 +24,7 @@ import { classOptions, creditExpiry, fmtExpiry, validityLabel } from '../../util
 const MIN_RUPEES = 1
 const MAX_RUPEES = 200000
 
-export default function BuyCreditsModal({ student, canHold, onClose }) {
+export default function BuyCreditsModal({ student, canHold, topUpFrom = null, onClose }) {
   // Only what this student may actually buy, and only what still fits.
   const offered = classOptions(student).filter(n => n <= canHold)
 
@@ -39,7 +40,10 @@ export default function BuyCreditsModal({ student, canHold, onClose }) {
   // Indian student, six abroad, then out to the end of that week. Shown before
   // they pay, because "4 weeks" and "until Sunday 22 November" are not equally
   // useful to someone planning lessons.
-  const expiry = creditExpiry(new Date(), student, qty)
+  // From where the classes they already hold run out, when there are any — the
+  // same anchor the server will use, so the date shown before paying is the
+  // date they actually get.
+  const expiry = creditExpiry(topUpFrom || new Date(), student, qty)
 
   async function handlePay() {
     setError('')
@@ -167,9 +171,17 @@ export default function BuyCreditsModal({ student, canHold, onClose }) {
           Use {qty === 1 ? 'it' : 'them'} by <span className="font-semibold">{fmtExpiry(expiry)}</span>
         </p>
         <p className="text-[11px] text-amber-700/80 mt-0.5">
-          {qty === 1 ? 'This class is' : `These ${qty} classes are`} valid {validityLabel(student, qty)} from today, to the end of that week.
+          {qty === 1 ? 'This class is' : `These ${qty} classes are`} valid {validityLabel(student, qty)}{' '}
+          {topUpFrom
+            ? <>from {fmtExpiry(topUpFrom)}, when the classes you already have run out</>
+            : <>from today</>}, to the end of that week.
           Use them all sooner and you can buy more right away.
         </p>
+        {topUpFrom && (
+          <p className="text-[11px] text-amber-700/80 mt-1">
+            Your time is added on, not replaced — nothing you have already paid for is lost.
+          </p>
+        )}
       </div>
 
       {error && (
@@ -193,8 +205,15 @@ export default function BuyCreditsModal({ student, canHold, onClose }) {
   )
 }
 
+// Rendered into <body>, never where it is written. This modal is opened from
+// inside the credit card, and `.credit-card > *` sets position:relative on
+// every direct child — an unlayered rule, so it beats Tailwind's `fixed`
+// whatever the specificity. The backdrop then laid itself out INSIDE the card
+// and was clipped by its overflow:hidden, which is what the dark square-cornered
+// panel behind the dialog was. A portal puts it out of that card's reach for
+// good, rather than leaving the layout hostage to a parent's styling.
 function Shell({ title, onClose, children }) {
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl max-h-[90dvh] overflow-y-auto">
         {title && (
@@ -209,6 +228,7 @@ function Shell({ title, onClose, children }) {
         )}
         <div className="px-5 py-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

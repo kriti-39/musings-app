@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   RiWhatsappLine, RiCheckLine, RiArrowGoBackLine, RiErrorWarningLine, RiArrowDownSLine,
+  RiSubtractLine, RiAddLine,
 } from 'react-icons/ri'
 import {
   subscribePendingFollowUps, markFollowUpDone, undoFollowUpDone, lapseFollowUp,
@@ -11,8 +12,25 @@ import { useAuth } from '../../context/AuthContext'
 
 const byLatest = (a, b) => (b.scheduledAt?.seconds ?? 0) - (a.scheduledAt?.seconds ?? 0)
 
-// Rows shown before the list has to be expanded
-const COLLAPSED = 3
+// Rows shown before the list has to be expanded. One: this sits near the top
+// of the dashboard, above today's classes, and three rows of it pushed the rest
+// of the page off a phone screen. One row is enough to show the list is there
+// and who is next.
+const COLLAPSED = 1
+
+// Whether the card is shut altogether is remembered per device — collapsing
+// something to get it out of the way is pointless if it comes back every time
+// the dashboard is opened. Per browser, never shared, and the card opens
+// normally if storage is unavailable.
+const SHUT_KEY = 'followUps.shut'
+
+function storedShut() {
+  try { return localStorage.getItem(SHUT_KEY) === '1' } catch { return false }
+}
+
+function rememberShut(shut) {
+  try { localStorage.setItem(SHUT_KEY, shut ? '1' : '0') } catch { /* private mode */ }
+}
 
 // Midnight this morning. A class earlier than this can no longer be rearranged.
 function startOfToday() {
@@ -34,7 +52,15 @@ export default function FollowUpCard() {
   // Rows handled on THIS device. They leave the live list at once, so they're
   // kept here to stay visible (greyed, with Undo) for the person who did it.
   const [mine, setMine] = useState({})        // id -> { cls, done }
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(false)   // 1 row, or all of them
+  const [shut, setShut] = useState(storedShut)      // the whole card, header only
+
+  function toggleShut() {
+    setShut(was => {
+      rememberShut(!was)
+      return !was
+    })
+  }
 
   useEffect(() => {
     getAllStudentsIncludingInactive()
@@ -110,28 +136,53 @@ export default function FollowUpCard() {
 
   return (
     <div className="bg-white rounded-xl border border-amber-100">
-      <button
-        onClick={() => canCollapse && setExpanded(e => !e)}
-        aria-expanded={canCollapse ? expanded : undefined}
-        className={`w-full px-4 py-2.5 border-b border-gray-50 flex items-center justify-between gap-2 text-left ${
-          canCollapse ? 'hover:bg-gray-50 transition-colors' : 'cursor-default'
-        }`}
-      >
-        <h2 className="text-sm font-semibold text-gray-800">
-          Follow up for cancelled {outstanding.length === 1 ? 'class' : 'classes'}
-          {outstanding.length > 1 && (
-            <span className="font-normal text-gray-400"> · {outstanding.length}</span>
-          )}
-        </h2>
-        {canCollapse && (
-          <RiArrowDownSLine
-            size={18}
-            className={`shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
-          />
-        )}
-      </button>
+      {/* Two separate controls, because they do different things: the chevron
+          grows the LIST from one row to all of them, the minus shuts the CARD
+          down to this header. Siblings rather than nested buttons — a button
+          inside a button is invalid, and the browser picks a winner for you. */}
+      <div className={`px-4 py-2.5 flex items-center justify-between gap-2 ${
+        shut ? '' : 'border-b border-gray-50'
+      }`}>
+        <button
+          onClick={toggleShut}
+          aria-expanded={!shut}
+          className="min-w-0 flex-1 text-left"
+        >
+          <h2 className="text-sm font-semibold text-gray-800 truncate">
+            Follow up for cancelled {outstanding.length === 1 ? 'class' : 'classes'}
+            {outstanding.length > 1 && (
+              <span className="font-normal text-gray-400"> · {outstanding.length}</span>
+            )}
+          </h2>
+        </button>
 
-      <div>
+        <div className="flex items-center gap-0.5 shrink-0">
+          {!shut && canCollapse && (
+            <button
+              onClick={() => setExpanded(e => !e)}
+              aria-expanded={expanded}
+              aria-label={expanded ? 'Show fewer' : `Show all ${rows.length}`}
+              title={expanded ? 'Show fewer' : `Show all ${rows.length}`}
+              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <RiArrowDownSLine
+                size={18}
+                className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
+              />
+            </button>
+          )}
+          <button
+            onClick={toggleShut}
+            aria-label={shut ? 'Open follow-ups' : 'Collapse follow-ups'}
+            title={shut ? 'Open follow-ups' : 'Collapse follow-ups'}
+            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            {shut ? <RiAddLine size={17} /> : <RiSubtractLine size={17} />}
+          </button>
+        </div>
+      </div>
+
+      <div className={shut ? 'hidden' : ''}>
         {shown.map(cls => {
           const s = students[cls.studentId]
           const date = cls.scheduledAt?.toDate?.()
@@ -183,7 +234,7 @@ export default function FollowUpCard() {
         })}
       </div>
 
-      {canCollapse && (
+      {!shut && canCollapse && (
         <button
           onClick={() => setExpanded(e => !e)}
           className="w-full px-4 py-2.5 border-t border-gray-100 text-xs font-medium text-amber-600 hover:bg-gray-50 transition-colors"

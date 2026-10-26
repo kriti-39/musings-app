@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     try { decoded = await admin.auth().verifyIdToken(idToken) }
     catch { return res.status(401).json({ error: 'unauthorized' }) }
 
-    const { userId, type, message, title } = req.body || {}
+    const { userId, type, message, title, classId } = req.body || {}
     if (!userId || !message) return res.status(400).json({ error: 'userId and message required' })
 
     const db = admin.firestore()
@@ -60,7 +60,7 @@ export default async function handler(req, res) {
       // status); the per-type title is only a fallback for older callers.
       title: (typeof title === 'string' && title.trim()) || titleFor(type),
       body: String(message),
-      link: linkFor(user.role, type),
+      link: linkFor(user.role, type, typeof classId === 'string' ? classId : null),
     })
 
     if (dead.length) {

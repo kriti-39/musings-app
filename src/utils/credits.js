@@ -151,6 +151,27 @@ export function creditExpiry(from, student, quantity = null) {
   return endOfDay(nextSunday(addDays(new Date(from), days)))
 }
 
+// Where a NEW purchase's window should start.
+//
+// A top-up extends what is already held rather than running alongside it: buy
+// four classes today while two still run to the 16th, and the new window
+// starts on the 16th. Starting both today would quietly waste the days already
+// paid for — the two sets would end closer together than either was sold for,
+// and a student topping up early would be punished for it.
+//
+// Only batches with classes LEFT anchor the new window. A batch that has been
+// spent out has nothing left to extend, so buying again after using everything
+// starts from today. That also stops the obvious trick: buy one, use it at
+// once, and keep rolling the end date forward on an empty runway.
+//
+// Never returns a date in the past, so a first purchase — or one made after
+// everything has lapsed — behaves exactly as it always did.
+export function topUpStart(batches, now = Date.now()) {
+  const live = (batches || []).filter(b => isSpendable(b, now))
+  const last = live.reduce((latest, b) => Math.max(latest, toMillis(b.expiresAt)), 0)
+  return new Date(Math.max(last, now))
+}
+
 // ─── READING A BATCH ─────────────────────────────────────────────────────────
 
 // Firestore Timestamps, Dates and raw millis all turn up here depending on
@@ -242,6 +263,9 @@ export function creditSummary(batches, now = Date.now(), student = null) {
     nextExpiryDays: next ? daysLeft(next, now) : null,
     nextExpiryCount: next ? batchRemaining(next) : 0,
     expiringSoon: next ? daysLeft(next, now) <= SOON_DAYS : false,
+    // The day a top-up bought right now would start counting from, or null if
+    // it would simply start today. Screens use it to say so before paying.
+    topUpFrom: live.length ? toDate(topUpStart(live, now)) : null,
     liveBatches: spendOrder(live, now),
     totalGranted: list.reduce((s, b) => s + (Number(b.quantity) || 0), 0),
     totalUsed: list.reduce((s, b) => s + (Number(b.used) || 0), 0),

@@ -3,7 +3,7 @@ import {
   query, where, orderBy, limit, Timestamp, serverTimestamp, onSnapshot
 } from 'firebase/firestore'
 import { db } from './config'
-import { createNotification } from './notify'
+import { createNotification, notifyStaff } from './notify'
 import {
   consumeCredit, returnCredit, refundCreditForClass,
   rechargeCreditForClass, flagCreditForReview, grantCredits,
@@ -52,6 +52,44 @@ export async function createStudent(uid, data) {
 
 export async function updateUser(uid, data) {
   await updateDoc(doc(db, 'users', uid), data)
+}
+
+// What a student may change about themselves that the studio must hear about.
+// Guruji schedules across timezones, so a student moving from Los Angeles to
+// Delhi changes when their lesson is; and the office rings these numbers.
+const STAFF_WATCH = {
+  timezone: 'timezone',
+  phone: 'contact number',
+}
+
+// Save a person's edits to their OWN profile, telling staff if anything they
+// care about moved. Staff editing their own profile notifies nobody — the
+// studio does not need telling that the office changed its own phone number.
+//
+// `user` is the profile as it stood before the edit; the comparison needs it.
+export async function updateOwnProfile(user, changes) {
+  await updateUser(user.id, changes)
+  if (user.role !== 'student') return
+
+  const changed = Object.keys(STAFF_WATCH).filter(f => (
+    f in changes && String(changes[f] ?? '').trim() !== String(user[f] ?? '').trim()
+  ))
+  if (!changed.length) return
+
+  // The edit is already saved by this point, so a failure here must never look
+  // like a failed save.
+  try {
+    const parts = changed.map(f => (
+      `${STAFF_WATCH[f]} to ${String(changes[f] ?? '').trim() || '(blank)'}`
+    ))
+    await notifyStaff(
+      'student_details_changed',
+      `Changed their ${parts.join(', and their ')}.`,
+      { title: user.name || 'A student' },
+    )
+  } catch (e) {
+    console.error('Profile saved, staff notify failed:', e)
+  }
 }
 
 export async function getStaffIds() {

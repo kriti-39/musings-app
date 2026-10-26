@@ -8,10 +8,10 @@
 //   1. The signature, checked against the RAW bytes before anything parses them
 //   2. Idempotency, so Razorpay's retries can't pay out twice
 //   3. Re-checking the amount against what we would have charged
-import { getAdmin } from '../_lib/firebaseAdmin.js'
+import { getAdmin, notifyUsers } from '../_lib/firebaseAdmin.js'
 import { verifyWebhookSignature, readRawBody } from '../_lib/razorpay.js'
 import { toPaise } from '../../src/utils/pricing.js'
-import { creditExpiry, validityLabel, canGrant } from '../../src/utils/credits.js'
+import { creditExpiry, validityLabel, canGrant, creditCap, topUpStart } from '../../src/utils/credits.js'
 
 // Vercel would otherwise parse the JSON body for us, and parsing destroys the
 // exact bytes the signature was computed over.
@@ -176,9 +176,14 @@ async function grantForPayment(payment) {
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         })),
         db.collection('notifications').add({
-          userId: studentId, type: 'payment_held', title: 'Payment received',
-          message: 'Your payment arrived, but you are at the four-credit limit, so they have not been added yet.'
-            + ' The office will be in touch — nothing is lost.',
+          // Received, but deliberately NOT confirmed — the money is in and the
+          // classes are not, which is exactly what the student needs to know.
+          userId: studentId, type: 'payment_held', title: 'Payment received — on hold',
+          // The cap is three classes in India and twelve abroad — never four.
+          // This used to say "the four-credit limit" to everybody, which was
+          // wrong for every student the app has, and wrong about their money.
+          message: `Your payment arrived, but you are at the ${creditCap(student)}-class limit,`
+            + ' so they have not been added yet. The office will be in touch — nothing is lost.',
           relatedClassId: null, isRead: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         }),
@@ -191,8 +196,10 @@ async function grantForPayment(payment) {
 
   // ── Grant ──────────────────────────────────────────────────────────────────
   const now = new Date()
-  // The window depends on how many classes were bought, abroad.
-  const expiresAt = creditExpiry(now, student, quantity)
+  // The window depends on how many classes were bought, abroad — and it starts
+  // where whatever they already hold runs out, so a top-up adds time instead of
+  // overlapping it. `heldBatches` was read just above for the cap check.
+  const expiresAt = creditExpiry(topUpStart(heldBatches, now.getTime()), student, quantity)
   const rupees = payment.amount / 100
 
   const paymentRef = db.collection('payments').doc()
@@ -245,20 +252,42 @@ async function grantForPayment(payment) {
 
   await batch.commit()
 
-  // Telling the student is nice to have; it must never fail the grant, which
-  // has already committed by this point.
+  // Telling people is nice to have; it must never fail the grant, which has
+  // already committed by this point.
+  //
+  // All three roles hear about it. The student has just paid and wants to see
+  // it land; the office needs the money reconciled; and Guruji teaches the
+  // classes that were bought, so being told in person is not good enough.
+  const useBy = expiresAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  const classes = `${quantity} class ${quantity === 1 ? 'credit' : 'credits'}`
+
   try {
-    await db.collection('notifications').add({
-      userId: studentId,
+    await notifyUsers(admin, [{ id: studentId, role: 'student', fcmTokens: student.fcmTokens }], {
       type: 'credits_granted',
-      title: 'Payment received',
-      message: `${quantity} class ${quantity === 1 ? 'credit' : 'credits'} added. Use ${quantity === 1 ? 'it' : 'them'} by ${expiresAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}.`,
-      relatedClassId: null,
-      isRead: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      // "Confirmed", not "received": this fires once the bank has captured the
+      // money and the classes are actually in the account. "Received" is what
+      // the app says in the moment between paying and this arriving, and the
+      // difference between the two is the whole point of waiting for it.
+      title: 'Payment confirmed',
+      message: `${classes} added. Use ${quantity === 1 ? 'it' : 'them'} by ${useBy}.`,
     })
   } catch (e) {
-    console.error('Credits granted, notification failed:', e)
+    console.error('Credits granted, student notification failed:', e)
+  }
+
+  try {
+    const staff = await db.collection('users').where('role', 'in', ['admin', 'teacher']).get()
+    await notifyUsers(
+      admin,
+      staff.docs.map(d => ({ id: d.id, role: d.data().role, fcmTokens: d.data().fcmTokens })),
+      {
+        type: 'credits_purchased',
+        title: student.name || 'A student',
+        message: `Bought ${classes} online — ₹${rupees}. Valid until ${useBy}.`,
+      },
+    )
+  } catch (e) {
+    console.error('Credits granted, staff notification failed:', e)
   }
 
   return { granted: quantity, creditBatchId: creditRef.id, paymentId: paymentRef.id }

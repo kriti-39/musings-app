@@ -3,11 +3,11 @@ import {
   query, where, Timestamp, serverTimestamp, runTransaction, onSnapshot,
 } from 'firebase/firestore'
 import { db } from './config'
-import { createNotification } from './notify'
+import { createNotification, notifyStaff } from './notify'
 import {
   creditExpiry, validityLabel, canGrant, spendOrder, staleBatches,
   creditSummary, batchRemaining, endOfDay, addDays, addCalendarMonth, toDate,
-  creditsWord, fmtExpiry,
+  creditsWord, fmtExpiry, topUpStart,
 } from '../utils/credits'
 
 // ─── CREDITS IN FIRESTORE ────────────────────────────────────────────────────
@@ -115,7 +115,11 @@ export async function grantCredits({
   const now = new Date()
   // The window depends on the size of the purchase abroad, so the quantity
   // goes in — without it a single top-up would be given a twelve-class window.
-  const expiresAt = creditExpiry(now, profile, qty)
+  //
+  // It starts where the credits they already hold run out, not today: a top-up
+  // adds time rather than overlapping it. `existing` was read a moment ago for
+  // the cap check, so this costs nothing.
+  const expiresAt = creditExpiry(topUpStart(existing, now.getTime()), profile, qty)
 
   const ref = await addDoc(collection(db, COL), {
     studentId,
@@ -144,6 +148,18 @@ export async function grantCredits({
         null, 'Credits added',
       )
     } catch (e) { console.error('Credits granted, student notify failed:', e) }
+
+    // Guruji hears about every purchase too — he teaches them, so he needs to
+    // know classes have been bought without being told in person. Whoever
+    // added them is left out: they just did it.
+    try {
+      await notifyStaff(
+        'credits_purchased',
+        `${qty} class ${creditsWord(qty)} added by ${grantedByName?.trim() || 'the office'}.`
+        + ` Valid until ${fmtExpiry(expiresAt)}.`,
+        { title: profile?.name || 'Credits added', except: grantedBy },
+      )
+    } catch (e) { console.error('Credits granted, staff notify failed:', e) }
   }
 
   return { id: ref.id, quantity: qty, expiresAt }

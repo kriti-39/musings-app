@@ -4,7 +4,7 @@
 // Amounts are written as "Rs." rather than the rupee sign: jsPDF's built-in
 // fonts have no glyph for it, and it would come out as a stray character.
 
-import { periodLabel, reportFileName } from './feeReport'
+import { periodLabel, reportFileName } from './feeReport.js'
 
 const AMBER = [245, 158, 11]
 const INK = [31, 41, 55]

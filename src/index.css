@@ -164,7 +164,14 @@
   background: radial-gradient(90% 70% at 100% 0%, rgba(255, 255, 255, .18), transparent 65%);
   pointer-events: none;
 }
-.credit-card > * { position: relative; z-index: 1; }
+/* Lifts the card's own content above the ::after highlight. `:not(.fixed)`
+   matters more than it looks: these bridge rules are UNLAYERED, so they beat
+   Tailwind's layered utilities whatever the specificity — and this one was
+   quietly overriding `position: fixed` on any overlay opened from inside the
+   card. The Buy-classes modal's full-screen backdrop became a relative box
+   inside the card and was clipped by its overflow, which is what the dark
+   square-cornered panel behind that dialog was. */
+.credit-card > :not(.fixed) { position: relative; z-index: 1; }
 
 .credit-card .c-label { color: rgba(255, 255, 255, .78); }
 .credit-card .c-value { color: #fff; }
@@ -304,6 +311,35 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .bg-white      { background-color: var(--color-surface); }
 .bg-gray-50    { background-color: var(--color-bg); }
 .bg-gray-100   { background-color: var(--color-raised); }
+
+/* ── Dialogs ─────────────────────────────────────────────────────────────────
+   Every dialog in the app is the same two pieces: a scrim (bg-black/40..60)
+   and a panel (bg-white + shadow-xl). Both were drawn for a white page.
+
+   On the dark theme that fell apart. The scrim laid black over near-black, so
+   it dimmed without separating; and the panel sat on `--color-surface` with no
+   border and a shadow tuned for a light ground, so it had nothing marking
+   where it ended. A dialog read as a flat black box dropped on the page rather
+   than a surface lifted off it — which is what it looked like on the phone.
+
+   Done here rather than in fifteen components: `shadow-xl` and `bg-black/NN`
+   are used by dialogs and nothing else in this app, so theming the two classes
+   covers every modal at once and keeps the next one consistent for free. */
+[data-theme="dark"] .bg-black\/40,
+[data-theme="dark"] .bg-black\/50,
+[data-theme="dark"] .bg-black\/60 {
+  background-color: rgba(4, 6, 11, .72);
+}
+
+[data-theme="dark"] .shadow-xl {
+  /* Lifted a step above the page, with a hairline so it keeps an edge of its
+     own. The hairline is drawn as a box-shadow ring, so it costs no layout and
+     cannot shift the panel's contents. */
+  background-color: var(--color-raised);
+  box-shadow:
+    0 0 0 1px var(--color-line-strong),
+    0 24px 60px rgba(0, 0, 0, .55);
+}
 
 /* ── Text. Four weights of emphasis, mapped from the greys in use ── */
 .text-gray-900,

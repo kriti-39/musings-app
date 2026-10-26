@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { getStudentPayments } from '../../firebase/db'
 import { loadCredits } from '../../firebase/credits'
 import { usesCredits, creditsWord, creditCap } from '../../utils/credits'
+import { paymentDate, paymentMonth } from '../../utils/feeReport'
 import BuyCreditsModal from '../../components/student/BuyCreditsModal'
 import { RiTicketLine } from 'react-icons/ri'
 
@@ -12,6 +13,29 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 function monthLabel(m) {
   const [y, mo] = m.split('-')
   return `${MONTHS[parseInt(mo) - 1]} ${y}`
+}
+
+// The day the money actually went in. `paymentDate` is the same rule the
+// monthly report uses, so the date a student reads here and the date the
+// office reads on the PDF can never drift apart.
+//
+// Rows from before those timestamps existed have no date rather than a wrong
+// one — a made-up day on a payment record is worse than an honest dash.
+function fmtDay(payment) {
+  const d = paymentDate(payment)
+  if (!d) return '—'
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// The months this payment settles, but only when they are not simply the month
+// it was paid in — otherwise the date above already says it, and repeating it
+// is noise. Returns null when there is nothing worth adding.
+function coveredMonths(payment) {
+  const months = (payment.months || []).filter(Boolean)
+  if (!months.length) return null
+  const paidIn = paymentMonth(payment)
+  if (months.length === 1 && months[0] === paidIn) return null
+  return months.map(monthLabel).join(', ')
 }
 
 export default function StudentFees() {
@@ -78,7 +102,7 @@ export default function StudentFees() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Month</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Paid on</th>
                   {onCredits && (
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Credits</th>
                   )}
@@ -90,8 +114,23 @@ export default function StudentFees() {
               <tbody>
                 {payments.map((p, i) => (
                   <tr key={p.id} className={i !== payments.length - 1 ? 'border-b border-gray-50' : ''}>
-                    <td className="px-5 py-3.5 text-gray-700 whitespace-nowrap">
-                      {(p.months || []).map(m => monthLabel(m)).join(', ') || '—'}
+                    {/* The day it was paid. For a credit purchase this is the
+                        day those classes were bought, which is the thing a
+                        student actually goes looking for.
+
+                        There is no separate Month column: for almost every row
+                        the date already carries it. The exception is a payment
+                        that covers some OTHER month — paid in late October for
+                        November, or two months settled at once — and that is
+                        the one case where the months are worth saying, so they
+                        appear underneath and only then. */}
+                    <td className="px-5 py-3.5 text-gray-700 whitespace-nowrap tabular-nums">
+                      {fmtDay(p)}
+                      {coveredMonths(p) && (
+                        <span className="block text-[11px] text-gray-400 font-normal">
+                          for {coveredMonths(p)}
+                        </span>
+                      )}
                     </td>
                     {/* `forCredits` is on every payment that bought credits —
                         set by the webhook, and by staff when they record one.
@@ -133,6 +172,7 @@ export default function StudentFees() {
         <BuyCreditsModal
           student={user}
           canHold={credits?.canHold ?? creditCap(user)}
+          topUpFrom={credits?.topUpFrom ?? null}
           onClose={() => { setBuying(false); refresh() }}
         />
       )}

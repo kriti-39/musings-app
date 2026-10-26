@@ -4,7 +4,7 @@
 // classes and payments already on screen, so the numbers can be checked without
 // a database and can't drift from what the lists show.
 
-import { toMillis } from './credits'
+import { toMillis } from './credits.js'
 
 const DAY = 86400000
 

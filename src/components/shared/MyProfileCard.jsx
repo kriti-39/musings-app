@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { RiUserLine, RiEdit2Line, RiCheckLine, RiCloseLine } from 'react-icons/ri'
 import { useAuth } from '../../context/AuthContext'
-import { updateUser, getPhoto } from '../../firebase/db'
+import { updateOwnProfile, getPhoto } from '../../firebase/db'
 import { displayId } from '../../utils/auth'
 import Avatar from './Avatar'
 import PhotoPicker from './PhotoPicker'
@@ -46,7 +46,7 @@ export default function MyProfileCard() {
     setSaving(true)
     setError('')
     try {
-      await updateUser(user.id, {
+      await updateOwnProfile({ ...user, role }, {
         name: form.name.trim(),
         phone: form.phone.trim(),
         gender: form.gender,

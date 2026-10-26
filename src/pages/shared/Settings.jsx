@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { updateUser } from '../../firebase/db'
+import { updateUser, updateOwnProfile } from '../../firebase/db'
 import { pushSupported, pushEnabledHere, enablePush, disablePush } from '../../firebase/messaging'
 import AdminLayout from '../../components/admin/AdminLayout'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
@@ -23,7 +23,7 @@ export default function Settings() {
     setTzMsg('')
     setTzLoading(true)
     try {
-      await updateUser(user.id, { timezone: tz })
+      await updateOwnProfile({ ...user, role }, { timezone: tz })
       setTzMsg('Timezone saved. It will fully apply next time you sign in.')
     } catch {
       setTzMsg('Failed to save timezone.')

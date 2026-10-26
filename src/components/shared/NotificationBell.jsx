@@ -4,18 +4,31 @@ import { RiBellLine, RiCheckDoubleLine, RiDeleteBinLine } from 'react-icons/ri'
 import { getUserNotifications, markNotificationRead, markAllNotificationsRead, clearAllNotifications } from '../../firebase/db'
 import { useAuth } from '../../context/AuthContext'
 
-// Where each notification type should take the user, per role
-function destinationFor(type, role) {
+// Staff notifications that are ABOUT one class land on the Classes page with
+// that class already open, rather than on a dashboard where it has to be hunted
+// for. "Asha cancelled Wednesday" is only useful if you can see which Wednesday.
+//
+// The two left out are deliberate: an overlap and a reschedule request both have
+// to be confirmed or refused, and that queue lives on the dashboard.
+const ON_THE_DASHBOARD = ['overlap_booking', 'reschedule_request']
+
+// Where each notification should take the user, per role
+function destinationFor(n, role) {
   const base = role === 'admin' ? '/admin' : role === 'teacher' ? '/teacher' : '/student'
+  const type = n?.type
   if (role === 'student') {
     if (type === 'payment_confirmed' || type === 'payment_rejected') return '/student/fees'
     if (type === 'recording_posted') return '/student/recordings'
     return '/student/dashboard' // class confirmed/rejected/cancelled/rescheduled
   }
   // staff: overlaps & reschedule requests need action → dashboard (confirm section)
-  if (type === 'overlap_booking' || type === 'reschedule_request') return `${base}/dashboard`
-  // a plain new booking is just informational → show it on the schedule
-  if (type === 'class_booked') return `${base}/schedule`
+  if (ON_THE_DASHBOARD.includes(type)) return `${base}/dashboard`
+  // anything else about a particular class → open that class
+  if (n?.relatedClassId) return `${base}/classes?class=${n.relatedClassId}`
+  // money in → the fees page, where it has to be reconciled
+  if (type === 'credits_purchased') return `${base}/fees`
+  // a changed number or timezone → the student list
+  if (type === 'student_details_changed') return `${base}/students`
   return `${base}/dashboard`
 }
 
@@ -56,7 +69,7 @@ export default function NotificationBell() {
       setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x))
     }
     setOpen(false)
-    navigate(destinationFor(n.type, role))
+    navigate(destinationFor(n, role))
   }
 
   async function handleMarkAllRead() {

@@ -134,10 +134,14 @@
 .att-ring--regular   { --att-colour: var(--color-ok-ink); }
 .att-ring--irregular { --att-colour: var(--color-warn-ink); }
 /* Not judged yet — a quiet grey, so it reads as something waiting to be set
-   rather than a verdict. Without a colour here the pill had no background at
-   all and simply vanished, which is why an unmarked student looked as though
-   the tag had gone missing. */
-.att-ring--unset     { --att-colour: var(--color-line-strong); }
+   rather than a verdict.
+
+   It has to be `--color-muted` and not one of the line greys: the pill draws
+   its TEXT in `--color-surface`, so the background must contrast with the
+   surface, not sit beside it. A line grey left white-on-pale in the light
+   theme and near-black-on-slate in the dark one — about 1.5:1 either way, so
+   the pill was there and simply could not be read. */
+.att-ring--unset     { --att-colour: var(--color-muted); }
 
 /* The label, sitting on the ring at the bottom of the circle */
 .att-pill {

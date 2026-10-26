@@ -44,7 +44,14 @@ export default function AttendanceTag({ student, meta = null, classes, onChange,
   // "Not enough history" is the honest answer, but it is long, and beside a
   // name in a list it reads like a complaint rather than something you can set.
   // Short label on the chip; the dialog still explains properly.
-  const label = tag ? attendanceLabel(tag) : 'Not set'
+  const label = tag ? attendanceLabel(tag) : 'Set tag'
+
+  // An untagged student shows an empty slot rather than a status: dashed, so it
+  // reads as something to fill in. A flat grey chip saying "Not set" looked
+  // like a verdict the app had reached, not a button.
+  const blank = !tag && editable && isStaff
+    ? 'border border-dashed border-gray-300'
+    : ''
 
   // `pill` is the version that sits on the ring under an avatar: solid, tiny,
   // and in the ring's own colour so the two read as one thing.
@@ -54,7 +61,7 @@ export default function AttendanceTag({ student, meta = null, classes, onChange,
       {label}
     </span>
   ) : (
-    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${style}`}>
+    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${style} ${blank}`}>
       {pinned && <RiPushpinFill size={10} className="shrink-0 opacity-70" />}
       {label}
     </span>

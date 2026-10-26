@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './config'
 
 // ─── What is written ABOUT a class, as opposed to WHEN it is ─────────────────
@@ -86,16 +86,4 @@ export function recordingText(cls, detail = null) {
 
 export function recordingTitleOf(cls, detail = null) {
   return detail?.recordingTitle ?? cls?.recordingTitle ?? ''
-}
-
-// Does this class still hold its text on the class document? Used by the
-// migration to find what is left to move.
-export function needsMigration(cls) {
-  return !!(cls?.lessonNotes?.trim() || cls?.recordingInfo?.trim()
-    || cls?.recordingUrl?.trim() || cls?.recordingTitle?.trim())
-}
-
-export async function allDetailDocs(classId) {
-  const snap = await getDocs(collection(db, 'classes', classId, 'detail'))
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }

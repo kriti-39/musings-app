@@ -290,20 +290,6 @@ export function fmtExpiry(date) {
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-// "3 left · use by 14 Nov" — the one line that tells a student where they stand.
-export function balanceLine(summary) {
-  if (!summary || summary.available === 0) return 'No credits left'
-  const by = summary.nextExpiry ? ` · use by ${fmtExpiry(summary.nextExpiry)}` : ''
-  return `${summary.available} ${creditsWord(summary.available)} left${by}`
-}
-
-// How urgently to say it. Drives the colour on the student's dashboard.
-export function balanceTone(summary) {
-  if (!summary || summary.available === 0) return 'empty'
-  if (summary.expiringSoon) return 'soon'
-  return 'ok'
-}
-
 // ─── Must money be recorded before credits are? ──────────────────────────────
 // Yes, for everyone except the students the studio settles with outside the
 // app. Credits are classes already paid for, so a grant with no payment behind

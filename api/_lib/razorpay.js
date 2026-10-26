@@ -64,15 +64,6 @@ export async function createOrder({ amountPaise, receipt, notes = {} }) {
   return body
 }
 
-export async function fetchPayment(paymentId) {
-  const res = await fetch(`${API}/payments/${paymentId}`, {
-    headers: { Authorization: authHeader() },
-  })
-  const body = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(body?.error?.description || `Razorpay returned ${res.status}`)
-  return body
-}
-
 // ─── Signatures ──────────────────────────────────────────────────────────────
 
 // Constant-time compare. A plain === leaks, through timing, how much of a

@@ -34,9 +34,6 @@ function allZones() {
 
 export const ALL_TIMEZONES = allZones()
 
-// Kept under its old name so every existing call site still works.
-export const TIMEZONES = ALL_TIMEZONES
-
 // The common ones first, then everything else alphabetically. A zone already
 // on the profile is included even if this browser has never heard of it — an
 // older alias like Asia/Calcutta must not silently vanish from someone's
@@ -105,14 +102,6 @@ export function fmtTime12(date, tz) {
   return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz })
 }
 
-// Format date + time in a given tz, e.g. "3 Jun, 6:00 PM"
-export function fmtDateTime(date, tz) {
-  if (!date) return ''
-  return date.toLocaleString('en-IN', {
-    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: tz,
-  })
-}
-
 // Format a long date in a given tz, e.g. "Tuesday, 3 June"
 export function fmtLongDate(date, tz) {
   if (!date) return ''
@@ -145,9 +134,4 @@ export function fmtShortDate(date, tz) {
   }).formatToParts(date)
   const get = t => parts.find(p => p.type === t)?.value || ''
   return `${get('day')}-${get('month')}-${get('year')}`
-}
-
-// "6:00 PM Kolkata" — time + city, for compact dual-timezone display
-export function fmtTimeCity(date, tz) {
-  return `${fmtTime(date, tz)} ${tzCity(tz)}`
 }

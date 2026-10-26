@@ -324,13 +324,6 @@ export async function getTeacherClassesForMonth(teacherId, year, month) {
     .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
 }
 
-export async function updateClass(classId, data) {
-  await updateDoc(doc(db, 'classes', classId), {
-    ...data,
-    updatedAt: serverTimestamp(),
-  })
-}
-
 export async function markClassDone(classId, markedBy) {
   const cls = await getClass(classId)
   const prev = cls?.markedDoneBy
@@ -720,11 +713,6 @@ export async function saveLessonNotes(classId, notes) {
 
 const byLatest = (a, b) => (b.scheduledAt?.seconds ?? 0) - (a.scheduledAt?.seconds ?? 0)
 
-export async function getPendingFollowUps() {
-  const snap = await getDocs(query(collection(db, 'classes'), where('followUpNeeded', '==', true)))
-  return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byLatest)
-}
-
 // Live version: every open dashboard hears the moment any teacher or admin
 // handles a student, so nobody messages the same person twice. Because the
 // query only matches open follow-ups, it stays cheap no matter how many
@@ -787,11 +775,6 @@ export async function getStudentRecurringSchedules(studentId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => r.isActive !== false)
 }
 
-export async function getAllRecurringSchedules() {
-  const snap = await getDocs(query(collection(db, 'recurringSchedules'), where('isActive', '==', true)))
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
-}
-
 // End a recurring series: mark inactive + cancel all its FUTURE generated classes
 export async function cancelRecurringSchedule(recurringId) {
   await updateDoc(doc(db, 'recurringSchedules', recurringId), { isActive: false })
@@ -807,16 +790,6 @@ export async function cancelRecurringSchedule(recurringId) {
 }
 
 // ─── AVAILABILITY (BLOCKED SLOTS) ─────────────────────────────────────────────
-
-export async function addBlockedSlot(teacherId, startAt, endAt, reason = '') {
-  return await addDoc(collection(db, 'availability'), {
-    teacherId,
-    startAt: Timestamp.fromDate(new Date(startAt)),
-    endAt: Timestamp.fromDate(new Date(endAt)),
-    reason,
-    createdAt: serverTimestamp(),
-  })
-}
 
 // Block a period in one go: a single day or a from–to date range, either
 // full-day or with the same start/end times on each day. Stored as ONE DOC PER
@@ -1135,12 +1108,6 @@ export async function getStudentPayments(studentId) {
     .sort((a, b) => (b.submittedAt?.seconds ?? 0) - (a.submittedAt?.seconds ?? 0))
 }
 
-export async function getAllPayments() {
-  const q = query(collection(db, 'payments'), orderBy('submittedAt', 'desc'))
-  const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
-}
-
 // Correct a payment that was recorded wrongly — the amount typed in a hurry,
 // the wrong method, the wrong months. Staff only: the Firestore rule on
 // `payments` already allows updates from admins and the teacher alone, so a
@@ -1251,15 +1218,6 @@ export async function deleteStudentCompletely(uid) {
   await deleteDoc(doc(db, 'users', uid))
 }
 
-// Delete EVERY student (and their data). Keeps teacher/admin accounts. One-time reset.
-export async function deleteAllStudents() {
-  const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student')))
-  for (const d of snap.docs) {
-    await deleteStudentCompletely(d.id)
-  }
-  return snap.size
-}
-
 export async function getTeacherAllClasses(teacherId) {
   // No orderBy → avoids composite index; sorted client-side
   const q = query(collection(db, 'classes'), where('teacherId', '==', teacherId))
@@ -1306,10 +1264,6 @@ export async function markAllNotificationsRead(userId) {
 export async function clearAllNotifications(userId) {
   const snap = await getDocs(query(collection(db, 'notifications'), where('userId', '==', userId)))
   await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'notifications', d.id))))
-}
-
-export async function updatePaymentScreenshot(paymentId, url) {
-  await updateDoc(doc(db, 'payments', paymentId), { screenshotUrl: url })
 }
 
 // ─── PROFILE PICTURES ─────────────────────────────────────────────────────────

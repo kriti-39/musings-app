@@ -155,11 +155,13 @@ export default function StudentDetail() {
             <div className="shrink-0 relative pb-2.5">
               <Avatar name={student?.name} src={photo} gender={student?.gender}
                 size="lg" attendance={attendanceNow.tag} />
-              {attendanceNow.tag && (
-                <div className="absolute inset-x-0 -bottom-0.5 flex justify-center">
-                  <AttendanceTag student={student} meta={attMeta} classes={classes} onChange={fetchAll} editable pill />
-                </div>
-              )}
+              {/* Always here, even before there are classes to judge. It used
+                  to appear only once the arithmetic had an opinion, which meant
+                  a brand-new student could not be marked at all — the one case
+                  where staff know something the numbers cannot. */}
+              <div className="absolute inset-x-0 -bottom-0.5 flex justify-center">
+                <AttendanceTag student={student} meta={attMeta} classes={classes} onChange={fetchAll} editable pill />
+              </div>
             </div>
             <div className="min-w-0 flex-1">
               {/* Wraps rather than truncates — this is the person's own

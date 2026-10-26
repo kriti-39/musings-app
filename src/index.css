@@ -133,6 +133,11 @@
 }
 .att-ring--regular   { --att-colour: var(--color-ok-ink); }
 .att-ring--irregular { --att-colour: var(--color-warn-ink); }
+/* Not judged yet — a quiet grey, so it reads as something waiting to be set
+   rather than a verdict. Without a colour here the pill had no background at
+   all and simply vanished, which is why an unmarked student looked as though
+   the tag had gone missing. */
+.att-ring--unset     { --att-colour: var(--color-line-strong); }
 
 /* The label, sitting on the ring at the bottom of the circle */
 .att-pill {

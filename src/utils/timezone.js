@@ -110,6 +110,17 @@ export function fmtLongDate(date, tz) {
   })
 }
 
+// The same date for a CARD, where it shares its line with a status badge.
+// "Wednesday, 28 October" and a badge do not both fit across a phone, and the
+// loser was whichever wrapped — usually both. The short weekday buys the room
+// without giving up the month, which is the part people actually read.
+export function fmtCardDate(date, tz) {
+  if (!date) return ''
+  return date.toLocaleDateString('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'long', timeZone: tz,
+  })
+}
+
 // Shift a real instant so that, when rendered in browser-local time by the
 // calendar, it visually shows the wall-clock time of `tz`.
 export function shiftToTz(date, tz) {

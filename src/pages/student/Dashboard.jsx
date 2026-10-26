@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { getStudentAllClasses, markClassDone, cancelClassByStudent, requestReschedule, getTeacher, sweepPastClasses, hasRecording, hasNotes, notesFrom, getClassDetails } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 import { RiCalendarLine, RiAddLine, RiVideoLine } from 'react-icons/ri'
-import { LOCAL_TZ, tzCity, fmtTime, fmtLongDate } from '../../utils/timezone'
+import { LOCAL_TZ, tzCity, fmtTime, fmtCardDate } from '../../utils/timezone'
 import ConfirmDialog from '../../components/shared/ConfirmDialog'
 import CreditBalance from '../../components/student/CreditBalance'
 import { usesCredits } from '../../utils/credits'
@@ -184,48 +184,56 @@ function ClassCard({ cls, onAction, onPatch, tz, teacherTz }) {
   const minDate = new Date().toISOString().split('T')[0]
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="font-medium text-gray-800">
-            {fmtLongDate(date, tz)}
-          </p>
-          <p className="text-sm text-gray-400 mt-0.5">
-            {fmtTime(date, tz)} <span className="text-gray-300">({tzCity(tz)})</span> · {cls.duration || 60} min
-          </p>
-          {showTeacher && (
-            <p className="text-xs text-gray-400 mt-0.5">
-              Teacher's time: {fmtTime(date, teacherTz)} ({tzCity(teacherTz)})
-            </p>
-          )}
-          {notesFrom(cls, cls.detail) && (
-            <p className="text-xs text-gray-500 mt-2 italic">"{notesFrom(cls, cls.detail)}"</p>
-          )}
-          {cls.status === 'completed' && hasRecording(cls) && (
-            // Goes to Recordings rather than straight to the link — the
-            // passcode lives there too.
-            <Link to="/student/recordings"
-              className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700">
-              <RiVideoLine size={14} /> Recording available
-            </Link>
-          )}
-        </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
+    <div className="bg-white rounded-xl border border-gray-100 p-4">
+      {/* Only the DATE shares a line with the badge. Everything used to sit in
+          one column beside it, so the badge's width was taken off every line
+          below as well — which is why the times were breaking across two lines
+          each and the card stood a head taller than it needed to. */}
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-medium text-gray-800 min-w-0">
+          {fmtCardDate(date, tz)}
+        </p>
+        <span className={`shrink-0 whitespace-nowrap text-[11px] px-2 py-0.5 rounded-full font-medium capitalize ${
           cls.missed ? 'bg-orange-50 text-orange-600' : STATUS_STYLES[cls.status]
         }`}>
           {cls.missed ? 'Missed' : cls.status === 'pending' ? 'Awaiting confirmation' : cls.status}
         </span>
       </div>
 
+      {/* Full width now, so each reads as one line */}
+      <p className="text-sm text-gray-400 mt-1 truncate">
+        {fmtTime(date, tz)} <span className="text-gray-300">({tzCity(tz)})</span> · {cls.duration || 60} min
+      </p>
+      {showTeacher && (
+        <p className="text-xs text-gray-400 mt-0.5 truncate">
+          Teacher's time: {fmtTime(date, teacherTz)} ({tzCity(teacherTz)})
+        </p>
+      )}
+      {notesFrom(cls, cls.detail) && (
+        <p className="text-xs text-gray-500 mt-2 italic">"{notesFrom(cls, cls.detail)}"</p>
+      )}
+      {cls.status === 'completed' && hasRecording(cls) && (
+        // Goes to Recordings rather than straight to the link — the
+        // passcode lives there too.
+        <Link to="/student/recordings"
+          className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700">
+          <RiVideoLine size={14} /> Recording available
+        </Link>
+      )}
+
       {/* Reschedule form */}
       {reschedule ? (
         <div className="mt-4 space-y-3 border-t border-gray-50 pt-4">
           <p className="text-xs font-medium text-gray-600">Pick a new date & time</p>
-          <div className="grid grid-cols-2 gap-3">
+          {/* Three columns to two, not half and half: a date field has to fit
+              "dd/mm/yyyy" AND the picker icon, while a time field only needs
+              "--:--". Splitting them evenly clipped the year off the date.
+              The smaller text buys the last few pixels on a narrow phone. */}
+          <div className="grid grid-cols-5 gap-2">
             <input type="date" value={newDate} min={minDate} onChange={e => setNewDate(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+              className="col-span-3 w-full min-w-0 border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400" />
             <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+              className="col-span-2 w-full min-w-0 border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400" />
           </div>
           <p className="text-xs text-gray-400">Your teacher will need to re-confirm the new time.</p>
           <div className="flex gap-2">

@@ -41,17 +41,22 @@ export default function AttendanceTag({ student, meta = null, classes, onChange,
     }
   }
 
+  // "Not enough history" is the honest answer, but it is long, and beside a
+  // name in a list it reads like a complaint rather than something you can set.
+  // Short label on the chip; the dialog still explains properly.
+  const label = tag ? attendanceLabel(tag) : 'Not set'
+
   // `pill` is the version that sits on the ring under an avatar: solid, tiny,
   // and in the ring's own colour so the two read as one thing.
   const chip = pill ? (
-    <span className={`att-pill att-ring--${tag} inline-flex items-center gap-1 text-[10px] leading-none px-2 py-1 rounded-full font-semibold uppercase whitespace-nowrap`}>
+    <span className={`att-pill att-ring--${tag || 'unset'} inline-flex items-center gap-1 text-[10px] leading-none px-2 py-1 rounded-full font-semibold uppercase whitespace-nowrap`}>
       {pinned && <RiPushpinFill size={9} className="shrink-0 opacity-80" />}
-      {attendanceLabel(tag)}
+      {label}
     </span>
   ) : (
-    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${style}`}>
+    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${style}`}>
       {pinned && <RiPushpinFill size={10} className="shrink-0 opacity-70" />}
-      {attendanceLabel(tag)}
+      {label}
     </span>
   )
 
@@ -59,7 +64,12 @@ export default function AttendanceTag({ student, meta = null, classes, onChange,
 
   return (
     <>
-      <button onClick={() => setOpen(true)} disabled={busy}
+      {/* stopPropagation because this sits inside rows that navigate when
+          clicked. Without it, setting a tag from the Students list opened the
+          dialog and walked off to the student's page underneath it. */}
+      <button
+        onClick={e => { e.stopPropagation(); setOpen(true) }}
+        disabled={busy}
         className="disabled:opacity-50" title="Set regular or irregular">
         {chip}
       </button>

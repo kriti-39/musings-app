@@ -295,8 +295,15 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
                   Mark as Done
                 </button>
               )}
+              {/* Notes shares its row with Recording (completed) or Reschedule
+                  (scheduled). For any other status neither of those renders, so
+                  it was sitting in one half of the grid with the other half
+                  empty — a button stopping halfway across for no visible
+                  reason. Alone, it takes the full width. */}
               <button onClick={() => setView('notes')}
-                className="border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50 transition-colors"
+                className={`border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50 transition-colors ${
+                  cls.status === 'completed' || cls.status === 'scheduled' ? '' : 'col-span-2'
+                }`}
               >
                 {notesFrom(cls, detail) ? 'Edit Notes' : 'Add Notes'}
               </button>

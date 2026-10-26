@@ -162,10 +162,12 @@ export default function TeacherStudents() {
                         <td className="px-5 py-3.5 font-medium text-gray-800">
                           <span className="flex items-center gap-2">
                             {s.name}
-                            {/* Read-only here; it is set from the student's own
-                                profile, where the dialog has room to explain
-                                what the arithmetic already thinks. */}
-                            {attendance(attMap[s.id]).tag && <AttendanceTag student={s} meta={attMap[s.id]} />}
+                            {/* Guruji sets it from here as well as the office.
+                                He is the one who notices a student drifting,
+                                and it is always shown — including before there
+                                are enough classes for the arithmetic to judge. */}
+                            <AttendanceTag student={s} meta={attMap[s.id]}
+                              onChange={fetchAll} editable />
                           </span>
                         </td>
                         <td className="px-5 py-3.5 text-gray-500">{displayId(s)}</td>

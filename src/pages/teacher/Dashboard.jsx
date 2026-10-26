@@ -86,14 +86,21 @@ export default function TeacherDashboard() {
                 const date = cls.scheduledAt?.toDate?.() ?? new Date()
                 const studentName = students[cls.studentId]?.name || 'Student'
                 return (
-                  <div key={cls.id} className="px-5 py-4 flex items-center justify-between border-t border-gray-100 first:border-t-0">
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">{studentName}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} · {date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {cls.duration || 60}m
+                  // The buttons hold their width (shrink-0) and the details take
+                  // what is left (min-w-0). Without both, the date flowed around
+                  // the buttons a word at a time. Day and time are separate lines
+                  // for the same reason: together they are too long for a phone.
+                  <div key={cls.id} className="px-4 py-3 flex items-center justify-between gap-3 border-t border-gray-100 first:border-t-0">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{studentName}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 truncate">
+                        {date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {cls.duration || 60}m
                       </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                       <button onClick={async () => { await confirmClass(cls.id, cls.studentId); fetchAll() }}
                         className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors"
                       >

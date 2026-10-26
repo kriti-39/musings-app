@@ -163,12 +163,14 @@ export default function AdminStudents() {
                     <td className="px-5 py-3.5 font-medium text-gray-800">
                       <span className="flex items-center gap-2">
                         {student.name}
-                        {/* Read-only here — set it from the student's profile.
-                            A one-click toggle inside a clickable row would be
-                            a tag changed by mistake. */}
-                        {attendance(attMap[student.id]).tag && (
-                          <AttendanceTag student={student} meta={attMap[student.id]} />
-                        )}
+                        {/* Settable from here too. It was read-only on the
+                            grounds that a toggle in a clickable row gets
+                            changed by mistake — but it is not a toggle, it
+                            opens a dialog with three choices, and the row's
+                            own click is stopped. Always shown, so a student
+                            with no classes yet can still be marked. */}
+                        <AttendanceTag student={student} meta={attMap[student.id]}
+                          onChange={fetchStudents} editable />
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-gray-500">{displayId(student)}</td>

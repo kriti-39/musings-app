@@ -32,6 +32,10 @@ export default function handler(req, res) {
       RAZORPAY_KEY_SECRET: present('RAZORPAY_KEY_SECRET'),
       RAZORPAY_WEBHOOK_SECRET: present('RAZORPAY_WEBHOOK_SECRET'),
       FIREBASE_SERVICE_ACCOUNT: present('FIREBASE_SERVICE_ACCOUNT'),
+      // Without this, /api/reminders refuses every call — and because the cron
+      // that pings it lives outside this repo, nothing anywhere would say so.
+      // Class reminders would simply never arrive, silently.
+      REMINDERS_SECRET: present('REMINDERS_SECRET'),
     },
     razorpay: {
       configured: !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),

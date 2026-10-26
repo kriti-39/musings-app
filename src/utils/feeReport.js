@@ -31,9 +31,6 @@ export function monthLabel(m) {
 }
 
 // "Aug, Sep 2026" style list for a table cell
-export function monthsLabel(list) {
-  return (list || []).map(monthLabel).join(', ')
-}
 
 // ─── When did this money arrive? ─────────────────────────────────────────────
 // `submittedAt` is a server timestamp written on every payment the app has ever

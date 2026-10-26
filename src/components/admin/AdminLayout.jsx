@@ -7,7 +7,7 @@ import { useTheme } from '../../context/ThemeContext'
 import NotificationBell from '../shared/NotificationBell'
 import {
   RiDashboardLine, RiUserLine, RiCalendarLine, RiListCheck2,
-  RiMoneyDollarCircleLine, RiMenuLine, RiCloseLine, RiLogoutBoxLine,
+  RiMoneyDollarCircleLine, RiMenuLine, RiLogoutBoxLine,
   RiSunLine, RiMoonLine, RiSettings3Line, RiQuestionLine } from 'react-icons/ri'
 
 const navItems = [

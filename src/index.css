@@ -321,6 +321,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .bg-gray-50    { background-color: var(--color-bg); }
 .bg-gray-100   { background-color: var(--color-raised); }
 
+/* A disabled primary button. `disabled:` compiles to its own selector, so
+   bridging plain `.bg-gray-200` would not have reached it — the same reason the
+   hover variants are listed separately below. Left alone, seven buttons across
+   the app turned Tailwind's near-white when disabled, which on the dark theme
+   made the dead button the brightest thing on the screen. */
+.disabled\:bg-gray-200:disabled   { background-color: var(--color-raised); }
+.disabled\:text-gray-400:disabled { color: var(--color-faint); }
+
 /* ── Dialogs ─────────────────────────────────────────────────────────────────
    Every dialog in the app is the same two pieces: a scrim (bg-black/40..60)
    and a panel (bg-white + shadow-xl). Both were drawn for a white page.
@@ -379,7 +387,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .text-amber-600,
 .text-amber-700,
-.text-amber-800 { color: var(--color-accent); }
+.text-amber-800,
+/* 900 was missing, and it is the headline of the "Use them by" box whose
+   background IS bridged — so the heading rendered in Tailwind's dark brown on
+   a dark blue panel while the lines under it, being 700, came out bright. */
+.text-amber-900 { color: var(--color-accent); }
 .hover\:text-amber-700:hover { color: var(--color-accent); }
 
 .bg-amber-50,

@@ -4,9 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import AdminLayout from '../../components/admin/AdminLayout'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import StudentLayout from '../../components/student/StudentLayout'
-import {
-  usesCredits, validityRangeLabel, validityWeeks, creditCap, classOptions, isIndianStudent,
-} from '../../utils/credits'
+import { usesCredits } from '../../utils/credits'
 
 // ─── Help ────────────────────────────────────────────────────────────────────
 // One set of answers for everyone. Staff get asked these questions by students
@@ -20,27 +18,12 @@ function sections(student, isStaff) {
   // no credits section at all — the very part students ask them about.
   const onCredits = isStaff || usesCredits(student)
 
-  // A student is told their own window and their own limit; staff are told
-  // both, since they answer for everybody.
-  // How long a purchase lasts. In India it is one number; abroad it depends on
-  // the size, so the sizes and their windows are spelled out from the real
-  // rules — nothing here can drift away from what the app actually does.
-  const sizeWindows = (who) => classOptions(who)
-    .map(n => `${n === 1 ? 'one class lasts' : `${n} last`} ${validityWeeks(who, n)} weeks`)
-    .join(', ')
-
-  const expiry = isStaff
-    ? `In India any purchase lasts 4 weeks. Abroad it depends on the size: ${sizeWindows({ country: 'USA' })}.`
-    : isIndianStudent(student)
-      ? `They last ${validityRangeLabel(student)} from the day they are added.`
-      : `It depends how many you buy: ${sizeWindows(student)}, counted from the day they are added.`
-  const cap = isStaff
-    ? '3 for students in India and up to 12 for students abroad'
-    : String(creditCap(student))
-  const choices = isStaff
-    ? '1, 2 or 3 in India; 1, 3, 4 or 12 abroad'
-    : classOptions(student).join(', ')
-
+  // The page deliberately quotes no numbers — no cap, no window in weeks, no
+  // list of sizes. They differ between students, and a student reading that
+  // another student may buy twelve when they may buy three learns nothing
+  // useful and asks a question Guruji then has to answer. The Buy screen shows
+  // each person their own options and their own date, which is where that
+  // belongs.
   return [
     {
       title: 'Booking a class',
@@ -52,10 +35,6 @@ function sections(student, isStaff) {
         {
           q: 'Why can’t I pick some times?',
           a: 'A slot in red is already taken, or Guruji has marked himself unavailable. Only free slots can be booked — two classes can never share a time.',
-        },
-        {
-          q: 'Why can’t I book further ahead?',
-          a: 'You can book the next 7 days. For anything beyond that, ask Guruji — he can schedule it for you, and he books recurring classes months ahead.',
         },
         {
           q: 'Can I change or cancel a class?',
@@ -76,19 +55,11 @@ function sections(student, isStaff) {
         },
         {
           q: 'How do I buy classes?',
-          a: `Open "Fees" and tap "Buy credits". You will be asked how many classes you want (${choices}) and what you are paying — type the amount you agreed with Guruji. Pay by card, UPI or netbanking, and the classes appear on your dashboard a moment later. You can also pay Guruji or the office directly and they will add them for you.`,
-        },
-        {
-          q: 'What amount should I enter?',
-          a: 'Whatever you agreed with Guruji for that many classes. The app does not set the price — fees differ from student to student — so it records what you type. If you are not sure of the amount, ask the office before paying rather than guessing.',
-        },
-        {
-          q: `How many can I hold at once?`,
-          a: `${cap}. It is a limit on how many are sitting unused, not a monthly allowance — the moment you use one, room opens up and you can buy again. Finish them all in a fortnight and you can buy more that same day.`,
+          a: 'Open "Fees" and tap "Buy credits". Choose how many classes you want — one credit is one class — and pay by any of the methods offered. The classes appear on your dashboard a moment later. If anything goes wrong, tell Guruji.',
         },
         {
           q: 'When do they expire?',
-          a: `${expiry} It then runs to the end of that week — always a Sunday, so you are never counting to an odd weekday. The exact date is shown before you pay and again with your balance, so you always know the day.`,
+          a: 'Each purchase runs for a set period, and the exact date is shown before you pay and again with your balance. If you still have classes left when you buy more, the new ones do not start counting until the old ones run out — so topping up adds time rather than overwriting it.',
         },
         {
           q: 'What if I can’t use them in time?',
@@ -98,26 +69,14 @@ function sections(student, isStaff) {
           q: 'I cancelled a class. Do I get the credit back?',
           a: 'If Guruji cancels, or he is away, the credit comes straight back. If you cancel your own class, it is held while he decides — that way a genuine reason is never treated the same as a change of mind.',
         },
-        {
-          q: 'Why does it say I need credits before booking?',
-          a: 'You have none left. Buy some from the Fees page, or ask the office to add them.',
-        },
       ],
     }] : []),
     {
       title: 'Paying',
       items: [
         {
-          q: 'What does a class cost?',
-          a: 'Whatever you agreed with Guruji. The app does not set a price — fees differ from student to student — so you enter the amount yourself when you buy. If you are not sure what it should be, ask the office before paying.',
-        },
-        {
-          q: 'Is my card safe?',
-          a: 'The studio never sees your card details. Payment is handled by Razorpay, who take the card directly; the app is only told whether it worked.',
-        },
-        {
           q: 'I paid but nothing happened.',
-          a: 'Give it a few seconds — the app waits for the bank to confirm rather than taking its own word for it. If it still has not appeared, tell the office. The payment is recorded either way, so nothing is lost.',
+          a: 'Give it a few seconds — the app waits for the bank to confirm rather than taking its own word for it. If it still has not appeared, tell Guruji. The payment is recorded either way, so nothing is lost.',
         },
       ],
     },
@@ -126,15 +85,15 @@ function sections(student, isStaff) {
       items: [
         {
           q: 'How do I change my name, photo or number?',
-          a: 'Settings → Profile → Edit. Your User ID cannot be changed, because it is how you sign in.',
+          a: 'Settings → Profile → Edit. Your User ID cannot be changed, because it is how you sign in. Changing your number tells Guruji, so he is not left ringing the old one.',
+        },
+        {
+          q: 'I have moved. How do I change my timezone?',
+          a: 'Settings → Timezone. Every class time then shows in your new one, and Guruji is told — he schedules around it, so he needs to know before your next lesson rather than after it.',
         },
         {
           q: 'I forgot my password.',
-          a: 'Ask Guruji or the office to reset it. There is no self-service reset — your login is a User ID, not an email address.',
-        },
-        {
-          q: 'It says my account is paused.',
-          a: 'Classes are on hold for now, so the app will not let you book. Nothing is lost — any classes you had paid for are kept and waiting. Speak to Guruji or the office about starting again.',
+          a: 'Ask Guruji to reset it. There is no self-service reset — your login is a User ID, not an email address.',
         },
         {
           q: 'Can I use this on my phone?',
@@ -219,7 +178,7 @@ export default function Help() {
         </div>
 
         <p className="text-xs text-gray-400 text-center mt-8">
-          Still stuck? Speak to Guruji or the office — they can see everything this page describes.
+          Still stuck? Speak to Guruji — he can see everything this page describes.
         </p>
       </div>
     </Layout>

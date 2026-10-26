@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { getStudentAllClasses, renameRecording, hasRecording, recordingText, recordingTitleOf, getClassDetails } from '../../firebase/db'
 import RecordingBlock from '../../components/shared/RecordingBlock'
 import { LOCAL_TZ, tzCity, fmtTime, fmtLongDate } from '../../utils/timezone'
-import { RiVideoLine, RiExternalLinkLine, RiPencilLine, RiCheckLine, RiCloseLine } from 'react-icons/ri'
+import { RiVideoLine, RiPencilLine, RiCheckLine, RiCloseLine } from 'react-icons/ri'
 
 export default function StudentRecordings() {
   const { user } = useAuth()

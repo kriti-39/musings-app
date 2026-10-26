@@ -28,7 +28,7 @@ export function creditCap(student) {
 // lessons. One is always offered so somebody can top up a single class instead
 // of buying another whole block.
 export function classOptions(student) {
-  return isIndianStudent(student) ? [1, 2, 3] : [1, 3, 4, 12]
+  return isIndianStudent(student) ? [1, 2, 3] : [1, 4, 12]
 }
 
 // ─── How long a purchase lasts ───────────────────────────────────────────────
@@ -40,7 +40,10 @@ export const INDIA_VALIDITY_WEEKS = 4
 // Abroad, the window depends on how many classes were bought: a single
 // top-up is meant to be used soon, while twelve is a term's worth of lessons
 // bought around a visit or a stretch of leave and needs room to breathe.
-const FOREIGN_WEEKS = { 1: 2, 3: 4, 4: 5, 12: 15 }
+// Keyed by the sizes actually offered. Three is absent because it is no longer
+// one of them — and removing it changes nothing, since the rule below lands a
+// hand-granted three on the same four weeks the explicit entry used to give.
+const FOREIGN_WEEKS = { 1: 2, 4: 5, 12: 15 }
 
 // Weeks for a purchase of `quantity` classes by this student.
 //
@@ -93,7 +96,7 @@ export function validityLabel(student, quantity = null) {
 
 // For somewhere there is no particular purchase in view — the Help page, or a
 // hint on a profile. In India it is one number; abroad it is a range, and
-// saying "6 weeks" there would be wrong for three of the four sizes.
+// saying one number there would be wrong for two of the three sizes.
 export function validityRangeLabel(student) {
   if (isIndianStudent(student)) return `${INDIA_VALIDITY_WEEKS} weeks`
   const sizes = classOptions(student)

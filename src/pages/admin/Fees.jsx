@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
-import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment, getAllClassesForMonth } from '../../firebase/db'
-import { paymentCoverage } from '../../utils/payment'
+import { getAllStudents, getStudentPayments, getAllClassesForMonth } from '../../firebase/db'
+import { paymentCoverage, fmtPaidOn } from '../../utils/payment'
 import { useAuth } from '../../context/AuthContext'
 import FeeReportModal from '../../components/shared/FeeReportModal'
 import FeeMonthSummary from '../../components/shared/FeeMonthSummary'
-import { RiCheckLine, RiAddLine, RiCloseLine, RiFileDownloadLine, RiEdit2Line } from 'react-icons/ri'
+import { RiAddLine, RiFileDownloadLine, RiEdit2Line, RiEyeLine, RiEyeOffLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -44,6 +44,9 @@ export default function AdminFees() {
   const [loading, setLoading] = useState(true)
   const [addModal, setAddModal] = useState(null) // { studentId, defaultAmount } | { payment }
   const [showReport, setShowReport] = useState(false)
+  // Amount and method, off by default: the status is the answer this page is
+  // opened for.
+  const [details, setDetails] = useState(false)
 
   async function fetchAll() {
     setLoading(true)
@@ -130,7 +133,22 @@ export default function AdminFees() {
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Student</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Fee</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">{monthLabel(selectedMonth)}</th>
+                  {/* Amount and method hide behind the eye: the status is what
+                      the page is read for, the rest is looked up occasionally. */}
+                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">
+                    <span className="inline-flex items-center gap-1.5">
+                      {monthLabel(selectedMonth)}
+                      <button
+                        onClick={() => setDetails(d => !d)}
+                        aria-pressed={details}
+                        title={details ? 'Hide amount and method' : 'Show amount and method'}
+                        aria-label={details ? 'Hide amount and method' : 'Show amount and method'}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        {details ? <RiEyeOffLine size={14} /> : <RiEyeLine size={14} />}
+                      </button>
+                    </span>
+                  </th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Actions</th>
                 </tr>
               </thead>
@@ -153,12 +171,12 @@ export default function AdminFees() {
                         }`}>
                           {status === 'paid' ? 'Paid' : status === 'pending' ? 'Pending confirmation' : 'Unpaid'}
                         </span>
-                        {monthPayment && (
+                        {details && monthPayment && (
                           <span className="block text-xs text-gray-400 mt-1 capitalize">
-                            ₹{monthPayment.amount} · {monthPayment.method?.replace('_', ' ')}
+                            {fmtPaidOn(monthPayment)} · ₹{monthPayment.amount} · {monthPayment.method?.replace('_', ' ')}
                           </span>
                         )}
-                        {monthPayment?.months?.length > 1 && (
+                        {details && monthPayment?.months?.length > 1 && (
                           <span className="block text-[11px] text-amber-600 mt-0.5">
                             covers {paymentCoverage(monthPayment.months)}
                           </span>
@@ -166,22 +184,11 @@ export default function AdminFees() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex gap-2">
-                          {status === 'pending' && monthPayment && (
-                            <>
-                              <button
-                                onClick={async () => { await confirmPayment(monthPayment.id, user.id, s.id); fetchAll() }}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors"
-                              >
-                                <RiCheckLine size={13} /> Confirm
-                              </button>
-                              <button
-                                onClick={async () => { await rejectPayment(monthPayment.id, s.id); fetchAll() }}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors"
-                              >
-                                <RiCloseLine size={13} /> Decline
-                              </button>
-                            </>
-                          )}
+                          {/* No Confirm/Decline. Every payment the app writes is
+                              already confirmed — it comes from the office or from
+                              the gateway — so there is nothing left to vet. A row
+                              stranded from the old submit-and-approve flow can
+                              still be put right with Edit. */}
                           {status === 'unpaid' && (
                             <button
                               // Prefilled with what this student is meant to pay

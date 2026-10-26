@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
-import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment, getAllClassesForMonth } from '../../firebase/db'
-import { paymentCoverage } from '../../utils/payment'
-import { useAuth } from '../../context/AuthContext'
+import { getAllStudents, getStudentPayments, getAllClassesForMonth } from '../../firebase/db'
+import { paymentCoverage, fmtPaidOn } from '../../utils/payment'
 import FeeReportModal from '../../components/shared/FeeReportModal'
 import FeeMonthSummary from '../../components/shared/FeeMonthSummary'
-import { RiCheckLine, RiCloseLine, RiFileDownloadLine } from 'react-icons/ri'
+import { RiFileDownloadLine, RiEyeLine, RiEyeOffLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -20,7 +19,6 @@ function currentMonthStr() {
 }
 
 export default function TeacherFees() {
-  const { user } = useAuth()
   const [students, setStudents] = useState([])
   const [payments, setPayments] = useState({})
   // One month or several — the totals follow the whole selection. Never empty.
@@ -39,13 +37,9 @@ export default function TeacherFees() {
   const [filter, setFilter] = useState('all') // all | paid | pending | unpaid
   const [loading, setLoading] = useState(true)
   const [showReport, setShowReport] = useState(false)
-
-  async function refreshPayments() {
-    const allStudents = await getAllStudents()
-    const map = {}
-    await Promise.all(allStudents.map(async s => { map[s.id] = await getStudentPayments(s.id) }))
-    setPayments(map)
-  }
+  // Amount and method, off by default: the status is the answer this page is
+  // opened for.
+  const [details, setDetails] = useState(false)
 
   // Classes for the selected calendar month, so the summary can say how many
   // were actually taught. By calendar month and not by anyone's credit period:
@@ -97,23 +91,9 @@ export default function TeacherFees() {
   // normal use that is never, and the header stops standing over an empty strip
   // of table. It is kept rather than deleted because a row left pending from the
   // old flow would otherwise have no way to be resolved.
-  // Judged on the rows actually on screen, not every student: filtering to
-  // "paid" while someone else is pending would otherwise bring back a column
-  // with nothing in any of its cells.
   const visibleStudents = students.filter(
     s => filter === 'all' || getStatus(s.id, selectedMonth) === filter,
   )
-  const needsAction = visibleStudents.some(s => getStatus(s.id, selectedMonth) === 'pending')
-
-  async function handleConfirm(paymentId, studentId) {
-    await confirmPayment(paymentId, user.id, studentId)
-    refreshPayments()
-  }
-
-  async function handleDecline(paymentId, studentId) {
-    await rejectPayment(paymentId, studentId)
-    refreshPayments()
-  }
 
   const months = []
   for (let i = -2; i <= 2; i++) {
@@ -188,10 +168,24 @@ export default function TeacherFees() {
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Student</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Country</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">{monthLabel(selectedMonth)}</th>
-                  {needsAction && (
-                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Action</th>
-                  )}
+                  {/* The month column carries the status, and the amount and
+                      method sit under it only when asked for. The status is
+                      what this page is read for; the rest is detail you go
+                      looking for once, not every time you open it. */}
+                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">
+                    <span className="inline-flex items-center gap-1.5">
+                      {monthLabel(selectedMonth)}
+                      <button
+                        onClick={() => setDetails(d => !d)}
+                        aria-pressed={details}
+                        title={details ? 'Hide amount and method' : 'Show amount and method'}
+                        aria-label={details ? 'Hide amount and method' : 'Show amount and method'}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        {details ? <RiEyeOffLine size={14} /> : <RiEyeLine size={14} />}
+                      </button>
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -213,39 +207,17 @@ export default function TeacherFees() {
                         }`}>
                           {status === 'paid' ? 'Paid' : status === 'pending' ? 'Pending confirmation' : 'Unpaid'}
                         </span>
-                        {payment && (
+                        {details && payment && (
                           <span className="block text-xs text-gray-400 mt-1 capitalize">
-                            ₹{payment.amount} · {payment.method?.replace('_', ' ')}
+                            {fmtPaidOn(payment)} · ₹{payment.amount} · {payment.method?.replace('_', ' ')}
                           </span>
                         )}
-                        {payment?.months?.length > 1 && (
+                        {details && payment?.months?.length > 1 && (
                           <span className="block text-[11px] text-amber-600 mt-0.5">
                             covers {paymentCoverage(payment.months)}
                           </span>
                         )}
                       </td>
-                      {/* No Mark Paid for Guruji. Recording money taken is the
-                          office's job — the same reason the credits card and a
-                          student's profile give him no money action either. He
-                          still sees everything. */}
-                      {needsAction && (
-                        <td className="px-5 py-3.5">
-                          <div className="flex gap-2">
-                            {status === 'pending' && payment && (
-                              <>
-                                <button onClick={() => handleConfirm(payment.id, s.id)}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
-                                  <RiCheckLine size={13} /> Confirm
-                                </button>
-                                <button onClick={() => handleDecline(payment.id, s.id)}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors">
-                                  <RiCloseLine size={13} /> Decline
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      )}
                     </tr>
                   )
                 })}

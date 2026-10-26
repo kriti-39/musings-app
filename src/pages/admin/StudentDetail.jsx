@@ -5,15 +5,16 @@ import TeacherLayout from '../../components/teacher/TeacherLayout'
 import { useAuth } from '../../context/AuthContext'
 import {
   getUser, getStudentAllClasses, getStudentPayments, getStudentRecurringSchedules,
-  cancelRecurringSchedule, confirmPayment, rejectPayment, hasRecording, hasNotes, getPhoto,
+  cancelRecurringSchedule, hasRecording, hasNotes, getPhoto,
 } from '../../firebase/db'
 import Avatar from '../../components/shared/Avatar'
 import { buildStudentStats, attendanceFrom, attendance } from '../../utils/studentStats'
 import {
-  RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine, RiAddLine, RiEdit2Line,
+  RiArrowLeftLine, RiRepeatLine, RiAddLine, RiEdit2Line,
   RiTicketLine,
 } from 'react-icons/ri'
 import { displayId } from '../../utils/auth'
+import { fmtPaidOn, coveredMonths } from '../../utils/payment'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
 import EditStudentModal from '../../components/shared/EditStudentModal'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
@@ -25,21 +26,12 @@ import PeriodFilter, { ALL_PERIOD, filterByPeriod } from '../../components/share
 import { fmtShortDate } from '../../utils/timezone'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
 const STATUS_STYLES = {
   scheduled:  'bg-green-50 text-green-700',
   pending:    'bg-amber-50 text-amber-700',
   completed:  'bg-gray-100 text-gray-500',
   cancelled:  'bg-red-50 text-red-500',
   rejected:   'bg-red-50 text-red-500',
-}
-
-function monthsLabel(months) {
-  return (months || []).map(m => {
-    const [y, mo] = m.split('-')
-    return `${MONTHS[parseInt(mo) - 1]} ${y}`
-  }).join(', ')
 }
 
 export default function StudentDetail() {
@@ -111,26 +103,12 @@ export default function StudentDetail() {
     fetchAll()
   }
 
-  async function handleConfirmPayment(paymentId) {
-    await confirmPayment(paymentId, user.id, id)
-    fetchAll()
-  }
-  async function handleDeclinePayment(paymentId) {
-    await rejectPayment(paymentId, id)
-    fetchAll()
-  }
-
   const now = new Date()
   const completed = classes.filter(c => c.status === 'completed')
   const upcoming = classes
     .filter(c => c.status === 'pending' || (c.status === 'scheduled' && (c.scheduledAt?.toDate?.() ?? new Date()) >= now))
     .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
   const confirmedPayments = payments.filter(p => p.status === 'confirmed')
-  // Confirm/Decline is the only thing in the Action column, and nothing creates
-  // a payment needing it any more — every one the app writes is already
-  // confirmed, from the office or from the gateway. Shown only if a row from
-  // the old submit-and-approve flow is still sitting unresolved.
-  const anyPending = payments.some(p => p.status !== 'confirmed' && p.status !== 'rejected')
   const stats = buildStudentStats(classes, payments)
   const attendanceNow = attendance(attMeta, classes)
 
@@ -342,23 +320,28 @@ export default function StudentDetail() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Month</th>
+                    {/* The day it was paid, the same date the student sees on
+                        their own Fees page. No Month column: for almost every
+                        payment the date carries it, and the exceptions say so
+                        underneath. */}
+                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Paid on</th>
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Credits</th>
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Paid</th>
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Method</th>
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Status</th>
-                    {anyPending && (
-                      <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Action</th>
-                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {payments.map((p, i) => {
-                    const isPending = p.status !== 'confirmed' && p.status !== 'rejected'
                     return (
                       <tr key={p.id} className={i !== payments.length - 1 ? 'border-b border-gray-50' : ''}>
-                        <td className="px-5 py-3.5 text-gray-700 whitespace-nowrap">
-                          {monthsLabel(p.months) || '—'}
+                        <td className="px-5 py-3.5 text-gray-700 whitespace-nowrap tabular-nums">
+                          {fmtPaidOn(p)}
+                          {coveredMonths(p) && (
+                            <span className="block text-[11px] text-gray-400 font-normal">
+                              for {coveredMonths(p)}
+                            </span>
+                          )}
                         </td>
                         {/* What the money actually bought. A dash is a payment
                             that wasn't for credits — a legacy monthly fee, or
@@ -391,24 +374,6 @@ export default function StudentDetail() {
                             {p.status === 'confirmed' ? 'Confirmed' : p.status === 'rejected' ? 'Declined' : 'Pending'}
                           </span>
                         </td>
-                        {anyPending && (
-                          <td className="px-5 py-3.5">
-                            <div className="flex gap-2">
-                              {isPending && (
-                                <>
-                                  <button onClick={() => handleConfirmPayment(p.id)}
-                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
-                                    <RiCheckLine size={13} /> Confirm
-                                  </button>
-                                  <button onClick={() => handleDeclinePayment(p.id)}
-                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors">
-                                    <RiCloseLine size={13} /> Decline
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        )}
                       </tr>
                     )
                   })}

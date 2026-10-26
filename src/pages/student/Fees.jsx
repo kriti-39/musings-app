@@ -4,39 +4,10 @@ import { useAuth } from '../../context/AuthContext'
 import { getStudentPayments } from '../../firebase/db'
 import { loadCredits } from '../../firebase/credits'
 import { usesCredits, creditsWord, creditCap } from '../../utils/credits'
-import { paymentDate, paymentMonth } from '../../utils/feeReport'
+import { fmtPaidOn, coveredMonths } from '../../utils/payment'
 import BuyCreditsModal from '../../components/student/BuyCreditsModal'
 import { RiTicketLine } from 'react-icons/ri'
 
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
-function monthLabel(m) {
-  const [y, mo] = m.split('-')
-  return `${MONTHS[parseInt(mo) - 1]} ${y}`
-}
-
-// The day the money actually went in. `paymentDate` is the same rule the
-// monthly report uses, so the date a student reads here and the date the
-// office reads on the PDF can never drift apart.
-//
-// Rows from before those timestamps existed have no date rather than a wrong
-// one — a made-up day on a payment record is worse than an honest dash.
-function fmtDay(payment) {
-  const d = paymentDate(payment)
-  if (!d) return '—'
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-// The months this payment settles, but only when they are not simply the month
-// it was paid in — otherwise the date above already says it, and repeating it
-// is noise. Returns null when there is nothing worth adding.
-function coveredMonths(payment) {
-  const months = (payment.months || []).filter(Boolean)
-  if (!months.length) return null
-  const paidIn = paymentMonth(payment)
-  if (months.length === 1 && months[0] === paidIn) return null
-  return months.map(monthLabel).join(', ')
-}
 
 export default function StudentFees() {
   const { user } = useAuth()
@@ -125,7 +96,7 @@ export default function StudentFees() {
                         the one case where the months are worth saying, so they
                         appear underneath and only then. */}
                     <td className="px-5 py-3.5 text-gray-700 whitespace-nowrap tabular-nums">
-                      {fmtDay(p)}
+                      {fmtPaidOn(p)}
                       {coveredMonths(p) && (
                         <span className="block text-[11px] text-gray-400 font-normal">
                           for {coveredMonths(p)}

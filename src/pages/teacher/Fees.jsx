@@ -88,6 +88,23 @@ export default function TeacherFees() {
     return (payments[studentId] || []).find(p => p.months?.includes(month) && p.status !== 'rejected')
   }
 
+  // The Action column holds one thing — Confirm/Decline on a payment waiting to
+  // be vetted — and nothing creates one of those any more: every payment the app
+  // writes is already confirmed, because it comes from the office or from the
+  // gateway. Students stopped submitting payments for approval.
+  //
+  // So the column is shown only when there is actually something pending. In
+  // normal use that is never, and the header stops standing over an empty strip
+  // of table. It is kept rather than deleted because a row left pending from the
+  // old flow would otherwise have no way to be resolved.
+  // Judged on the rows actually on screen, not every student: filtering to
+  // "paid" while someone else is pending would otherwise bring back a column
+  // with nothing in any of its cells.
+  const visibleStudents = students.filter(
+    s => filter === 'all' || getStatus(s.id, selectedMonth) === filter,
+  )
+  const needsAction = visibleStudents.some(s => getStatus(s.id, selectedMonth) === 'pending')
+
   async function handleConfirm(paymentId, studentId) {
     await confirmPayment(paymentId, user.id, studentId)
     refreshPayments()
@@ -172,12 +189,13 @@ export default function TeacherFees() {
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Student</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Country</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">{monthLabel(selectedMonth)}</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Action</th>
+                  {needsAction && (
+                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Action</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
-                {students
-                  .filter(s => filter === 'all' || getStatus(s.id, selectedMonth) === filter)
+                {visibleStudents
                   .map((s, i, arr) => {
                   const status = getStatus(s.id, selectedMonth)
                   const payment = getPayment(s.id, selectedMonth)
@@ -206,26 +224,28 @@ export default function TeacherFees() {
                           </span>
                         )}
                       </td>
-                      <td className="px-5 py-3.5">
-                        <div className="flex gap-2">
-                          {status === 'pending' && payment && (
-                            <>
-                              <button onClick={() => handleConfirm(payment.id, s.id)}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
-                                <RiCheckLine size={13} /> Confirm
-                              </button>
-                              <button onClick={() => handleDecline(payment.id, s.id)}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors">
-                                <RiCloseLine size={13} /> Decline
-                              </button>
-                            </>
-                          )}
-                        </div>
-                        {/* No Mark Paid for Guruji. Recording money taken is
-                            the office's job — the same reason the credits
-                            card and a student's profile give him no money
-                            action either. He still sees everything. */}
-                      </td>
+                      {/* No Mark Paid for Guruji. Recording money taken is the
+                          office's job — the same reason the credits card and a
+                          student's profile give him no money action either. He
+                          still sees everything. */}
+                      {needsAction && (
+                        <td className="px-5 py-3.5">
+                          <div className="flex gap-2">
+                            {status === 'pending' && payment && (
+                              <>
+                                <button onClick={() => handleConfirm(payment.id, s.id)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
+                                  <RiCheckLine size={13} /> Confirm
+                                </button>
+                                <button onClick={() => handleDecline(payment.id, s.id)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors">
+                                  <RiCloseLine size={13} /> Decline
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   )
                 })}

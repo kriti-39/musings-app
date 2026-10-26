@@ -126,6 +126,11 @@ export default function StudentDetail() {
     .filter(c => c.status === 'pending' || (c.status === 'scheduled' && (c.scheduledAt?.toDate?.() ?? new Date()) >= now))
     .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
   const confirmedPayments = payments.filter(p => p.status === 'confirmed')
+  // Confirm/Decline is the only thing in the Action column, and nothing creates
+  // a payment needing it any more — every one the app writes is already
+  // confirmed, from the office or from the gateway. Shown only if a row from
+  // the old submit-and-approve flow is still sitting unresolved.
+  const anyPending = payments.some(p => p.status !== 'confirmed' && p.status !== 'rejected')
   const stats = buildStudentStats(classes, payments)
   const attendanceNow = attendance(attMeta, classes)
 
@@ -342,7 +347,9 @@ export default function StudentDetail() {
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Paid</th>
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Method</th>
                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Status</th>
-                    <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Action</th>
+                    {anyPending && (
+                      <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Action</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -384,22 +391,24 @@ export default function StudentDetail() {
                             {p.status === 'confirmed' ? 'Confirmed' : p.status === 'rejected' ? 'Declined' : 'Pending'}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex gap-2">
-                            {isPending && (
-                              <>
-                                <button onClick={() => handleConfirmPayment(p.id)}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
-                                  <RiCheckLine size={13} /> Confirm
-                                </button>
-                                <button onClick={() => handleDeclinePayment(p.id)}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors">
-                                  <RiCloseLine size={13} /> Decline
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
+                        {anyPending && (
+                          <td className="px-5 py-3.5">
+                            <div className="flex gap-2">
+                              {isPending && (
+                                <>
+                                  <button onClick={() => handleConfirmPayment(p.id)}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs hover:bg-green-100 transition-colors">
+                                    <RiCheckLine size={13} /> Confirm
+                                  </button>
+                                  <button onClick={() => handleDeclinePayment(p.id)}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors">
+                                    <RiCloseLine size={13} /> Decline
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     )
                   })}

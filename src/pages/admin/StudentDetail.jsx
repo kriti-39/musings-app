@@ -10,11 +10,10 @@ import {
 import Avatar from '../../components/shared/Avatar'
 import { buildStudentStats, attendanceFrom, attendance } from '../../utils/studentStats'
 import {
-  RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine, RiImageLine, RiAddLine, RiEdit2Line,
+  RiArrowLeftLine, RiRepeatLine, RiCheckLine, RiCloseLine, RiAddLine, RiEdit2Line,
   RiTicketLine,
 } from 'react-icons/ri'
 import { displayId } from '../../utils/auth'
-import ReceiptModal from '../../components/shared/ReceiptModal'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
 import EditStudentModal from '../../components/shared/EditStudentModal'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
@@ -56,7 +55,6 @@ export default function StudentDetail() {
   const [payments, setPayments] = useState([])
   const [recurring, setRecurring] = useState([])
   const [section, setSection] = useState('upcoming') // upcoming | done | payments
-  const [receiptId, setReceiptId] = useState(null)
   const [showRecord, setShowRecord] = useState(false)
   // Bumped to ask the credits card above to open its Add dialog, so there is
   // one grant flow on this page rather than two that can drift apart.
@@ -388,14 +386,6 @@ export default function StudentDetail() {
                         </td>
                         <td className="px-5 py-3.5">
                           <div className="flex gap-2">
-                            {(p.hasReceipt || p.screenshotUrl) ? (
-                              <button onClick={() => setReceiptId({ id: p.id, url: p.screenshotUrl })}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-xs hover:bg-gray-100 transition-colors">
-                                <RiImageLine size={13} /> Receipt
-                              </button>
-                            ) : p.method !== 'cash' ? (
-                              <span className="text-xs text-gray-400 self-center">No receipt</span>
-                            ) : null}
                             {isPending && (
                               <>
                                 <button onClick={() => handleConfirmPayment(p.id)}
@@ -420,8 +410,6 @@ export default function StudentDetail() {
           </>
         )}
       </div>
-
-      {receiptId && <ReceiptModal paymentId={receiptId.id} directUrl={receiptId.url} onClose={() => setReceiptId(null)} />}
       {showRecord && (
         <MarkPaidModal
           studentId={id}

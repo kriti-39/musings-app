@@ -221,7 +221,6 @@ async function grantForPayment(payment) {
     creditBatchId: creditRef.id,
     gatewayPaymentId: paymentId,
     gatewayOrderId: payment.order_id || null,
-    hasReceipt: false,
     submittedAt: admin.firestore.FieldValue.serverTimestamp(),
   })
 

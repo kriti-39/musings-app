@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
-import ReceiptModal from '../../components/shared/ReceiptModal'
 import { getAllStudents, getStudentPayments, confirmPayment, rejectPayment, getAllClassesForMonth } from '../../firebase/db'
 import { paymentCoverage } from '../../utils/payment'
 import { useAuth } from '../../context/AuthContext'
 import FeeReportModal from '../../components/shared/FeeReportModal'
 import FeeMonthSummary from '../../components/shared/FeeMonthSummary'
-import { RiCheckLine, RiCloseLine, RiImageLine, RiFileDownloadLine } from 'react-icons/ri'
+import { RiCheckLine, RiCloseLine, RiFileDownloadLine } from 'react-icons/ri'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -38,7 +37,6 @@ export default function TeacherFees() {
     })
   }
   const [filter, setFilter] = useState('all') // all | paid | pending | unpaid
-  const [receiptId, setReceiptId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showReport, setShowReport] = useState(false)
 
@@ -210,14 +208,6 @@ export default function TeacherFees() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex gap-2">
-                          {(payment?.hasReceipt || payment?.screenshotUrl) ? (
-                            <button onClick={() => setReceiptId({ id: payment.id, url: payment.screenshotUrl })}
-                              className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-xs hover:bg-gray-100 transition-colors">
-                              <RiImageLine size={13} /> Receipt
-                            </button>
-                          ) : payment && payment.method !== 'cash' ? (
-                            <span className="text-xs text-gray-400 self-center">No receipt</span>
-                          ) : null}
                           {status === 'pending' && payment && (
                             <>
                               <button onClick={() => handleConfirm(payment.id, s.id)}
@@ -244,8 +234,6 @@ export default function TeacherFees() {
           </div>
         )}
       </div>
-
-      {receiptId && <ReceiptModal paymentId={receiptId.id} directUrl={receiptId.url} onClose={() => setReceiptId(null)} />}
 
       {showReport && (
         <FeeReportModal students={students} payments={payments} onClose={() => setShowReport(false)} />

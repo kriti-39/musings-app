@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { RiCloseLine, RiUploadLine } from 'react-icons/ri'
-import { createPayment, updatePayment, saveReceipt } from '../../firebase/db'
-import { compressImage } from '../../utils/image'
+import { RiCloseLine } from 'react-icons/ri'
+import { createPayment, updatePayment } from '../../firebase/db'
 import MonthPicker from './MonthPicker'
 
 // Staff records a payment (e.g. cash received), saved as already-confirmed —
@@ -22,7 +21,6 @@ export default function MarkPaidModal({
     months: payment?.months?.length ? payment.months : [selectedMonth],
     note: payment?.note || '',
   })
-  const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -35,24 +33,15 @@ export default function MarkPaidModal({
     if (form.months.length === 0) { setError('Select at least one month.'); return }
     setLoading(true)
     try {
-      // Compress receipt locally and store it in Firestore (no Storage dependency).
-      let dataUrl = null
-      if (file) {
-        try { dataUrl = await compressImage(file) } catch (e) { console.error('Compress failed:', e) }
-      }
-
       if (editing) {
         await updatePayment(payment.id, {
           amount: Number(form.amount),
           method: form.method,
           months: form.months,
           note: form.note,
-          // A newly attached receipt counts; an existing one is left alone.
-          ...(dataUrl ? { hasReceipt: true } : {}),
         }, staffId)
-        if (dataUrl) await saveReceipt(payment.id, dataUrl)
       } else {
-        const newPayment = await createPayment({
+        await createPayment({
           studentId,
           amount: Number(form.amount),
           method: form.method,
@@ -61,9 +50,7 @@ export default function MarkPaidModal({
           submittedBy: 'staff',
           status: 'confirmed',
           confirmedBy: staffId,
-          hasReceipt: !!dataUrl,
         })
-        if (dataUrl) await saveReceipt(newPayment.id, dataUrl)
       }
 
       onSuccess()
@@ -99,7 +86,7 @@ export default function MarkPaidModal({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Method</label>
-              <select value={form.method} onChange={e => { if (e.target.value === 'cash') setFile(null); setForm(f => ({ ...f, method: e.target.value })) }}
+              <select value={form.method} onChange={e => setForm(f => ({ ...f, method: e.target.value }))}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
               >
                 {METHODS.map(m => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
@@ -118,16 +105,6 @@ export default function MarkPaidModal({
               placeholder="e.g. Cash received in person"
             />
           </div>
-          {form.method !== 'cash' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Receipt (optional)</label>
-              <label className="flex items-center gap-2 border border-dashed border-gray-200 rounded-lg px-3 py-3 cursor-pointer hover:border-amber-300 transition-colors">
-                <RiUploadLine size={16} className="text-gray-400" />
-                <span className="text-sm text-gray-500">{file ? file.name : 'Upload screenshot'}</span>
-                <input type="file" accept="image/*" className="hidden" onChange={e => setFile(e.target.files[0])} />
-              </label>
-            </div>
-          )}
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50">Cancel</button>

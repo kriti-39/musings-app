@@ -1305,8 +1305,8 @@ export async function clearAllNotifications(userId) {
 }
 
 // ─── PROFILE PICTURES ─────────────────────────────────────────────────────────
-// Stored the same way receipts are: a compressed data-URL in its OWN document,
-// not on the user doc. That matters for cost — the Students and Fees pages read
+// A compressed data-URL in its OWN document, not on the user doc. That matters
+// for cost — the Students and Fees pages read
 // every student, and an avatar baked into each user doc would drag ~20KB per
 // student into every one of those reads.
 //
@@ -1331,20 +1331,6 @@ export async function getPhoto(uid) {
 export async function deletePhoto(uid) {
   await deleteDoc(doc(db, 'photos', uid))
   await updateDoc(doc(db, 'users', uid), { hasPhoto: deleteField() })
-}
-
-// ─── RECEIPTS (stored in Firestore, not Storage — reliable on any setup) ──────
-// The compressed image lives in its own doc so payment lists stay lightweight;
-// it's only fetched when staff actually open the receipt.
-export async function saveReceipt(paymentId, dataUrl) {
-  // hasReceipt is already set when the payment is created, so we only write the
-  // receipt doc here (students can't update the payment doc, but can create this).
-  await setDoc(doc(db, 'receipts', paymentId), { dataUrl, createdAt: serverTimestamp() })
-}
-
-export async function getReceipt(paymentId) {
-  const snap = await getDoc(doc(db, 'receipts', paymentId))
-  return snap.exists() ? snap.data().dataUrl : null
 }
 
 // Resolve the (single) teacher's id WITHOUT depending on the student being able

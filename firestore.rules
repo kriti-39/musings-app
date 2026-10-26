@@ -297,11 +297,12 @@ service cloud.firestore {
       allow read, write: if isAuth() && (request.auth.uid == uid || isAdminOrTeacher());
     }
 
-    // Payment receipts (compressed images). Staff only, both ways: students no
-    // longer submit payments, and while create was open to anyone signed in, a
-    // student could plant a receipt image on somebody else's payment.
+    // Payment receipts are gone — the feature was removed. The rule stays, shut
+    // to everyone, because documents from before the removal are still in the
+    // database: deleting the rule would fall through to the default deny
+    // anyway, but saying so here is clearer than leaving a silent gap.
     match /receipts/{paymentId} {
-      allow read, write: if isAdminOrTeacher();
+      allow read, write: if false;
     }
   }
 }

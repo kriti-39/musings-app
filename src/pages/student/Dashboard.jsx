@@ -94,6 +94,17 @@ export default function StudentDashboard() {
           </button>
         </div>
 
+        {/* How many classes they have actually got through. The studio's own
+            view of whether that counts as regular is deliberately not here —
+            that lives in the staff-only attendance document. */}
+        {lists.completed.length > 0 && (
+          <p className="text-sm text-gray-500">
+            You have completed{' '}
+            <span className="font-semibold text-gray-800">{lists.completed.length}</span>
+            {lists.completed.length === 1 ? ' class' : ' classes'} so far.
+          </p>
+        )}
+
         {/* Renders nothing for students on the earlier arrangement */}
         <CreditBalance onCount={setCredits} />
 
@@ -105,7 +116,9 @@ export default function StudentDashboard() {
                 tab === t.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              {t.key === 'upcoming' ? `Upcoming (${lists.upcoming.length})` : t.label}
+              {t.key === 'upcoming' ? `Upcoming (${lists.upcoming.length})`
+                : t.key === 'completed' ? `Done (${lists.completed.length})`
+                  : t.label}
             </button>
           ))}
         </div>

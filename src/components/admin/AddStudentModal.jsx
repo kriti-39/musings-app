@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { secondaryAuth } from '../../firebase/config'
 import { createStudent } from '../../firebase/db'
+import { setAttendanceTag } from '../../firebase/attendance'
 import { idToEmail, idToStored } from '../../utils/auth'
 import PasswordInput from '../shared/PasswordInput'
 import { RiCloseLine } from 'react-icons/ri'
@@ -55,13 +56,18 @@ export default function AddStudentModal({ onClose, onSuccess }) {
         timezone: form.timezone,
         feeType: form.feeType,
         feeAmount: form.feeAmount ? Number(form.feeAmount) : null,
-        // Pinned only if staff chose; otherwise absent, and the arithmetic
-        // decides once there are classes to count.
-        ...(form.attendanceTag ? { attendanceTag: form.attendanceTag } : {}),
         // Everyone added from now on books with credits. Students already on the
         // books are left exactly as they were.
         billingMode: 'credits',
       })
+
+      // Pinned only if staff chose. It goes to the staff-only attendance
+      // document, never onto the student's profile — they can read their
+      // profile, and this is written about them rather than for them.
+      if (form.attendanceTag) {
+        try { await setAttendanceTag(cred.user.uid, form.attendanceTag) }
+        catch (e) { console.error('Student created, attendance tag not saved:', e) }
+      }
 
       onSuccess?.()
       onClose()

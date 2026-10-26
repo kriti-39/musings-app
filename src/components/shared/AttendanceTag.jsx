@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { RiPushpinFill, RiCheckLine } from 'react-icons/ri'
 import { useAuth } from '../../context/AuthContext'
-import { updateUser } from '../../firebase/db'
+import { setAttendanceTag } from '../../firebase/attendance'
 import { attendance, attendanceLabel, REGULAR_PER_MONTH } from '../../utils/studentStats'
 
 const STYLES = {
@@ -14,7 +14,7 @@ const STYLES = {
 // Staff only — never rendered on anything a student sees. Worked out from
 // their classes (two a month or more is regular), with an admin able to pin it
 // either way for the cases the arithmetic can't know about.
-export default function AttendanceTag({ student, classes, onChange, editable = false, pill = false }) {
+export default function AttendanceTag({ student, meta = null, classes, onChange, editable = false, pill = false }) {
   const { role } = useAuth()
   // Guruji marks this as well as the office. He is the one who notices a
   // student drifting, often weeks before the arithmetic does — making him ask
@@ -24,13 +24,14 @@ export default function AttendanceTag({ student, classes, onChange, editable = f
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  const { tag, pinned, computed } = attendance(student, classes)
+  // `meta` is the student's entry in the staff-only attendance document.
+  const { tag, pinned, computed } = attendance(meta, classes)
   const style = STYLES[tag] || STYLES.unknown
 
   async function set(value) {
     setBusy(true)
     try {
-      await updateUser(student.id, { attendanceTag: value })
+      await setAttendanceTag(student.id, value)
       onChange?.()
       setOpen(false)
     } catch (e) {
@@ -89,7 +90,7 @@ export default function AttendanceTag({ student, classes, onChange, editable = f
               { v: 'regular', label: 'Always regular', hint: 'Ignore a quiet patch — illness, travel, exams' },
               { v: 'irregular', label: 'Always irregular', hint: 'Keep the flag on however often they come' },
             ].map(o => {
-              const active = (student?.attendanceTag ?? null) === o.v
+              const active = (meta?.tag ?? null) === o.v
               return (
                 <button key={o.label} onClick={() => set(o.v)} disabled={busy}
                   className={`w-full flex items-start justify-between gap-3 px-3 py-3 rounded-xl text-left transition-colors disabled:opacity-50 ${

@@ -5,7 +5,7 @@ import TeacherLayout from '../../components/teacher/TeacherLayout'
 import { useAuth } from '../../context/AuthContext'
 import {
   getUser, getStudentAllClasses, getStudentPayments, getStudentRecurringSchedules,
-  cancelRecurringSchedule, confirmPayment, rejectPayment, hasRecording, hasNotes, getPhoto, updateUser,
+  cancelRecurringSchedule, confirmPayment, rejectPayment, hasRecording, hasNotes, getPhoto,
 } from '../../firebase/db'
 import Avatar from '../../components/shared/Avatar'
 import { buildStudentStats, attendanceFrom, attendance } from '../../utils/studentStats'
@@ -21,6 +21,7 @@ import ClassDetailModal from '../../components/admin/ClassDetailModal'
 import CreditsCard from '../../components/shared/CreditsCard'
 import { usesCredits } from '../../utils/credits'
 import AttendanceTag from '../../components/shared/AttendanceTag'
+import { loadAttendanceFor, saveComputedAttendance } from '../../firebase/attendance'
 import PeriodFilter, { ALL_PERIOD, filterByPeriod } from '../../components/shared/PeriodFilter'
 import { fmtShortDate } from '../../utils/timezone'
 
@@ -65,6 +66,8 @@ export default function StudentDetail() {
   const [detail, setDetail] = useState(null)   // class opened from the table
   const [period, setPeriod] = useState(ALL_PERIOD)
   const [photo, setPhoto] = useState(null)
+  // The student's entry in the staff-only attendance document.
+  const [attMeta, setAttMeta] = useState(null)
 
   const thisMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
 
@@ -85,13 +88,19 @@ export default function StudentDetail() {
     if (s?.hasPhoto) getPhoto(id).then(setPhoto).catch(e => console.error('Photo failed to load:', e))
     else setPhoto(null)
 
-    // Keep the worked-out tag on the profile so the Students list can show and
-    // sort by it without reading every class for every student. Same lazy
-    // habit as the past-class and credit-expiry sweeps: whoever opens a
-    // student tidies it for everyone.
+    // The tag lives in the staff-only attendance document, never on the
+    // student's own profile — a student can read their profile, and this is
+    // written about them rather than for them.
+    const att = await loadAttendanceFor(id)
+    setAttMeta(att)
+
+    // Cache what the arithmetic says, so the Students list can show and sort
+    // by it without reading every class for every student. Same lazy habit as
+    // the past-class and credit-expiry sweeps: whoever opens a student tidies
+    // it for everyone.
     const computed = attendanceFrom(c)
-    if (computed && s?.attendanceComputed !== computed) {
-      updateUser(id, { attendanceComputed: computed })
+    if (computed && att?.computed !== computed) {
+      saveComputedAttendance(id, computed)
         .catch(e => console.error('Could not store the attendance tag:', e))
     }
   }
@@ -120,7 +129,7 @@ export default function StudentDetail() {
     .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
   const confirmedPayments = payments.filter(p => p.status === 'confirmed')
   const stats = buildStudentStats(classes, payments)
-  const attendanceNow = attendance(student, classes)
+  const attendanceNow = attendance(attMeta, classes)
 
   if (loading) return <Layout><p className="text-gray-400 text-sm">Loading...</p></Layout>
 
@@ -148,7 +157,7 @@ export default function StudentDetail() {
                 size="lg" attendance={attendanceNow.tag} />
               {attendanceNow.tag && (
                 <div className="absolute inset-x-0 -bottom-0.5 flex justify-center">
-                  <AttendanceTag student={student} classes={classes} onChange={fetchAll} editable pill />
+                  <AttendanceTag student={student} meta={attMeta} classes={classes} onChange={fetchAll} editable pill />
                 </div>
               )}
             </div>

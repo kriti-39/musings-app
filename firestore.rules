@@ -205,6 +205,18 @@ service cloud.firestore {
       allow delete: if isAdminOrTeacher();
     }
 
+    // Staff-only working notes about students. Today that is who is regular
+    // and who is drifting — kept here rather than on the student's own profile
+    // because a student can read their profile, and this is written ABOUT them
+    // for the studio, not for them. One document holding every student, so the
+    // Students list costs one read rather than ninety.
+    //
+    // Students are not merely prevented from writing it: they cannot read it
+    // at all.
+    match /staffOnly/{docId} {
+      allow read, write: if isAdminOrTeacher();
+    }
+
     match /recurringSchedules/{id} {
       allow read: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
       allow write: if isAdminOrTeacher();

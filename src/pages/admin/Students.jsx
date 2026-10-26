@@ -4,6 +4,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import AddStudentModal from '../../components/admin/AddStudentModal'
 import { getAllStudentsIncludingInactive, deactivateStudent, reactivateStudent, deleteStudentCompletely } from '../../firebase/db'
 import { attendance } from '../../utils/studentStats'
+import { loadAttendanceMap } from '../../firebase/attendance'
 import AttendanceTag from '../../components/shared/AttendanceTag'
 import { RiAddLine, RiSearchLine, RiUserLine, RiUserUnfollowLine, RiUserFollowLine, RiDeleteBinLine } from 'react-icons/ri'
 import ConfirmDialog from '../../components/shared/ConfirmDialog'
@@ -29,10 +30,18 @@ export default function AdminStudents() {
   const [deactivateTarget, setDeactivateTarget] = useState(null)
   const [deactivating, setDeactivating] = useState(false)
 
+  // One document holds every student's tag, so the whole list costs a single
+  // read rather than one per student.
+  const [attMap, setAttMap] = useState({})
+
   async function fetchStudents() {
     setLoading(true)
-    const data = await getAllStudentsIncludingInactive()
+    const [data, att] = await Promise.all([
+      getAllStudentsIncludingInactive(),
+      loadAttendanceMap(),
+    ])
     setStudents(data)
+    setAttMap(att)
     setLoading(false)
   }
 
@@ -53,7 +62,7 @@ export default function AdminStudents() {
       if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '')
       if (sortBy === 'country') return (a.country || '').localeCompare(b.country || '')
       if (sortBy === 'attendance') {
-        const rank = s => ({ regular: 0, irregular: 1 }[attendance(s).tag] ?? 2)
+        const rank = s => ({ regular: 0, irregular: 1 }[attendance(attMap[s.id]).tag] ?? 2)
         return rank(a) - rank(b) || (a.name || '').localeCompare(b.name || '')
       }
       if (sortBy === 'createdAt') return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
@@ -157,8 +166,8 @@ export default function AdminStudents() {
                         {/* Read-only here — set it from the student's profile.
                             A one-click toggle inside a clickable row would be
                             a tag changed by mistake. */}
-                        {attendance(student).tag && (
-                          <AttendanceTag student={student} />
+                        {attendance(attMap[student.id]).tag && (
+                          <AttendanceTag student={student} meta={attMap[student.id]} />
                         )}
                       </span>
                     </td>

@@ -95,7 +95,7 @@ export function isDrifting(classes, now = Date.now()) {
 // Worked out from the classes rather than typed in, so it can't go stale — but
 // an admin can pin it either way on the profile, because a student who was ill
 // for a month is not suddenly irregular, and the person who knows that is not
-// the computer. A pinned tag wins; `attendanceTag` absent means "work it out".
+// the computer. A pinned tag wins; no pinned tag means "work it out".
 export const REGULAR_PER_MONTH = 2
 
 export function attendanceFrom(classes, now = Date.now()) {
@@ -106,16 +106,20 @@ export function attendanceFrom(classes, now = Date.now()) {
 
 // What to show, and whether a human chose it.
 //
+// `meta` is the student's entry from the staff-only attendance document —
+// { tag, computed } — NOT their profile. It moved off the profile because a
+// student can read their own profile, and this is the one thing on it they
+// were never meant to see.
+//
 // `classes` is optional. With them, the tag is worked out fresh. Without them
-// it falls back to `attendanceComputed`, last written to the profile by
-// whoever opened it — which is how a list of ninety-two students can show the
-// tag without reading every class for every one of them.
-export function attendance(student, classes = null, now = Date.now()) {
+// it falls back to the cached `computed`, which is how a list of ninety-two
+// students shows a tag without reading every class for every one of them.
+export function attendance(meta, classes = null, now = Date.now()) {
   const fresh = classes ? attendanceFrom(classes, now) : null
-  const computed = fresh ?? student?.attendanceComputed ?? null
+  const computed = fresh ?? meta?.computed ?? null
   const valid = (t) => t === 'regular' || t === 'irregular'
 
-  const pinned = student?.attendanceTag
+  const pinned = meta?.tag
   if (valid(pinned)) return { tag: pinned, pinned: true, computed: valid(computed) ? computed : null }
   return { tag: valid(computed) ? computed : null, pinned: false, computed: valid(computed) ? computed : null }
 }

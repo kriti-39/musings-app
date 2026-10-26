@@ -4,6 +4,7 @@ import TeacherLayout from '../../components/teacher/TeacherLayout'
 import AddAdminModal from '../../components/teacher/AddAdminModal'
 import { getAllStudentsIncludingInactive, getAdmins, deactivateStudent, reactivateStudent, deleteStudentCompletely } from '../../firebase/db'
 import { attendance } from '../../utils/studentStats'
+import { loadAttendanceMap } from '../../firebase/attendance'
 import AttendanceTag from '../../components/shared/AttendanceTag'
 import { RiSearchLine, RiUserLine, RiAddLine, RiUserUnfollowLine, RiUserFollowLine, RiDeleteBinLine } from 'react-icons/ri'
 import ConfirmDialog from '../../components/shared/ConfirmDialog'
@@ -46,11 +47,18 @@ export default function TeacherStudents() {
     finally { setDeactivating(false); setDeactivateTarget(null) }
   }
 
+  // One document holds every student's tag, so the whole list costs a single
+  // read rather than one per student.
+  const [attMap, setAttMap] = useState({})
+
   async function fetchAll() {
     setLoading(true)
-    const [s, a] = await Promise.all([getAllStudentsIncludingInactive(), getAdmins()])
+    const [s, a, att] = await Promise.all([
+      getAllStudentsIncludingInactive(), getAdmins(), loadAttendanceMap(),
+    ])
     setAllStudents(s)
     setAdmins(a)
+    setAttMap(att)
     setLoading(false)
   }
 
@@ -70,7 +78,7 @@ export default function TeacherStudents() {
       if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '')
       if (sortBy === 'country') return (a.country || '').localeCompare(b.country || '')
       if (sortBy === 'attendance') {
-        const rank = s => ({ regular: 0, irregular: 1 }[attendance(s).tag] ?? 2)
+        const rank = s => ({ regular: 0, irregular: 1 }[attendance(attMap[s.id]).tag] ?? 2)
         return rank(a) - rank(b) || (a.name || '').localeCompare(b.name || '')
       }
       if (sortBy === 'createdAt') return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
@@ -157,7 +165,7 @@ export default function TeacherStudents() {
                             {/* Read-only here; it is set from the student's own
                                 profile, where the dialog has room to explain
                                 what the arithmetic already thinks. */}
-                            {attendance(s).tag && <AttendanceTag student={s} />}
+                            {attendance(attMap[s.id]).tag && <AttendanceTag student={s} meta={attMap[s.id]} />}
                           </span>
                         </td>
                         <td className="px-5 py-3.5 text-gray-500">{displayId(s)}</td>

@@ -103,38 +103,43 @@ export default function AdminStudents() {
   return (
     <AdminLayout>
       <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-800">Students</h1>
-            <p className="text-sm text-gray-400 mt-0.5">{active.length} active · {inactive.length} deactivated</p>
+        {/* Title, count, tabs and the Add button in one band — three stacked
+            rows pushed the list a long way down a phone screen for chrome that
+            fits on a single line. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-4">
+          <h1 className="text-xl font-semibold text-gray-800">
+            Students
+            <span className="ml-2 text-sm font-normal text-gray-400">
+              {tab === 'active' ? `${active.length} active` : `${inactive.length} deactivated`}
+            </span>
+          </h1>
+
+          <div className="flex items-center gap-2">
+            <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+              {[{ key: 'active', label: 'Active' }, { key: 'inactive', label: 'Inactive' }].map(t => (
+                <button key={t.key} onClick={() => setTab(t.key)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                    tab === t.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            {tab === 'active' && (
+              <button onClick={() => setShowAdd(true)}
+                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
+                <RiAddLine size={15} /> Add Student
+              </button>
+            )}
           </div>
-          {tab === 'active' && (
-            <button onClick={() => setShowAdd(true)}
-              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-              <RiAddLine size={18} /> Add Student
-            </button>
-          )}
-        </div>
-
-
-        {/* Tabs */}
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-5">
-          {[{ key: 'active', label: 'Active' }, { key: 'inactive', label: 'Deactivated' }].map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-5 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                tab === t.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              {t.label}
-            </button>
-          ))}
         </div>
 
         {/* Filters */}
-        <div className="flex gap-3 mb-5">
+        <div className="flex gap-2 mb-4">
           <div className="flex-1 relative">
             <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name, email or country..."
+              placeholder="Search students"
               className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
           </div>
           <select value={sortBy} onChange={e => setSortBy(e.target.value)}

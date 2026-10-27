@@ -98,42 +98,47 @@ export default function TeacherStudents() {
   return (
     <TeacherLayout>
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-800">Users</h1>
-            <p className="text-sm text-gray-400 mt-0.5">
+        {/* Title, count and tabs share one band. They used to be three stacked
+            rows, each with its own margin, so the list began some two hundred
+            pixels down a phone screen — most of a visible row lost to chrome
+            before the first student. The count moves inline because the tab it
+            belongs to is now right beside it. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-4">
+          <h1 className="text-xl font-semibold text-gray-800">
+            Users
+            <span className="ml-2 text-sm font-normal text-gray-400">
               {tab === 'students' ? `${students.length} active` : tab === 'deactivated' ? `${inactiveStudents.length} deactivated` : `${admins.length} admins`}
-            </p>
-          </div>
-          {tab === 'admins' && (
-            <button onClick={() => setShowAddAdmin(true)}
-              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-              <RiAddLine size={18} /> Add Admin
-            </button>
-          )}
-        </div>
+            </span>
+          </h1>
 
-        {/* Tabs */}
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-5">
-          {[{k:'students',l:'Students'},{k:'deactivated',l:'Deactivated'},{k:'admins',l:'Admins'}].map(t => (
-            <button key={t.k} onClick={() => setTab(t.k)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                tab === t.k ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              {t.l}
-            </button>
-          ))}
+          <div className="flex items-center gap-2">
+            <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+              {[{k:'students',l:'Students'},{k:'deactivated',l:'Inactive'},{k:'admins',l:'Admins'}].map(t => (
+                <button key={t.k} onClick={() => setTab(t.k)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                    tab === t.k ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}>
+                  {t.l}
+                </button>
+              ))}
+            </div>
+            {tab === 'admins' && (
+              <button onClick={() => setShowAddAdmin(true)}
+                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
+                <RiAddLine size={15} /> Add Admin
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Students / Deactivated tab */}
         {(tab === 'students' || tab === 'deactivated') && (
           <>
-            <div className="flex gap-3 mb-5">
+            <div className="flex gap-2 mb-4">
               <div className="flex-1 relative">
                 <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 <input value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Search by name, email or country..."
+                  placeholder="Search students"
                   className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
               </div>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}

@@ -58,6 +58,13 @@ function sections(student, isStaff) {
           a: 'Open "Fees" and tap "Buy credits". Choose how many classes you want — one credit is one class — and pay by any of the methods offered. The classes appear on your dashboard a moment later. If anything goes wrong, tell Guruji.',
         },
         {
+          q: 'How many can I hold at once?',
+          // Deliberately no number: it differs between students, and printing
+          // one here would be wrong for half of them. Both screens that matter
+          // already show each person their own.
+          a: 'There is a limit on how many unused classes you can hold. Your own number is shown with your credits and again on the Buy screen, which tells you how many more you can take right now. It is a limit on what is sitting unused, not a monthly allowance — use one and the room opens up straight away, so you can buy again the same day.',
+        },
+        {
           q: 'When do they expire?',
           a: 'Each purchase runs for a set period, and the exact date is shown before you pay and again with your balance. If you still have classes left when you buy more, the new ones do not start counting until the old ones run out — so topping up adds time rather than overwriting it.',
         },

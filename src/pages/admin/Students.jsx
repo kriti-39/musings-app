@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AddStudentModal from '../../components/admin/AddStudentModal'
 import { getAllStudentsIncludingInactive, deactivateStudent, reactivateStudent, deleteStudentCompletely, getPaymentsByStudent } from '../../firebase/db'
-import { getAllCredits, groupByStudent } from '../../firebase/credits'
-import { lastPaidLabel, creditLabels } from '../../utils/payment'
+import { lastPaidLabel, lastPaidCredits } from '../../utils/payment'
 import { attendance } from '../../utils/studentStats'
 import { loadAttendanceMap } from '../../firebase/attendance'
 import AttendanceTag from '../../components/shared/AttendanceTag'
@@ -34,22 +33,19 @@ export default function AdminStudents() {
   // One document holds every student's tag, so the whole list costs a single
   // read rather than one per student.
   const [attMap, setAttMap] = useState({})
-  const [creditLabelMap, setCreditLabels] = useState({})
   const [payMap, setPayMap] = useState({})
 
   async function fetchStudents() {
     setLoading(true)
     // Four reads for the whole page, not four per student: credits and payments
     // each come back as one collection and are grouped here.
-    const [data, att, credits, pays] = await Promise.all([
+    const [data, att, pays] = await Promise.all([
       getAllStudentsIncludingInactive(),
       loadAttendanceMap(),
-      getAllCredits(),
       getPaymentsByStudent(),
     ])
     setStudents(data)
     setAttMap(att)
-    setCreditLabels(creditLabels(data, groupByStudent(credits)))
     setPayMap(pays)
     setLoading(false)
   }
@@ -193,7 +189,7 @@ export default function AdminStudents() {
                         {lastPaidLabel(payMap[student.id]) || '—'}
                       </span>
                       <span className="block text-[11px] text-gray-400">
-                        {creditLabelMap[student.id] || 'no credits'}
+                        {lastPaidCredits(payMap[student.id]) || ''}
                       </span>
                     </td>
                     <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>

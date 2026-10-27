@@ -1,5 +1,4 @@
 import { paymentDate, paymentMonth } from './feeReport.js'
-import { creditSummary } from './credits.js'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -15,30 +14,34 @@ export function fmtPaidOn(payment) {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-// "3 credits left" per student, worked out once when the list loads rather than
-// on every render — `creditSummary` needs the time, and reading the clock while
-// rendering is impure. The figure only moves when the data is fetched again,
-// which is exactly when this is rebuilt.
-//
-// The cap and expiry are per student, so each summary is built with that
-// student in hand rather than from a shared constant.
-export function creditLabels(students, byStudent, now = Date.now()) {
-  const out = {}
-  for (const student of students || []) {
-    const n = creditSummary(byStudent[student.id] || [], now, student).available
-    out[student.id] = n ? `${n} ${n === 1 ? 'credit' : 'credits'} left` : 'no credits'
-  }
-  return out
+// The most recent money actually in. Only confirmed payments count: one still
+// sitting unresolved has not arrived. `list` is the student's own payments,
+// newest first, so the first confirmed one is the latest.
+function lastConfirmed(list) {
+  return (list || []).find(x => x.status === 'confirmed') || null
 }
 
-// The most recent money actually in, as "₹1,500 · Nov 2026". Only confirmed
-// payments count: one still sitting unresolved has not arrived. `list` is the
-// student's own payments, newest first.
+// "₹1,500 · Nov 2026"
 export function lastPaidLabel(list) {
-  const p = (list || []).find(x => x.status === 'confirmed')
+  const p = lastConfirmed(list)
   if (!p) return null
   const month = fmtPaidMonth(p)
   return `₹${Number(p.amount || 0).toLocaleString('en-IN')}${month ? ` · ${month}` : ''}`
+}
+
+// What that payment BOUGHT — "3 credits" — not what the student has left. The
+// two are different questions and the second was the misleading one beside a
+// figure: "₹1,500 · no credits" reads like the money bought nothing, when it
+// bought three and they were used.
+//
+// `forCredits` is written on every payment that bought any, by the gateway and
+// by the office alike. A payment without it is a plain monthly fee under the
+// old arrangement, which buys none — so there is nothing to say.
+export function lastPaidCredits(list) {
+  const p = lastConfirmed(list)
+  const n = Number(p?.forCredits) || 0
+  if (!n) return null
+  return `${n} ${n === 1 ? 'credit' : 'credits'}`
 }
 
 // Just the month it went in, for "last paid" on a profile — the day is more

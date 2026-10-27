@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import AddAdminModal from '../../components/teacher/AddAdminModal'
 import { getAllStudentsIncludingInactive, getAdmins, deactivateStudent, reactivateStudent, deleteStudentCompletely, getPaymentsByStudent } from '../../firebase/db'
-import { getAllCredits, groupByStudent } from '../../firebase/credits'
-import { lastPaidLabel, creditLabels } from '../../utils/payment'
+import { lastPaidLabel, lastPaidCredits } from '../../utils/payment'
 import { attendance } from '../../utils/studentStats'
 import { loadAttendanceMap } from '../../firebase/attendance'
 import AttendanceTag from '../../components/shared/AttendanceTag'
@@ -52,21 +51,19 @@ export default function TeacherStudents() {
   // One document holds every student's tag, so the whole list costs a single
   // read rather than one per student.
   const [attMap, setAttMap] = useState({})
-  const [creditLabelMap, setCreditLabels] = useState({})
   const [payMap, setPayMap] = useState({})
 
   async function fetchAll() {
     setLoading(true)
     // Five reads for the page, not five per student: credits and payments each
     // come back as one collection and are grouped here.
-    const [s, a, att, credits, pays] = await Promise.all([
+    const [s, a, att, pays] = await Promise.all([
       getAllStudentsIncludingInactive(), getAdmins(), loadAttendanceMap(),
-      getAllCredits(), getPaymentsByStudent(),
+      getPaymentsByStudent(),
     ])
     setAllStudents(s)
     setAdmins(a)
     setAttMap(att)
-    setCreditLabels(creditLabels(s, groupByStudent(credits)))
     setPayMap(pays)
     setLoading(false)
   }
@@ -194,7 +191,7 @@ export default function TeacherStudents() {
                             {lastPaidLabel(payMap[s.id]) || '—'}
                           </span>
                           <span className="block text-[11px] text-gray-400">
-                            {creditLabelMap[s.id] || 'no credits'}
+                            {lastPaidCredits(payMap[s.id]) || ''}
                           </span>
                         </td>
                         <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>

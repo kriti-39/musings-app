@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import AddAdminModal from '../../components/teacher/AddAdminModal'
-import { getAllStudentsIncludingInactive, getAdmins, deactivateStudent, reactivateStudent, deleteStudentCompletely } from '../../firebase/db'
+import { getAllStudentsIncludingInactive, getAdmins, deactivateStudent, reactivateStudent, deleteStudentCompletely, getPaymentsByStudent } from '../../firebase/db'
+import { getAllCredits, groupByStudent } from '../../firebase/credits'
+import { lastPaidLabel, creditLabels } from '../../utils/payment'
 import { attendance } from '../../utils/studentStats'
 import { loadAttendanceMap } from '../../firebase/attendance'
 import AttendanceTag from '../../components/shared/AttendanceTag'
@@ -50,17 +52,25 @@ export default function TeacherStudents() {
   // One document holds every student's tag, so the whole list costs a single
   // read rather than one per student.
   const [attMap, setAttMap] = useState({})
+  const [creditLabelMap, setCreditLabels] = useState({})
+  const [payMap, setPayMap] = useState({})
 
   async function fetchAll() {
     setLoading(true)
-    const [s, a, att] = await Promise.all([
+    // Five reads for the page, not five per student: credits and payments each
+    // come back as one collection and are grouped here.
+    const [s, a, att, credits, pays] = await Promise.all([
       getAllStudentsIncludingInactive(), getAdmins(), loadAttendanceMap(),
+      getAllCredits(), getPaymentsByStudent(),
     ])
     setAllStudents(s)
     setAdmins(a)
     setAttMap(att)
+    setCreditLabels(creditLabels(s, groupByStudent(credits)))
+    setPayMap(pays)
     setLoading(false)
   }
+
 
   useEffect(() => { fetchAll() }, [])
 
@@ -147,10 +157,14 @@ export default function TeacherStudents() {
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
                       <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Name</th>
-                      <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">User ID</th>
+                      <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Category</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Country</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Timezone</th>
-                      <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Fee</th>
+                      {/* No standing fee here — on credits there is none to
+                          quote. What is worth seeing beside a student is whether
+                          money came in lately and what they have left to book
+                          with. */}
+                      <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Last paid / Credits</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-gray-500"></th>
                     </tr>
                   </thead>
@@ -159,23 +173,24 @@ export default function TeacherStudents() {
                       <tr key={s.id}
                         onClick={() => navigate(`/teacher/students/${s.id}`)}
                         className={`cursor-pointer ${tab === 'deactivated' ? 'opacity-60' : 'hover:bg-amber-50'} transition-colors ${i !== filteredStudents.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                        <td className="px-5 py-3.5 font-medium text-gray-800">
-                          <span className="flex items-center gap-2">
-                            {s.name}
-                            {/* Guruji sets it from here as well as the office.
-                                He is the one who notices a student drifting,
-                                and it is always shown — including before there
-                                are enough classes for the arithmetic to judge. */}
-                            <AttendanceTag student={s} meta={attMap[s.id]}
-                              onChange={fetchAll} editable />
-                          </span>
+                        <td className="px-5 py-3.5 font-medium text-gray-800">{s.name}</td>
+                        {/* Guruji sets this as well as the office. He is the one
+                            who notices a student drifting, and it is always
+                            shown — including before there are enough classes for
+                            the arithmetic to judge. */}
+                        <td className="px-5 py-3.5">
+                          <AttendanceTag student={s} meta={attMap[s.id]}
+                            onChange={fetchAll} editable />
                         </td>
-                        <td className="px-5 py-3.5 text-gray-500">{displayId(s)}</td>
                         <td className="px-5 py-3.5 text-gray-500">{s.country || '—'}</td>
                         <td className="px-5 py-3.5 text-gray-500">{s.timezone || '—'}</td>
-                        <td className="px-5 py-3.5 text-gray-500">
-                          {s.feeAmount ? `₹${s.feeAmount}` : '—'}
-                          {s.feeType && <span className="ml-1 text-xs text-gray-400">({s.feeType === 'monthly' ? '/mo' : s.feeType === 'per_class' ? '/class' : 'flexible'})</span>}
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className="block text-gray-700">
+                            {lastPaidLabel(payMap[s.id]) || '—'}
+                          </span>
+                          <span className="block text-[11px] text-gray-400">
+                            {creditLabelMap[s.id] || 'no credits'}
+                          </span>
                         </td>
                         <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
                           {tab === 'students' ? (

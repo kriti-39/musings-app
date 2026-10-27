@@ -14,7 +14,7 @@ import {
   RiTicketLine,
 } from 'react-icons/ri'
 import { displayId } from '../../utils/auth'
-import { fmtPaidOn, coveredMonths } from '../../utils/payment'
+import { fmtPaidOn, fmtPaidMonth, coveredMonths } from '../../utils/payment'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
 import EditStudentModal from '../../components/shared/EditStudentModal'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
@@ -109,6 +109,15 @@ export default function StudentDetail() {
     .filter(c => c.status === 'pending' || (c.status === 'scheduled' && (c.scheduledAt?.toDate?.() ?? new Date()) >= now))
     .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
   const confirmedPayments = payments.filter(p => p.status === 'confirmed')
+
+  // The most recent money in. `getStudentPayments` returns newest first, so the
+  // head of the confirmed list is it. Only confirmed ones count — a payment
+  // still sitting unresolved has not actually arrived.
+  const lastPaid = confirmedPayments[0] || null
+  const lastPaidMonth = lastPaid ? fmtPaidMonth(lastPaid) : null
+  const lastPaidLabel = lastPaid
+    ? `₹${Number(lastPaid.amount || 0).toLocaleString('en-IN')}${lastPaidMonth ? ` · ${lastPaidMonth}` : ''}`
+    : '—'
   const stats = buildStudentStats(classes, payments)
   const attendanceNow = attendance(attMeta, classes)
 
@@ -164,49 +173,38 @@ export default function StudentDetail() {
           </div>
 
           {/* What they add up to — the figures Guruji asks for when he opens someone */}
-          <div className="grid grid-cols-3 gap-3 mt-5 pt-5 border-t border-gray-50">
-            {/* Three figures side by side even on a phone, so the numbers step
-                down a size on narrow screens rather than wrapping. */}
-            <div className="min-w-0">
-              <p className="text-xs text-gray-400 truncate">Paid</p>
-              <p className="text-base sm:text-lg font-semibold text-gray-800 tabular-nums leading-tight mt-0.5 truncate">
-                ₹{stats.totalPaid.toLocaleString('en-IN')}
-              </p>
-              <p className="text-[11px] text-gray-400 truncate">
-                {stats.paymentCount} payment{stats.paymentCount === 1 ? '' : 's'}
-              </p>
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs text-gray-400 truncate">Classes done</p>
-              <p className="text-base sm:text-lg font-semibold text-gray-800 tabular-nums leading-tight mt-0.5">
-                {stats.done}
-              </p>
-              <p className="text-[11px] text-gray-400 truncate">
-                {stats.missed > 0 ? `${stats.missed} missed` : stats.cancelled > 0 ? `${stats.cancelled} cancelled` : 'none missed'}
-              </p>
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs text-gray-400 truncate">How often</p>
-              <p className="text-base sm:text-lg font-semibold text-gray-800 leading-tight mt-0.5 truncate">
-                {stats.frequency ? `${Math.round(stats.frequency * 10) / 10}/mo` : '—'}
-              </p>
-              <p className="text-[11px] text-gray-400 truncate">
-                {stats.lastClass ? `last ${fmtShortDate(stats.lastClass)}` : 'none yet'}
-              </p>
-            </div>
-          </div>
+          {/* Six facts, two at a time: how they are going, how to reach them,
+              where they are. One grid rather than a row of big tiles above a
+              row of small ones — the same page was stating money twice and
+              splitting the picture across two visual languages.
 
-          {/* Contact and fee — the details actually needed day to day */}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 mt-5 pt-5 border-t border-gray-50">
+              The lifetime "Paid" total is gone. What anyone actually asks is
+              whether this student has paid lately, which is what sits here. */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3.5 mt-5 pt-5 border-t border-gray-50">
             {[
+              {
+                label: 'Classes done',
+                value: stats.done,
+                hint: stats.missed > 0 ? `${stats.missed} missed`
+                  : stats.cancelled > 0 ? `${stats.cancelled} cancelled`
+                    : 'none missed',
+              },
+              {
+                label: 'How often',
+                value: stats.frequency ? `${Math.round(stats.frequency * 10) / 10}/mo` : '—',
+                hint: stats.lastClass ? `last ${fmtShortDate(stats.lastClass)}` : 'none yet',
+              },
               { label: 'Phone', value: student?.phone || '—' },
-              { label: 'Fee', value: student?.feeAmount ? `₹${student.feeAmount}` : '—' },
+              { label: 'Last paid', value: lastPaidLabel },
               { label: 'Country', value: student?.country || '—' },
               { label: 'Timezone', value: student?.timezone || '—' },
             ].map(item => (
               <div key={item.label} className="min-w-0">
                 <p className="text-xs text-gray-400">{item.label}</p>
                 <p className="text-sm text-gray-700 font-medium truncate">{item.value}</p>
+                {item.hint && (
+                  <p className="text-[11px] text-gray-400 truncate mt-0.5">{item.hint}</p>
+                )}
               </div>
             ))}
           </div>

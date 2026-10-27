@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import { getAllStudents, getStudentPayments, getAllClassesForMonth } from '../../firebase/db'
 import { paymentCoverage, fmtPaidOn } from '../../utils/payment'
+import { usesCredits } from '../../utils/credits'
 import FeeReportModal from '../../components/shared/FeeReportModal'
 import FeeMonthSummary from '../../components/shared/FeeMonthSummary'
 import { RiFileDownloadLine, RiEyeLine, RiEyeOffLine } from 'react-icons/ri'
@@ -205,7 +206,12 @@ export default function TeacherFees() {
                           status === 'pending' ? 'bg-amber-50 text-amber-700' :
                           'bg-red-50 text-red-500'
                         }`}>
-                          {status === 'paid' ? 'Paid' : status === 'pending' ? 'Pending confirmation' : 'Unpaid'}
+                          {status === 'paid' ? 'Paid'
+                            : status === 'pending' ? 'Pending confirmation'
+                            // "Unpaid" implies a debt, and on credits there cannot be
+                            // one: nothing is owed monthly, classes are bought in advance.
+                            // Only the legacy monthly arrangement can leave a month unpaid.
+                            : usesCredits(s) ? 'No purchase' : 'Unpaid'}
                         </span>
                         {details && payment && (
                           <span className="block text-xs text-gray-400 mt-1 capitalize">

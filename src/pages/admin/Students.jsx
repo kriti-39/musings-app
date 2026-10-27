@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AddStudentModal from '../../components/admin/AddStudentModal'
-import { getAllStudentsIncludingInactive, deactivateStudent, reactivateStudent, deleteStudentCompletely } from '../../firebase/db'
+import { getAllStudentsIncludingInactive, deactivateStudent, reactivateStudent, deleteStudentCompletely, getPaymentsByStudent } from '../../firebase/db'
+import { getAllCredits, groupByStudent } from '../../firebase/credits'
+import { lastPaidLabel, creditLabels } from '../../utils/payment'
 import { attendance } from '../../utils/studentStats'
 import { loadAttendanceMap } from '../../firebase/attendance'
 import AttendanceTag from '../../components/shared/AttendanceTag'
 import { RiAddLine, RiSearchLine, RiUserLine, RiUserUnfollowLine, RiUserFollowLine, RiDeleteBinLine } from 'react-icons/ri'
 import ConfirmDialog from '../../components/shared/ConfirmDialog'
-import { displayId } from '../../utils/auth'
 
 const SORT_OPTIONS = [
   { value: 'name', label: 'Name' },
@@ -33,17 +34,26 @@ export default function AdminStudents() {
   // One document holds every student's tag, so the whole list costs a single
   // read rather than one per student.
   const [attMap, setAttMap] = useState({})
+  const [creditLabelMap, setCreditLabels] = useState({})
+  const [payMap, setPayMap] = useState({})
 
   async function fetchStudents() {
     setLoading(true)
-    const [data, att] = await Promise.all([
+    // Four reads for the whole page, not four per student: credits and payments
+    // each come back as one collection and are grouped here.
+    const [data, att, credits, pays] = await Promise.all([
       getAllStudentsIncludingInactive(),
       loadAttendanceMap(),
+      getAllCredits(),
+      getPaymentsByStudent(),
     ])
     setStudents(data)
     setAttMap(att)
+    setCreditLabels(creditLabels(data, groupByStudent(credits)))
+    setPayMap(pays)
     setLoading(false)
   }
+
 
   useEffect(() => { fetchStudents() }, [])
 
@@ -148,9 +158,10 @@ export default function AdminStudents() {
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Name</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">User ID</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Category</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Country</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Fee</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Timezone</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-gray-500">Last paid / Credits</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500"></th>
                 </tr>
               </thead>
@@ -160,28 +171,25 @@ export default function AdminStudents() {
                     onClick={() => tab === 'active' && navigate(`/admin/students/${student.id}`)}
                     className={`transition-colors ${tab === 'active' ? 'hover:bg-amber-50 cursor-pointer' : 'opacity-60'} ${i !== filtered.length - 1 ? 'border-b border-gray-50' : ''}`}
                   >
-                    <td className="px-5 py-3.5 font-medium text-gray-800">
-                      <span className="flex items-center gap-2">
-                        {student.name}
-                        {/* Settable from here too. It was read-only on the
-                            grounds that a toggle in a clickable row gets
-                            changed by mistake — but it is not a toggle, it
-                            opens a dialog with three choices, and the row's
-                            own click is stopped. Always shown, so a student
-                            with no classes yet can still be marked. */}
-                        <AttendanceTag student={student} meta={attMap[student.id]}
-                          onChange={fetchStudents} editable />
-                      </span>
+                    <td className="px-5 py-3.5 font-medium text-gray-800">{student.name}</td>
+                    {/* Settable from here. It is not a one-tap toggle — it opens
+                        a dialog with three choices — and the row's own click is
+                        stopped, so a tag cannot be changed by mistake on the way
+                        to a profile. Always shown, so a student with no classes
+                        yet can still be marked. */}
+                    <td className="px-5 py-3.5">
+                      <AttendanceTag student={student} meta={attMap[student.id]}
+                        onChange={fetchStudents} editable />
                     </td>
-                    <td className="px-5 py-3.5 text-gray-500">{displayId(student)}</td>
                     <td className="px-5 py-3.5 text-gray-500">{student.country || '—'}</td>
-                    <td className="px-5 py-3.5 text-gray-500">
-                      {student.feeAmount ? `₹${student.feeAmount}` : '—'}
-                      {student.feeType && (
-                        <span className="ml-1 text-xs text-gray-400">
-                          ({student.feeType === 'monthly' ? '/mo' : student.feeType === 'per_class' ? '/class' : 'flexible'})
-                        </span>
-                      )}
+                    <td className="px-5 py-3.5 text-gray-500">{student.timezone || '—'}</td>
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <span className="block text-gray-700">
+                        {lastPaidLabel(payMap[student.id]) || '—'}
+                      </span>
+                      <span className="block text-[11px] text-gray-400">
+                        {creditLabelMap[student.id] || 'no credits'}
+                      </span>
                     </td>
                     <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
                       {tab === 'active' ? (

@@ -1146,6 +1146,26 @@ export async function getStudentPayments(studentId) {
     .sort((a, b) => (b.submittedAt?.seconds ?? 0) - (a.submittedAt?.seconds ?? 0))
 }
 
+// Every payment, newest first, grouped by student. For a LIST that needs one
+// figure per student: a query each would be ninety-odd round trips to show one
+// column. Staff may read the whole collection, so this is a single read.
+//
+// Returns { studentId: [payment, ...] } with each student's own list already in
+// newest-first order, so the head of a filtered list is the most recent.
+export async function getPaymentsByStudent() {
+  const snap = await getDocs(collection(db, 'payments'))
+  const map = {}
+  snap.docs.forEach(d => {
+    const p = { id: d.id, ...d.data() }
+    if (!p.studentId) return
+    ;(map[p.studentId] ||= []).push(p)
+  })
+  Object.values(map).forEach(list =>
+    list.sort((a, b) => (b.submittedAt?.seconds ?? 0) - (a.submittedAt?.seconds ?? 0)),
+  )
+  return map
+}
+
 // Correct a payment that was recorded wrongly — the amount typed in a hurry,
 // the wrong method, the wrong months. Staff only: the Firestore rule on
 // `payments` already allows updates from admins and the teacher alone, so a

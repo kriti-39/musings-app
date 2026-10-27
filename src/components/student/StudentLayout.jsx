@@ -40,14 +40,14 @@ export default function StudentLayout({ children }) {
         fixed top-0 left-0 h-full w-64 bg-white border-r border-gray-100 z-30
         flex flex-col transition-transform duration-200
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 lg:static lg:z-auto
+        lg:translate-x-0 lg:sticky lg:top-0 lg:h-dvh lg:z-auto
       `}>
         <div className="px-6 py-5 border-b border-gray-100">
           <p className="text-xs text-gray-400 uppercase tracking-widest">Student</p>
           <h1 className="text-base font-semibold text-gray-800 mt-0.5">Deva's Classes</h1>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink key={to} to={to} onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>

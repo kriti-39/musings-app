@@ -44,7 +44,7 @@ export default function AttendanceTag({ student, meta = null, classes, onChange,
   // "Not enough history" is the honest answer, but it is long, and beside a
   // name in a list it reads like a complaint rather than something you can set.
   // Short label on the chip; the dialog still explains properly.
-  const label = tag ? attendanceLabel(tag) : 'Set tag'
+  const label = tag ? attendanceLabel(tag) : 'Not set'
 
   // An untagged student shows an empty slot rather than a status: dashed, so it
   // reads as something to fill in. A flat grey chip saying "Not set" looked

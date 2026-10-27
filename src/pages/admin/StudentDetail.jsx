@@ -14,12 +14,13 @@ import {
   RiTicketLine,
 } from 'react-icons/ri'
 import { displayId } from '../../utils/auth'
-import { fmtPaidOn, fmtPaidMonth, coveredMonths } from '../../utils/payment'
+import { fmtPaidOn, fmtPaidMonth, coveredMonths, creditLabels } from '../../utils/payment'
 import MarkPaidModal from '../../components/shared/MarkPaidModal'
 import EditStudentModal from '../../components/shared/EditStudentModal'
 import ClassDetailModal from '../../components/admin/ClassDetailModal'
 import CreditsCard from '../../components/shared/CreditsCard'
 import { usesCredits } from '../../utils/credits'
+import { getStudentCredits } from '../../firebase/credits'
 import AttendanceTag from '../../components/shared/AttendanceTag'
 import { loadAttendanceFor, saveComputedAttendance } from '../../firebase/attendance'
 import PeriodFilter, { ALL_PERIOD, filterByPeriod } from '../../components/shared/PeriodFilter'
@@ -58,20 +59,25 @@ export default function StudentDetail() {
   const [photo, setPhoto] = useState(null)
   // The student's entry in the staff-only attendance document.
   const [attMeta, setAttMeta] = useState(null)
+  const [creditsLabel, setCreditsLabel] = useState('')
 
   const thisMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
 
   async function fetchAll() {
-    const [s, c, p, r] = await Promise.all([
+    const [s, c, p, r, batches] = await Promise.all([
       getUser(id),
       getStudentAllClasses(id),
       getStudentPayments(id),
       getStudentRecurringSchedules(id),
+      getStudentCredits(id),
     ])
     setStudent(s)
     setClasses(c)
     setPayments(p)
     setRecurring(r)
+    // Worked out here rather than in render: the summary needs the clock, and
+    // reading it mid-render is impure. It only moves when this refetches.
+    setCreditsLabel(creditLabels([s], { [id]: batches })[id])
     setLoading(false)
     // The picture lives in its own document and is only fetched here, never
     // once per row in a list. Its failure must never hold up the profile.
@@ -195,7 +201,9 @@ export default function StudentDetail() {
                 hint: stats.lastClass ? `last ${fmtShortDate(stats.lastClass)}` : 'none yet',
               },
               { label: 'Phone', value: student?.phone || '—' },
-              { label: 'Last paid', value: lastPaidLabel },
+              // Paired with what they hold, the same as the Students list:
+              // money in and classes left are read together.
+              { label: 'Last paid', value: lastPaidLabel, hint: creditsLabel },
               { label: 'Country', value: student?.country || '—' },
               { label: 'Timezone', value: student?.timezone || '—' },
             ].map(item => (

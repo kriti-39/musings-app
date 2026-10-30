@@ -12,7 +12,7 @@ import {
   RiCloseLine, RiCalendarLine, RiCheckLine,
   RiArrowLeftSLine, RiArrowRightSLine
 } from 'react-icons/ri'
-import { LOCAL_TZ, tzCity, shiftToTz, unshiftFromTz, tzOffsetMinutes, fmtTime12, fmtLongDate } from '../../utils/timezone'
+import { LOCAL_TZ, tzCity, shiftToTz, unshiftFromTz, tzOffsetMinutes, fmtTime12, fmtLongDate, sameCalendarDay, fmtDayInTz } from '../../utils/timezone'
 import CreditBalance from '../../components/student/CreditBalance'
 import { usesCredits } from '../../utils/credits'
 
@@ -612,10 +612,22 @@ export default function BookClass() {
                     <span className="font-medium text-gray-800">{fmtTime12(realInstant(), studentTz)}</span>
                   </div>
                   {teacherTz && teacherTz !== studentTz && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">Teacher's time ({tzCity(teacherTz)})</span>
-                      <span className="font-medium text-gray-800">{fmtTime12(realInstant(), teacherTz)}</span>
-                    </div>
+                    <>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500">Teacher's time ({tzCity(teacherTz)})</span>
+                        <span className="font-medium text-gray-800">{fmtTime12(realInstant(), teacherTz)}</span>
+                      </div>
+                      {/* The heading above is the STUDENT's date. Far enough
+                          apart and the same moment is a different day for
+                          Guruji — a 10:55 pm class in Los Angeles is the next
+                          morning in Kolkata. Said plainly only when it happens,
+                          so it reads as a warning rather than clutter. */}
+                      {!sameCalendarDay(realInstant(), studentTz, teacherTz) && (
+                        <p className="text-[11px] text-amber-700 bg-amber-100 rounded px-2 py-1 mt-1.5">
+                          For Guruji this is <span className="font-semibold">{fmtDayInTz(realInstant(), teacherTz)}</span> — a different day from yours.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               )}

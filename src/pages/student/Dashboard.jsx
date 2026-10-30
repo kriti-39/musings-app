@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { getStudentAllClasses, markClassDone, cancelClassByStudent, requestReschedule, getTeacher, sweepPastClasses, hasRecording, hasNotes, notesFrom, getClassDetails } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
 import { RiCalendarLine, RiAddLine, RiVideoLine } from 'react-icons/ri'
-import { LOCAL_TZ, tzCity, fmtTime, fmtCardDate } from '../../utils/timezone'
+import { LOCAL_TZ, tzCity, fmtTime, fmtCardDate, sameCalendarDay, fmtDayInTz } from '../../utils/timezone'
 import ConfirmDialog from '../../components/shared/ConfirmDialog'
 import CreditBalance from '../../components/student/CreditBalance'
 import { usesCredits } from '../../utils/credits'
@@ -207,6 +207,12 @@ function ClassCard({ cls, onAction, onPatch, tz, teacherTz }) {
       {showTeacher && (
         <p className="text-xs text-gray-400 mt-0.5 truncate">
           Teacher's time: {fmtTime(date, teacherTz)} ({tzCity(teacherTz)})
+          {/* The date at the top of this card is the student's. When the gap
+              carries the class over midnight, Guruji's day is a different one
+              and saying only his time would leave that to be worked out. */}
+          {!sameCalendarDay(date, tz, teacherTz) && (
+            <span className="text-amber-600"> · {fmtDayInTz(date, teacherTz)}</span>
+          )}
         </p>
       )}
       {notesFrom(cls, cls.detail) && (

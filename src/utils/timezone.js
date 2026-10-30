@@ -137,6 +137,30 @@ export function unshiftFromTz(shifted, tz) {
   return new Date(shifted.getTime() - diff * 60000)
 }
 
+// Do these two zones call the same instant the same calendar day?
+//
+// Los Angeles to Kolkata is twelve and a half hours, so a late evening class
+// for the student is the following morning for Guruji. A panel that shows one
+// date above two times is then saying something untrue — and the person most
+// likely to act on it is the one who has to be awake for it.
+//
+// Compared as YYYY-MM-DD ('en-CA') because that sorts and compares as a string
+// without parsing anything back into a Date.
+export function sameCalendarDay(date, tzA, tzB) {
+  if (!date || !tzA || !tzB) return true
+  const day = tz => date.toLocaleDateString('en-CA', { timeZone: tz })
+  return day(tzA) === day(tzB)
+}
+
+// Weekday and date for a zone, e.g. "Sat, 31 Oct" — short enough to sit beside
+// a time when the two sides fall on different days.
+export function fmtDayInTz(date, tz) {
+  if (!date) return ''
+  return date.toLocaleDateString('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'short', timeZone: tz,
+  })
+}
+
 // Compact date for table columns, e.g. "15-Aug-26"
 export function fmtShortDate(date, tz) {
   if (!date) return ''

@@ -128,13 +128,20 @@ export default function CreditBalance({ compact = false, onCount }) {
                 ? `Use by ${fmtExpiry(summary.nextExpiry)}`
                 : `${summary.nextExpiryCount} by ${fmtExpiry(summary.nextExpiry)}`}
               {summary.nextExpiryDays === 0 && ' — today'}
-              {/* Says why Buy is unavailable, so a greyed button isn't a puzzle */}
-              {full && ` · ${summary.cap} is the most you can hold at once`}
             </span>
           </p>
         )}
       </div>
 
+      {/* Why "Buy credits" is greyed out. On its own line rather than tacked on
+          to the expiry: appended, it ran past the edge of a phone and truncated
+          to "3 is the most y…", which explains nothing. The one case where the
+          student is reading this is the one case it must be legible. */}
+      {full && (
+        <p className="c-note text-[11px] mt-2 leading-snug">
+          You are holding the most you can at once ({summary.cap}). Use one and you can buy again.
+        </p>
+      )}
       {/* The balance above is live, so credits appear here by themselves the
           moment the webhook grants them — no refresh, no polling. */}
       {buying && (

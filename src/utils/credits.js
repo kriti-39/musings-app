@@ -32,35 +32,35 @@ export function classOptions(student) {
 }
 
 // ─── How long a purchase lasts ───────────────────────────────────────────────
-// In India, any purchase runs for four weeks. A student there books around an
-// ordinary week and the studio is in the same city, so the size of the block
-// makes no difference to how long it takes to get through.
-export const INDIA_VALIDITY_WEEKS = 4
+// The window depends on how many classes were bought, and on nothing else. A
+// single class is meant to be used soon; twelve is a term's worth bought around
+// a visit or a stretch of leave and needs room to breathe.
+//
+// It used to depend on where the student was as well — any purchase in India
+// ran a flat four weeks. That meant one class in Chennai had twice the window
+// of one class in London, for no reason anybody could state: the size of the
+// block is what decides how long it takes to get through, not the address.
+// Where a student lives still sets their CAP (three at home, twelve abroad),
+// which is a different question.
+//
+// Keyed by the sizes actually offered.
+const VALIDITY_WEEKS = { 1: 2, 4: 5, 12: 15 }
 
-// Abroad, the window depends on how many classes were bought: a single
-// top-up is meant to be used soon, while twelve is a term's worth of lessons
-// bought around a visit or a stretch of leave and needs room to breathe.
-// Keyed by the sizes actually offered. Three is absent because it is no longer
-// one of them — and removing it changes nothing, since the rule below lands a
-// hand-granted three on the same four weeks the explicit entry used to give.
-const FOREIGN_WEEKS = { 1: 2, 4: 5, 12: 15 }
-
-// Weeks for a purchase of `quantity` classes by this student.
+// Weeks for a purchase of `quantity` classes.
 //
 // The sizes above are the ones actually offered. Staff can grant any number,
 // so anything else takes the window of the largest size at or below it, plus a
 // week for each extra class — monotonic, and erring long. Erring long can only
 // give a student more time; erring short loses them a class they paid for.
+// That rule is what fills in 2 → 3 weeks and 3 → 4 weeks.
 export function validityWeeks(student, quantity) {
-  if (isIndianStudent(student)) return INDIA_VALIDITY_WEEKS
-
   const n = Math.max(Math.floor(Number(quantity) || 0), 1)
-  if (FOREIGN_WEEKS[n]) return FOREIGN_WEEKS[n]
+  if (VALIDITY_WEEKS[n]) return VALIDITY_WEEKS[n]
 
-  const sizes = Object.keys(FOREIGN_WEEKS).map(Number).sort((a, b) => a - b)
+  const sizes = Object.keys(VALIDITY_WEEKS).map(Number).sort((a, b) => a - b)
   const below = sizes.filter(s => s <= n).pop()
-  if (below === undefined) return FOREIGN_WEEKS[sizes[0]]
-  return FOREIGN_WEEKS[below] + (n - below)
+  if (below === undefined) return VALIDITY_WEEKS[sizes[0]]
+  return VALIDITY_WEEKS[below] + (n - below)
 }
 
 export function validityDays(student, quantity) {
@@ -95,10 +95,10 @@ export function validityLabel(student, quantity = null) {
 }
 
 // For somewhere there is no particular purchase in view — the Help page, or a
-// hint on a profile. In India it is one number; abroad it is a range, and
-// saying one number there would be wrong for two of the three sizes.
+// hint on a profile. Always a range now: the window follows the size of the
+// purchase for everyone, so a single number would be wrong for two of the
+// three sizes whoever is reading it.
 export function validityRangeLabel(student) {
-  if (isIndianStudent(student)) return `${INDIA_VALIDITY_WEEKS} weeks`
   const sizes = classOptions(student)
   const weeks = sizes.map(n => validityWeeks(student, n))
   return `${Math.min(...weeks)} to ${Math.max(...weeks)} weeks, depending on how many you buy`

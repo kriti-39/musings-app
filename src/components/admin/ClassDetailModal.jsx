@@ -11,7 +11,7 @@ import {
 } from '../../firebase/db'
 import RecordingBlock from '../shared/RecordingBlock'
 import { useAuth } from '../../context/AuthContext'
-import { fmtTime, tzCity } from '../../utils/timezone'
+import { fmtTime, tzCity, LOCAL_TZ, sameCalendarDay, fmtDayInTz } from '../../utils/timezone'
 import ConfirmDialog from '../shared/ConfirmDialog'
 
 const STATUS_STYLES = {
@@ -119,10 +119,22 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
               <RiTimeLine size={16} className="text-gray-400" />
               {scheduledDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {cls.duration || 60} min
             </div>
-            {studentTimezone && studentTimezone !== Intl.DateTimeFormat().resolvedOptions().timeZone && (
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <RiGlobalLine size={16} className="text-gray-400" />
-                Student's time: {fmtTime(scheduledDate, studentTimezone)} ({tzCity(studentTimezone)})
+            {studentTimezone && studentTimezone !== LOCAL_TZ && (
+              <div className="flex items-start gap-2 text-sm text-gray-500">
+                <RiGlobalLine size={16} className="text-gray-400 shrink-0 mt-0.5" />
+                <span>
+                  Student's time: {fmtTime(scheduledDate, studentTimezone)} ({tzCity(studentTimezone)})
+                  {/* The date above is the viewer's. Far enough apart and the
+                      same moment is a different day for the student — a Saturday
+                      morning class here is still Friday night for someone in Los
+                      Angeles. Ringing them about "Saturday's class" would then
+                      be about a day they have not reached. */}
+                  {!sameCalendarDay(scheduledDate, LOCAL_TZ, studentTimezone) && (
+                    <span className="block text-xs text-amber-600 mt-0.5">
+                      For them this is {fmtDayInTz(scheduledDate, studentTimezone)} — a different day
+                    </span>
+                  )}
+                </span>
               </div>
             )}
           </div>

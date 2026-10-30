@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { RiCloseLine, RiErrorWarningLine, RiSearchLine } from 'react-icons/ri'
 import { getAllStudents, createClass, createRecurringSchedule, getTeacherId, createNotification, findOverlappingClasses, findBlockedOverlaps, fmtWhen } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
+import { LOCAL_TZ, tzCity, fmtTime12, sameCalendarDay, fmtDayInTz } from '../../utils/timezone'
 
 const DURATIONS = [30, 45, 60, 90, 120]
 const FREQUENCIES = [
@@ -26,6 +27,10 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
   const [teacherId, setTeacherId] = useState(null)
   const [overlap, setOverlap] = useState(false)
   const [blockedHit, setBlockedHit] = useState(null) // blocked slot the time falls into
+
+  // Where the chosen student is. Falls back to the studio's own zone, the
+  // same default the notification uses.
+  const studentTzFor = (id) => students.find(x => x.id === id)?.timezone || ''
 
   useEffect(() => {
     getAllStudents().then(setStudents)
@@ -225,6 +230,29 @@ export default function ScheduleClassModal({ onClose, onSuccess, defaultDate }) 
               />
             </div>
           </div>
+
+          {/* What this slot is for the STUDENT.
+
+              The fields above are in whoever is scheduling's own timezone, and
+              nothing here used to say what that meant at the other end. Booking
+              Guruji a Saturday morning sends a student in Los Angeles a class
+              on Friday night — findable afterwards on their dashboard, but by
+              then it is arranged. Shown while the time is still being chosen. */}
+          {form.date && form.time && studentTzFor(form.studentId) && studentTzFor(form.studentId) !== LOCAL_TZ && (
+            <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2">
+              <p className="text-xs text-amber-900">
+                Student's time ({tzCity(studentTzFor(form.studentId))}):{' '}
+                <span className="font-semibold">
+                  {fmtTime12(new Date(`${form.date}T${form.time}`), studentTzFor(form.studentId))}
+                </span>
+              </p>
+              {!sameCalendarDay(new Date(`${form.date}T${form.time}`), LOCAL_TZ, studentTzFor(form.studentId)) && (
+                <p className="text-[11px] text-amber-700 mt-0.5">
+                  That is <span className="font-semibold">{fmtDayInTz(new Date(`${form.date}T${form.time}`), studentTzFor(form.studentId))}</span> for them — a different day
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Duration */}
           <div>

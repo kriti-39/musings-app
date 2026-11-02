@@ -12,6 +12,21 @@ import { useAuth } from '../../context/AuthContext'
 // to be confirmed or refused, and that queue lives on the dashboard.
 const ON_THE_DASHBOARD = ['overlap_booking', 'reschedule_request']
 
+// A student may write a notification addressed to staff — they have to, when
+// they book or cancel — and they choose every field on it, `relatedClassId`
+// included. That value ends up inside a URL this app then navigates to, so it
+// is checked rather than trusted.
+//
+// A Firestore id is a short run of letters, digits, hyphen or underscore.
+// Anything else — a path, a protocol, a backslash — is dropped and the person
+// lands on the dashboard instead. Nothing today can be reached through it, but
+// an unchecked string flowing from one user into another user's navigation is
+// the shape a redirect hole takes.
+function classIdOf(n) {
+  const id = n?.relatedClassId
+  return typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(id) ? id : null
+}
+
 // Where each notification should take the user, per role
 function destinationFor(n, role) {
   const base = role === 'admin' ? '/admin' : role === 'teacher' ? '/teacher' : '/student'
@@ -24,7 +39,7 @@ function destinationFor(n, role) {
   // staff: overlaps & reschedule requests need action → dashboard (confirm section)
   if (ON_THE_DASHBOARD.includes(type)) return `${base}/dashboard`
   // anything else about a particular class → open that class
-  if (n?.relatedClassId) return `${base}/classes?class=${n.relatedClassId}`
+  if (classIdOf(n)) return `${base}/classes?class=${encodeURIComponent(classIdOf(n))}`
   // money in → the fees page, where it has to be reconciled
   if (type === 'credits_purchased') return `${base}/fees`
   // a changed number or timezone → the student list

@@ -179,7 +179,19 @@ export async function createClass(data) {
 export async function findOverlappingClasses(teacherId, startDate, durationMin) {
   const start = new Date(startDate)
   const end = new Date(start.getTime() + durationMin * 60000)
-  const snap = await getDocs(query(collection(db, 'classes'), where('teacherId', '==', teacherId)))
+
+  // Only classes that could possibly touch this window are worth fetching. A
+  // class is clamped to 180 minutes, so anything overlapping [start, end) must
+  // begin after start - 180min; the 4-hour margin leaves room to spare and is
+  // provably wider than any class can be. Previously this read the teacher's
+  // entire history to find a clash in one hour of it.
+  const MARGIN_MS = 4 * 60 * 60000
+  const snap = await getDocs(query(
+    collection(db, 'classes'),
+    where('teacherId', '==', teacherId),
+    where('scheduledAt', '>=', Timestamp.fromDate(new Date(start.getTime() - MARGIN_MS))),
+    where('scheduledAt', '<=', Timestamp.fromDate(new Date(end.getTime() + MARGIN_MS))),
+  ))
   return snap.docs
     .map(d => ({ id: d.id, ...d.data() }))
     .filter(c => {
@@ -340,13 +352,21 @@ export async function getTeacherClassesForDay(teacherId, date) {
   const end = new Date(date)
   end.setHours(23, 59, 59, 999)
 
-  const snap = await getDocs(query(collection(db, 'classes'), where('teacherId', '==', teacherId)))
+  // Narrowed to the day in the query rather than in the browser. Fetching every
+  // class ever taught in order to show today's was the same waste as on the
+  // student calendar, and it is the teacher's dashboard — the most-opened screen
+  // in the app.
+  const snap = await getDocs(query(
+    collection(db, 'classes'),
+    where('teacherId', '==', teacherId),
+    where('scheduledAt', '>=', Timestamp.fromDate(start)),
+    where('scheduledAt', '<=', Timestamp.fromDate(end)),
+  ))
   return snap.docs
     .map(d => ({ id: d.id, ...d.data() }))
     .filter(c => {
-      const t = c.scheduledAt?.toDate?.()
       const s = c.status || 'scheduled'
-      return t >= start && t <= end && s !== 'cancelled' && s !== 'rejected'
+      return s !== 'cancelled' && s !== 'rejected'
     })
     .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
 }
@@ -355,10 +375,14 @@ export async function getTeacherClassesForMonth(teacherId, year, month) {
   const start = new Date(year, month, 1)
   const end = new Date(year, month + 1, 0, 23, 59, 59)
 
-  const snap = await getDocs(query(collection(db, 'classes'), where('teacherId', '==', teacherId)))
+  const snap = await getDocs(query(
+    collection(db, 'classes'),
+    where('teacherId', '==', teacherId),
+    where('scheduledAt', '>=', Timestamp.fromDate(start)),
+    where('scheduledAt', '<=', Timestamp.fromDate(end)),
+  ))
   return snap.docs
     .map(d => ({ id: d.id, ...d.data() }))
-    .filter(c => { const t = c.scheduledAt?.toDate?.(); return t >= start && t <= end })
     .sort((a, b) => (a.scheduledAt?.seconds ?? 0) - (b.scheduledAt?.seconds ?? 0))
 }
 
@@ -1445,8 +1469,24 @@ export async function getStudentBookingCalendar(teacherId, studentId, year, mont
   const end = new Date(year, month + 1, 0, 23, 59, 59)
   const inRange = (t) => t && t >= start && t <= end
 
+  // Bounded to the month on the SERVER, not filtered in the browser afterwards.
+  // This used to ask for every class the teacher had ever taught and throw away
+  // all but one month of them. With 92 students that is thousands of documents
+  // fetched to draw one calendar — billed on every visit, and growing for as
+  // long as the studio runs.
+  //
+  // It also mattered for privacy. The anonymising below happens here, in the
+  // student's own browser, so the full documents — every other student's id —
+  // crossed the wire regardless of what the calendar then chose to draw.
+  // Narrowing the query is what actually keeps them back; now only one month of
+  // them travels, instead of the studio's whole history.
   const [allClassesSnap, blockedSnap] = await Promise.all([
-    getDocs(query(collection(db, 'classes'), where('teacherId', '==', teacherId))),
+    getDocs(query(
+      collection(db, 'classes'),
+      where('teacherId', '==', teacherId),
+      where('scheduledAt', '>=', Timestamp.fromDate(start)),
+      where('scheduledAt', '<=', Timestamp.fromDate(end)),
+    )),
     getDocs(query(collection(db, 'availability'), where('teacherId', '==', teacherId))),
   ])
 

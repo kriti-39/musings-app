@@ -1,7 +1,7 @@
 import {
   doc, collection, runTransaction, serverTimestamp, getDoc,
 } from 'firebase/firestore'
-import { db } from './config'
+import { db, auth } from './config'
 import { granuleKeys, lockHolds } from '../utils/slots'
 
 // ─── One class per slot. No exceptions, for anybody ──────────────────────────
@@ -58,10 +58,23 @@ async function assertFree(tx, keys, exceptClassId) {
   }
 }
 
-function claim(tx, keys, classId, teacherId) {
+// `claimedBy` is the signed-in uid, and the rules require it to match — so a
+// lock always says who wrote it.
+//
+// It is not a permission check, and cannot be: the lock is claimed in the same
+// transaction that creates the class, so at this moment the class it names does
+// not exist yet and the rules have nothing they could look up. That is why they
+// only check the lock's shape. The unverifiable part is that a lock can be
+// re-pointed at a different class by hand, which would free a slot that is
+// genuinely taken and let a second class be booked into it.
+//
+// What this field buys is attribution: such a lock now carries the uid of
+// whoever wrote it, so a collision can be traced rather than just discovered.
+// App Check is what makes the write itself hard to attempt.
+function claim(tx, keys, classId, teacherId, claimedBy) {
   for (const key of keys) {
     tx.set(doc(db, SLOT_LOCKS, key), {
-      classId, teacherId, claimedAt: serverTimestamp(),
+      classId, teacherId, claimedBy, claimedAt: serverTimestamp(),
     })
   }
 }
@@ -86,7 +99,7 @@ export async function createClassHoldingSlot(classData) {
 
   await runTransaction(db, async (tx) => {
     await assertFree(tx, keys, null)
-    claim(tx, keys, classRef.id, teacherId)
+    claim(tx, keys, classRef.id, teacherId, auth?.currentUser?.uid ?? null)
     tx.set(classRef, classData)
   })
 
@@ -119,7 +132,7 @@ export async function moveClassIntoSlot(classId, patch, slot) {
     // Its own locks do not count against it — a class may be confirmed in, or
     // nudged within, a slot it already holds.
     await assertFree(tx, keys, classId)
-    claim(tx, keys, classId, teacherId)
+    claim(tx, keys, classId, teacherId, auth?.currentUser?.uid ?? null)
     tx.update(classRef, patch)
   })
 }

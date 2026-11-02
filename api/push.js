@@ -14,6 +14,7 @@
 // notify STAFF only — which is all the app ever asks for, since a student's
 // own actions notify Guruji and the office.
 import { getAdmin, linkFor, titleFor, sendToTokens } from './_lib/firebaseAdmin.js'
+import { checkRate, tooMany } from './_lib/throttle.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' })
@@ -27,6 +28,15 @@ export default async function handler(req, res) {
     let decoded
     try { decoded = await admin.auth().verifyIdToken(idToken) }
     catch { return res.status(401).json({ error: 'unauthorized' }) }
+
+    // Counted per caller, before any work is done. Who is asking has just been
+    // established from the token; the ceiling is far above ordinary use, and a
+    // caller past it is looping.
+    const rate = await checkRate(getAdmin(), decoded.uid, 'push')
+    if (!rate.ok) {
+      console.warn(`push throttled: ${decoded.uid} at ${rate.count}/${rate.max} this hour`)
+      return tooMany(res, rate)
+    }
 
     const { userId, type, message, title, classId } = req.body || {}
     if (!userId || !message) return res.status(400).json({ error: 'userId and message required' })

@@ -15,6 +15,14 @@ export function getAdmin() {
 // Where a tapped notification should open the app, mirroring the in-app bell
 // (NotificationBell.destinationFor). Admins never get pushes, so only student
 // and teacher destinations exist here.
+// Same check as the in-app bell. This one matters more: the link goes into a
+// push notification, and the service worker opens it with clients.openWindow.
+// `classId` arrives in the body of /api/push, which a signed-in student may
+// call, so it is attacker-chosen by definition.
+function safeClassId(id) {
+  return typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(id) ? id : null
+}
+
 export function linkFor(role, type, classId = null) {
   if (role === 'student') {
     if (type === 'payment_confirmed' || type === 'payment_rejected') return '/student/fees'
@@ -25,7 +33,7 @@ export function linkFor(role, type, classId = null) {
   // push and a tapped bell notification land in the same place.
   if (type === 'overlap_booking' || type === 'reschedule_request') return '/teacher/dashboard'
   // about one particular class → open that class on the Classes page
-  if (classId) return `/teacher/classes?class=${classId}`
+  if (safeClassId(classId)) return `/teacher/classes?class=${encodeURIComponent(safeClassId(classId))}`
   if (type === 'credits_purchased') return '/teacher/fees'
   if (type === 'student_details_changed') return '/teacher/students'
   return '/teacher/dashboard'

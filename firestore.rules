@@ -196,12 +196,29 @@ service cloud.firestore {
     // need a get() per quarter hour, and a three-hour class claims thirteen of
     // them — past the limit rules allow in one request. The class rules above
     // are what bound a student's writes; this keeps the locks well-formed.
+    // A lock must also say WHO claimed it, and that has to be the person
+    // writing it. This is attribution, not permission — the two are worth not
+    // confusing:
+    //
+    // There is no way to check here that the named class is real, belongs to
+    // the writer, or covers this quarter hour. The lock is written in the SAME
+    // transaction that creates the class, so at the moment this rule runs the
+    // class does not exist yet and a get() on it would error and deny — every
+    // booking in the app would stop. Verifying coverage would additionally mean
+    // deriving a time from the document id, which rules cannot do.
+    //
+    // So what remains possible by hand is re-pointing a lock at some other
+    // class, which frees a slot that is actually taken and lets a second class
+    // be booked into it. No money and no data are reachable that way; the
+    // result is a visible clash for the studio to undo. `claimedBy` means such
+    // a lock names whoever wrote it. App Check is what stops the attempt.
     match /slotLocks/{key} {
       allow read: if isAuth();
       allow create, update: if isAuth()
         && request.resource.data.classId is string
         && request.resource.data.classId != ''
-        && request.resource.data.teacherId is string;
+        && request.resource.data.teacherId is string
+        && request.resource.data.claimedBy == request.auth.uid;
       allow delete: if isAdminOrTeacher();
     }
 
@@ -295,6 +312,16 @@ service cloud.firestore {
     // able to pull another's.
     match /photos/{uid} {
       allow read, write: if isAuth() && (request.auth.uid == uid || isAdminOrTeacher());
+    }
+
+    // Per-caller request counters, written by the API functions through the
+    // Admin SDK, which bypasses these rules. Shut to every client: being able
+    // to read them would show who is doing what, and being able to write one
+    // would mean resetting your own counter and lifting your own limit. With no
+    // rule at all this collection would already be denied by default — saying
+    // so explicitly is how the next person knows it was meant to be.
+    match /rateLimits/{id} {
+      allow read, write: if false;
     }
 
     // Payment receipts are gone — the feature was removed. The rule stays, shut

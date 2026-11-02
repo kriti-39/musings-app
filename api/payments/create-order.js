@@ -13,6 +13,7 @@
 // so the figure cannot be altered between checkout and capture, even though
 // nobody is checking whether it was the RIGHT figure to begin with.
 import { getAdmin } from '../_lib/firebaseAdmin.js'
+import { checkRate, tooMany } from '../_lib/throttle.js'
 import { createOrder, keyId, gatewayReady, isTestMode } from '../_lib/razorpay.js'
 import { toPaise } from '../../src/utils/pricing.js'
 import { canGrant, usesCredits, classOptions } from '../../src/utils/credits.js'
@@ -44,6 +45,15 @@ export default async function handler(req, res) {
     try { decoded = await admin.auth().verifyIdToken(idToken) }
     catch { return res.status(401).json({ error: 'unauthorized' }) }
     const uid = decoded.uid
+
+    // An order costs the studio nothing, but a loop of them is noise in the
+    // Razorpay dashboard and a way to make this endpoint work for free. Twenty
+    // an hour is more attempts than any real purchase needs.
+    const rate = await checkRate(admin, uid, 'create-order')
+    if (!rate.ok) {
+      console.warn(`create-order throttled: ${uid} at ${rate.count}/${rate.max} this hour`)
+      return tooMany(res, rate)
+    }
 
     const quantity = req.body?.quantity
     if (typeof quantity !== 'number' || !Number.isInteger(quantity)) {

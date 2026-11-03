@@ -18,17 +18,46 @@ export default function TeacherDashboard() {
   const [pending, setPending] = useState([])
   const [students, setStudents] = useState({})
   const [showMonth, setShowMonth] = useState(false)
+  const [loadError, setLoadError] = useState(null)
 
+  // Every read for the page goes in one Promise.all, which means ONE of them
+  // failing loses all five. That happened: a query here gained a date range
+  // without its composite index being deployed, so it threw, the whole batch
+  // rejected, `stats` stayed null, and the page rendered a dash in every box —
+  // no error, nothing in the console, no way to tell a broken dashboard from an
+  // empty studio. It looked like missing data rather than a failure.
+  //
+  // So a failure is now caught and SAID OUT LOUD. The dash means "none"; a
+  // banner means "this did not load", and the two are never confused again.
   async function fetchAll() {
     if (!user?.id) return
-    const now = new Date()
-    const [s, t, m, p, allStudents] = await Promise.all([
-      getDashboardStats(user.id),
-      getTeacherClassesForDay(user.id, now),
-      getTeacherClassesForMonth(user.id, now.getFullYear(), now.getMonth()),
-      getPendingRequests(user.id),
-      getAllStudentsIncludingInactive(),
-    ])
+    try {
+      setLoadError(null)
+      const now = new Date()
+      const [s, t, m, p, allStudents] = await Promise.all([
+        getDashboardStats(user.id),
+        getTeacherClassesForDay(user.id, now),
+        getTeacherClassesForMonth(user.id, now.getFullYear(), now.getMonth()),
+        getPendingRequests(user.id),
+        getAllStudentsIncludingInactive(),
+      ])
+      apply(s, t, m, p, allStudents)
+    } catch (e) {
+      console.error('Dashboard failed to load:', e)
+      // A missing index is the one failure with a genuine fix, and Firebase
+      // puts a create-it link in the message — worth surfacing rather than
+      // flattening into "something went wrong".
+      setLoadError(
+        e?.code === 'failed-precondition'
+          ? 'A database index is still building. Give it a minute and refresh.'
+          : e?.code === 'permission-denied'
+            ? 'This account does not have permission to read the dashboard.'
+            : (e?.message || 'Could not load the dashboard.')
+      )
+    }
+  }
+
+  function apply(s, t, m, p, allStudents) {
     setStats(s)
     // Sweep once on the month list (today's classes are inside the same month),
     // then mirror the corrected statuses onto today's list without re-writing.
@@ -51,6 +80,18 @@ export default function TeacherDashboard() {
           <h1 className="text-xl font-semibold text-gray-800">Good to see you, Guru ji</h1>
           <p className="text-sm text-gray-400 mt-1">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         </div>
+
+        {/* Said plainly, with the retry next to it — a dashboard that failed to
+            load is worth interrupting for, because every number below it is
+            wrong until it does. */}
+        {loadError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-start justify-between gap-3">
+            <span>{loadError}</span>
+            <button onClick={fetchAll} className="shrink-0 font-semibold underline hover:no-underline">
+              Try again
+            </button>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

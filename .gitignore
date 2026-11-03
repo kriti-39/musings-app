@@ -44,3 +44,6 @@ build_techdoc.py
 *-key.json
 *service-account*.json
 beta-key.json
+
+# Local data backups — student records, never committed
+backups/

@@ -11,6 +11,7 @@ import {
 import { usesCredits, paymentProblem, creditsNeedPayment } from '../utils/credits'
 import { createClassHoldingSlot, moveClassIntoSlot, slotTakenError, slotIsFree } from './slots'
 import { saveClassDetail, firstUrl as firstUrlOf } from './classDetail'
+import { getTeaching } from './teaching'
 
 // How far ahead a student may book. Staff are not limited: they schedule
 // recurring series months out and arrange make-up classes in the past.
@@ -618,17 +619,27 @@ export async function rejectClass(classId, studentId = null) {
     status: 'rejected',
     updatedAt: serverTimestamp(),
   })
-  // The class was never granted, so the credit goes straight back.
+  // The class was never granted, so the credit goes straight back. The button
+  // staff press says "Reject & refund" for the same reason the message below
+  // mentions it: this has always happened, and nobody was ever told.
+  let refunded = false
   if (cls?.creditBatchId) {
     try {
       await refundCreditForClass(cls, await getUser(cls.studentId),
         'Booking request was not accepted')
+      refunded = true
     } catch (e) { console.error('Rejected, credit refund failed for', classId, e) }
   }
   if (studentId) {
     const when = await studentTimeLabel(studentId, cls?.scheduledAt?.toDate?.())
+    // A student reading "not accepted" wants to know two things: that the time
+    // is gone, and that they have not lost a class over it. Saying only the
+    // first is how a refund that works still feels like a loss.
+    const back = refunded ? ' Your credit is back in your account.' : ''
     await createNotification(studentId, 'class_rejected',
-      when ? `${when} — please pick another time.` : 'Your class request was not accepted.',
+      when
+        ? `${when} — please pick another time.${back}`
+        : `Your class request was not accepted.${back}`,
       classId, 'Class request declined')
   }
 }
@@ -696,21 +707,48 @@ export async function cancelClassByStudent(classId) {
     status: 'cancelled',
     updatedAt: serverTimestamp(),
   })
-  // The credit is NOT returned automatically — whether a student gets it back
-  // when they drop a class themselves is Guruji's decision, so it's flagged for
-  // staff rather than quietly refunded (which would make cancelling free) or
-  // quietly kept (which would be unfair when they had a real reason).
+  // The credit always comes back, however late the cancellation.
+  //
+  // The app ASKS for 24 hours' notice and says so on the booking screen, but
+  // it does not enforce it. The deadline is there to discourage dropping a
+  // class an hour before it starts; actually confiscating a credit over it
+  // would mean the studio keeping money for a lesson nobody taught, and the
+  // argument that follows costs Guruji more than the credit is worth.
+  //
+  // So the rule students read is the stricter one, and the behaviour is the
+  // kinder one. Erring that way round is safe: nobody is ever worse off than
+  // they were told they would be. It also empties the review queue this used
+  // to fill, where every late cancellation waited on a decision that was
+  // nearly always "give it back".
+  //
+  // If the original batch has already expired, refundCreditForClass issues a
+  // fresh credit instead of reviving a dead one.
+  const lateNotice = cls?.scheduledAt?.toDate?.()
+    ? cls.scheduledAt.toDate().getTime() - Date.now() < 24 * 3600000
+    : false
   if (cls?.creditBatchId && !cls.creditRefundedAt) {
-    try { await flagCreditForReview(classId, 'Student cancelled their own class') }
-    catch (e) { console.error('Could not flag the credit for review:', e) }
+    try {
+      await refundCreditForClass(cls, await getUser(cls.studentId),
+        lateNotice ? 'Class cancelled (late notice)' : 'Class cancelled')
+    } catch (e) {
+      // Falling back to the review flag keeps the credit recoverable by hand
+      // rather than lost, which is the one outcome worth protecting against.
+      console.error('Cancelled, automatic refund failed — flagging instead:', e)
+      try { await flagCreditForReview(classId, 'Student cancelled; automatic refund failed') }
+      catch (e2) { console.error('Could not flag the credit for review either:', e2) }
+    }
   }
   try {
     const staffIds = await getStaffIds()
     const { name, when } = await staffContext(
       cls?.studentId, cls?.scheduledAt?.toDate?.() ?? null, cls?.teacherId)
+    // Staff are told whether it was last-minute, because that is the part
+    // worth noticing — the credit needs no decision any more.
+    const note = lateNotice ? ' (last minute)' : ''
     await Promise.all(staffIds.map(id =>
       createNotification(id, 'class_cancelled_by_student',
-        when ? `Cancelled their class — ${when}` : 'Cancelled a class', classId, name)
+        when ? `Cancelled their class${note} — ${when}` : `Cancelled a class${note}`,
+        classId, name)
     ))
   } catch (e) { console.error('Cancelled, staff notify failed:', e) }
 }
@@ -1464,6 +1502,70 @@ export async function getDashboardStats(teacherId) {
 // Student booking view: shows the teacher's blocked slots + ANONYMOUS busy blocks
 // for occupied times. Other students' names/notes are never returned — only the
 // time range is exposed so a student can see when the teacher is busy.
+// Everything the booking screen needs for one month, as plain intervals.
+//
+// It returns what is TAKEN and when the studio teaches, and leaves the rest to
+// utils/availability.js — which turns the two into the free ranges a student
+// actually picks from. The split matters: the arithmetic is the part that goes
+// wrong (timezones, midnights, the gap between two classes) and keeping it out
+// of here is what lets it be tested without a database.
+//
+// The query is padded a day either side of the month. A teaching day belongs
+// to the TEACHER's calendar, so the window for the 1st can open before the
+// month does in UTC, and the window for the 31st can close after it.
+export async function getBookingMonth(teacherId, studentId, year, month, teacherTimezone) {
+  const start = new Date(year, month, 1)
+  start.setDate(start.getDate() - 1)
+  const end = new Date(year, month + 1, 0, 23, 59, 59)
+  end.setDate(end.getDate() + 1)
+
+  const [classesSnap, blockedSnap, teaching] = await Promise.all([
+    getDocs(query(
+      collection(db, 'classes'),
+      where('teacherId', '==', teacherId),
+      where('scheduledAt', '>=', Timestamp.fromDate(start)),
+      where('scheduledAt', '<=', Timestamp.fromDate(end)),
+    )),
+    getDocs(query(collection(db, 'availability'), where('teacherId', '==', teacherId))),
+    getTeaching(teacherTimezone),
+  ])
+
+  const LIVE = new Set(['scheduled', 'pending'])
+  const busy = []
+  const mine = []
+  for (const d of classesSnap.docs) {
+    const c = d.data()
+    const s = c.scheduledAt?.toDate?.()
+    if (!s) continue
+    const status = c.status || 'scheduled'
+    const isMine = c.studentId === studentId
+    const interval = {
+      id: d.id,
+      start: s,
+      end: new Date(s.getTime() + (c.duration || 60) * 60000),
+      duration: c.duration || 60,
+    }
+    // A live class takes its time from everybody. The student's own classes are
+    // ALSO returned separately so the calendar can mark the days they already
+    // have — including completed ones, which block nothing but are worth
+    // seeing.
+    if (LIVE.has(status)) busy.push(interval)
+    if (isMine && (LIVE.has(status) || status === 'completed')) {
+      mine.push({ ...interval, status })
+    }
+  }
+
+  const blocked = blockedSnap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(b => b.startAt?.toDate && b.endAt?.toDate)
+    .map(b => ({ id: b.id, start: b.startAt.toDate(), end: b.endAt.toDate(), reason: b.reason || '' }))
+    .filter(b => b.end > start && b.start < end)
+
+  return { busy, mine, blocked, teaching }
+}
+
+// The earlier shape, still used by nothing now the booking screen has moved to
+// getBookingMonth. Kept until the old calendar is gone for good.
 export async function getStudentBookingCalendar(teacherId, studentId, year, month) {
   const start = new Date(year, month, 1)
   const end = new Date(year, month + 1, 0, 23, 59, 59)

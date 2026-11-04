@@ -215,7 +215,7 @@ export default function ClassDetailModal({ cls, studentName, studentTimezone, on
                   onClick={() => handle(() => rejectClass(cls.id, cls.studentId))} disabled={loading}
                   className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg py-2 text-sm font-medium transition-colors disabled:opacity-50"
                 >
-                  Reject
+                  Reject &amp; refund
                 </button>
               </div>
             </div>

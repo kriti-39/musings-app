@@ -1,681 +1,527 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay, addMinutes, isBefore } from 'date-fns'
-import { enUS } from 'date-fns/locale/en-US'
-import 'react-big-calendar/lib/css/react-big-calendar.css'
-import StudentLayout from '../../components/student/StudentLayout'
-import { useAuth } from '../../context/AuthContext'
-import { getStudentBookingCalendar, createBooking, getTeacherId, getTeacher } from '../../firebase/db'
 import { Timestamp } from 'firebase/firestore'
-import {
-  RiCloseLine, RiCalendarLine, RiCheckLine,
-  RiArrowLeftSLine, RiArrowRightSLine
-} from 'react-icons/ri'
-import { LOCAL_TZ, tzCity, shiftToTz, unshiftFromTz, tzOffsetMinutes, fmtTime12, fmtLongDate, sameCalendarDay, fmtDayInTz } from '../../utils/timezone'
+import StudentLayout from '../../components/student/StudentLayout'
 import CreditBalance from '../../components/student/CreditBalance'
+import TimePickerSheet from '../../components/student/TimePickerSheet'
+import { useAuth } from '../../context/AuthContext'
+import {
+  getBookingMonth, createBooking, getTeacher, BOOKING_WINDOW_DAYS,
+} from '../../firebase/db'
 import { usesCredits } from '../../utils/credits'
+import {
+  windowsForLocalDay, localDayPieces, localFreeRanges, localDayStatus,
+  withinBookingWindow, fmtRangeLabel, describeRange, rangeIsBookable,
+} from '../../utils/availability'
+import {
+  LOCAL_TZ, fmtTime12, fmtLongDate, sameCalendarDay, fmtDayInTz,
+} from '../../utils/timezone'
+import {
+  RiArrowLeftSLine, RiArrowRightSLine, RiCalendarLine, RiCheckLine,
+  RiCloseLine, RiErrorWarningLine, RiLayoutGridLine, RiListUnordered,
+  RiLock2Line, RiTimeLine,
+} from 'react-icons/ri'
 
-const localizer = dateFnsLocalizer({
-  format, parse,
-  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
-  getDay,
-  locales: { 'en-US': enUS },
-})
+// ─── Booking, the right way round ────────────────────────────────────────────
+// The old screen drew what was BUSY. One class at 5pm put a red block on the
+// day, so a month with a dozen classes in it looked shut, and the only way to
+// learn otherwise was to open each day. Students stopped trying.
+//
+// This one draws what is AVAILABLE. The studio teaches a known window; whatever
+// is not booked or blocked inside it is free, and a day is open unless
+// something makes it otherwise. Only two things close a day: every slot in it
+// is taken, or Guruji marked it unavailable.
+//
+// Free time is shown as RANGES, not as a list of hours. An eighteen-hour
+// teaching day with four classes in it is fourteen free hours — as a list that
+// is fourteen things to read past, as ranges it is five lines. Tapping one
+// opens the clock, so 3:30 and 4:15 are as easy to pick as 3:00; offering
+// preset start times would quietly put the hour back as the only real choice.
+//
+// The arithmetic behind all of this — windows, timezones, the gaps between
+// classes — lives in utils/availability.js, where it is tested without a
+// browser. This file only arranges it on screen.
+const WEEK = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
-// ── Custom calendar toolbar — Month + Day only for students ─────────────────
-function CalendarToolbar({ label, onNavigate, onView, view }) {
-  return (
-    <div className="flex items-center justify-between gap-3 mb-3 px-3 pt-3">
-      {/* Period label — month name or selected day */}
-      <span className="text-sm font-semibold text-gray-800">{label}</span>
-
-      {/* ‹  [Month | Day]  › */}
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => onNavigate('PREV')}
-          className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
-        >
-          <RiArrowLeftSLine size={18} />
-        </button>
-
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-          {['month', 'day'].map(v => (
-            <button
-              key={v}
-              onClick={() => onView(v)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
-                view === v
-                  ? 'bg-amber-500 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-
-        <button
-          onClick={() => onNavigate('NEXT')}
-          className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors"
-        >
-          <RiArrowRightSLine size={18} />
-        </button>
-      </div>
-    </div>
-  )
+function keyOf(y, m, d) {
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
-
-// ────────────────────────────────────────────────────────────────────────────
 
 export default function BookClass() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [teacherId, setTeacherId] = useState(null)
-  const [teacherLoadFailed, setTeacherLoadFailed] = useState(false)
-  const [calendarData, setCalendarData] = useState({ bookedSlots: [], blockedSlots: [] })
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [showPicker, setShowPicker] = useState(false)
-  const [selectedDate, setSelectedDate] = useState('')
-  const [selectedTime, setSelectedTime] = useState('')
-  const [duration, setDuration] = useState(60)
-  const [note, setNote] = useState('')
-  const [bookingLoading, setBookingLoading] = useState(false)
-  const [conflict, setConflict] = useState(false)
-  const [bookingError, setBookingError] = useState('')
-  const [bookingSuccess, setBookingSuccess] = useState(null) // { status }
-  const [confirmSlot, setConfirmSlot] = useState(null)       // instant awaiting confirmation
-  const [currentView, setCurrentView] = useState('month')
-  // null while the balance loads — don't block booking on a guess
+
+  const [teacher, setTeacher] = useState(null)
+  const [cursor, setCursor] = useState(() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() } })
+  const [data, setData] = useState(null)
+  const [loadError, setLoadError] = useState(null)
+
+  const [dayKey, setDayKey] = useState(null)        // null = the month
+  const [dayView, setDayView] = useState('grid')
+  const [picking, setPicking] = useState(null)      // the range being timed
+  const [chosen, setChosen] = useState(null)        // { start, duration }
+  const [working, setWorking] = useState(false)
+  const [bookError, setBookError] = useState('')
   const [credits, setCredits] = useState(null)
+  const [reload, setReload] = useState(0)
+  // Fixed at the moment the data arrived, not read fresh on every render.
+  // "Is this range still bookable?" must give the same answer throughout one
+  // paint, or a range can vanish between being listed and being tapped.
+  const [now, setNow] = useState(() => new Date())
+
+  const displayTz = user?.timezone || LOCAL_TZ
   const onCredits = usesCredits(user)
   const outOfCredits = onCredits && credits === 0
 
-  // Timezones
-  const studentTz = user?.timezone || LOCAL_TZ
-  const [teacherTz, setTeacherTz] = useState(null)
-  const [displayTz, setDisplayTz] = useState(studentTz)
+  useEffect(() => { getTeacher().then(setTeacher).catch(() => setTeacher(null)) }, [])
 
-  // Keep the calendar's display timezone in sync with the student's own tz
-  // (covers the profile loading/changing after first render — no refresh needed)
-  useEffect(() => { setDisplayTz(studentTz) }, [studentTz])
+  const load = useCallback(() => setReload(n => n + 1), [])
 
-  // Two-click booking: 1st click highlights a slot, 2nd click opens the modal
-  const [pendingSlot, setPendingSlot] = useState(null)
+  const teacherId = teacher?.id
+  const teacherZone = teacher?.timezone || 'Asia/Kolkata'
+  const studentId = user?.id
 
   useEffect(() => {
-    let done = false
-    async function resolveTeacher() {
-      try {
-        const t = await getTeacher()
-        if (t?.id) { setTeacherId(t.id); setTeacherTz(t.timezone || LOCAL_TZ); done = true; return }
-      } catch (e) { console.error('Teacher lookup failed:', e) }
-      try {
-        const id = await getTeacherId()
-        if (id) { setTeacherId(id); done = true; return }
-      } catch (e) { console.error('Teacher id fallback failed:', e) }
-      if (!done) setTeacherLoadFailed(true)
-    }
-    resolveTeacher()
-  }, [])
+    if (!teacherId || !studentId) return
+    let live = true
+    getBookingMonth(teacherId, studentId, cursor.y, cursor.m, teacherZone)
+      .then(d => {
+        if (!live) return
+        setData(d)
+        setNow(new Date())
+        setLoadError(null)
+      })
+      .catch(e => {
+        if (!live) return
+        console.error('Booking calendar failed to load:', e)
+        setLoadError(
+          e?.code === 'failed-precondition'
+            ? 'A database index is still building. Give it a minute and refresh.'
+            : 'Could not load the calendar. Please try again.',
+        )
+      })
+    return () => { live = false }
+  }, [teacherId, studentId, teacherZone, cursor.y, cursor.m, reload])
 
-  function loadCalendar() {
-    if (teacherId && user?.id) {
-      getStudentBookingCalendar(teacherId, user.id, currentDate.getFullYear(), currentDate.getMonth())
-        .then(setCalendarData)
-        .catch(e => console.error('Calendar load failed:', e))
-    }
-  }
+  const teacherTz = data?.teaching?.timezone || 'Asia/Kolkata'
+  const teaching = data?.teaching?.hours
 
-  useEffect(() => {
-    loadCalendar()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teacherId, user, currentDate])
+  // ─── The month, one word per day ───────────────────────────────────────────
+  const days = useMemo(() => {
+    if (!data) return []
+    const first = new Date(cursor.y, cursor.m, 1)
+    const total = new Date(cursor.y, cursor.m + 1, 0).getDate()
+    const mineByDay = new Set(
+      data.mine.map(c => c.start.toLocaleDateString('en-CA', { timeZone: displayTz })),
+    )
 
-  // Events are shifted so the calendar visually shows the chosen display timezone
-  const events = [
-    ...calendarData.bookedSlots.map(cls => {
-      const start = cls.scheduledAt?.toDate?.() ?? new Date()
-      const end = new Date(start.getTime() + (cls.duration || 60) * 60000)
-      const completed = cls.status === 'completed'
-      return {
-        id: cls.id,
-        title: completed ? 'Done' : cls.mine ? 'Upcoming' : 'Busy',
-        start: shiftToTz(start, displayTz),
-        end: shiftToTz(end, displayTz),
-        type: completed ? 'completed' : cls.mine ? 'mine' : 'booked',
+    const out = []
+    for (let i = 0; i < first.getDay(); i++) out.push({ blank: true, key: `b${i}` })
+    for (let d = 1; d <= total; d++) {
+      const key = keyOf(cursor.y, cursor.m, d)
+      const windows = windowsForLocalDay(key, teaching, teacherTz, displayTz)
+      let status = localDayStatus({ windows, busy: data.busy, blocked: data.blocked, now })
+      // A day further out than students may book is not refused, it simply has
+      // not opened yet — a different thing, and worth saying differently.
+      if (status === 'available' && !windows.some(w => withinBookingWindow(w, now, BOOKING_WINDOW_DAYS))) {
+        status = 'later'
       }
-    }),
-    ...calendarData.blockedSlots.map(slot => {
-      const start = slot.startAt?.toDate?.() ?? new Date()
-      const end = slot.endAt?.toDate?.() ?? new Date()
-      return {
-        id: slot.id, title: 'Busy',
-        start: shiftToTz(start, displayTz),
-        end: shiftToTz(end, displayTz),
-        type: 'blocked',
-      }
-    }),
-    // Highlighted slot the student tapped once (tap again to book)
-    ...(pendingSlot ? [{
-      id: '__sel__', title: 'Tap again to book',
-      start: pendingSlot, end: addMinutes(pendingSlot, duration), type: 'selection',
-    }] : []),
-  ]
-
-  // Overlaps a teacher-blocked (unavailable) time → cannot book at all
-  function hitsBlocked(slotStart) {
-    const slotEnd = addMinutes(slotStart, duration)
-    return events.some(e => e.type === 'blocked' && slotStart < e.end && slotEnd > e.start)
-  }
-  // Overlaps another class → cannot be booked. One class per slot, so the
-  // answer is simply to pick another time.
-  function hitsBusy(slotStart) {
-    const slotEnd = addMinutes(slotStart, duration)
-    return events.some(e => e.type === 'booked' && slotStart < e.end && slotEnd > e.start)
-  }
-
-  // Build a LOCAL Date from date+time strings (matches the shifted calendar space).
-  // Avoids `new Date("yyyy-mm-dd")` which parses as UTC and shifts the day/time.
-  function displayWallClock(dateStr, timeStr) {
-    const [y, mo, d] = dateStr.split('-').map(Number)
-    const [h, m] = timeStr.split(':').map(Number)
-    return new Date(y, mo - 1, d, h, m, 0, 0)
-  }
-
-  function handleDateTimeChange(date, time) {
-    const d = date !== undefined ? date : selectedDate
-    const t = time !== undefined ? time : selectedTime
-    setConflict(false)
-    if (d && t) {
-      const slotStart = displayWallClock(d, t)
-      if (hitsBlocked(slotStart)) setConflict('blocked')
-      else if (hitsBusy(slotStart)) setConflict('busy')
+      out.push({ key, n: d, status, mine: mineByDay.has(key) })
     }
-  }
+    return out
+  }, [data, cursor, teaching, teacherTz, displayTz, now])
 
-  const minDate = format(new Date(), 'yyyy-MM-dd')
-
-  // Date number clicked in month view → open that day
-  function handleDrillDown(date) {
-    const today = new Date(); today.setHours(0, 0, 0, 0)
-    if (date < today) return
-    setPendingSlot(null)
-    setCurrentDate(date)
-    setCurrentView('day')
-  }
-
-  // Slot clicked. Month view: open that whole day. Day view: first click highlights.
-  function handleSelectSlot({ start }) {
-    if (currentView === 'month') {
-      const today = new Date(); today.setHours(0, 0, 0, 0)
-      if (start < today) return
-      setPendingSlot(null)
-      setCurrentDate(start)
-      setCurrentView('day')
-      return
+  // ─── One day, as pieces and as offers ──────────────────────────────────────
+  const day = useMemo(() => {
+    if (!dayKey || !data) return null
+    const windows = windowsForLocalDay(dayKey, teaching, teacherTz, displayTz)
+    const pieces = localDayPieces(windows, data.busy, data.blocked)
+    const ranges = localFreeRanges(windows, data.busy, data.blocked)
+      .filter(r => rangeIsBookable(r, undefined, now))
+    const close = windows.length ? windows[windows.length - 1].end : null
+    return {
+      windows, pieces, ranges, close,
+      taken: pieces.filter(p => p.kind === 'busy'),
+      blocked: pieces.filter(p => p.kind === 'blocked'),
     }
-    // Day view — first tap highlights the slot
-    if (isBefore(unshiftFromTz(start, displayTz), new Date())) return // block past
-    setPendingSlot(start)
-  }
+  }, [dayKey, data, teaching, teacherTz, displayTz, now])
 
-  // Open the booking modal for the highlighted slot (second tap on it)
-  function openBookingFor(start) {
-    setSelectedDate(format(start, 'yyyy-MM-dd'))
-    setSelectedTime(format(start, 'HH:mm'))
-    setConflict(false)
-    handleDateTimeChange(format(start, 'yyyy-MM-dd'), format(start, 'HH:mm'))
-    setShowPicker(true)
-  }
-
-  function handleSelectEvent(event) {
-    if (event.type === 'selection') openBookingFor(event.start)
-    // taps on busy/own blocks do nothing for students
-  }
-
-  // The real (absolute) instant for the picked wall-clock in the display timezone.
-  // Robust + device-independent: treat (date,time) as a wall clock IN displayTz,
-  // then subtract that timezone's offset to get the true UTC instant.
-  function realInstant() {
-    if (!selectedDate || !selectedTime) return null
-    const [y, mo, d] = selectedDate.split('-').map(Number)
-    const [h, mi] = selectedTime.split(':').map(Number)
-    if ([y, mo, d, h, mi].some(n => Number.isNaN(n))) return null
-    const utcGuess = Date.UTC(y, mo - 1, d, h, mi)
-    const offset = tzOffsetMinutes(displayTz, new Date(utcGuess))
-    return new Date(utcGuess - offset * 60000)
-  }
-
-  async function handleBook(confirmed = false) {
-    if (!selectedDate || !selectedTime || !teacherId) return
-    const instant = realInstant()
-    if (isBefore(instant, new Date())) return
-    // Teacher-blocked times can't be booked at all
-    const slotStart = displayWallClock(selectedDate, selectedTime)
-    if (hitsBlocked(slotStart)) { setConflict('blocked'); return }
-    // Nor can a time that already has a class — one class per slot
-    if (hitsBusy(slotStart)) { setConflict('busy'); return }
-    // A student in another timezone checks the slot in both clocks first — it's
-    // the one mistake that's easy to make and awkward to undo. Students in the
-    // studio's own timezone book in a single tap, as before.
-    if (!confirmed && teacherTz && teacherTz !== studentTz) {
-      setConfirmSlot(instant)
-      return
-    }
-    setBookingLoading(true)
-    setBookingError('')
+  async function book() {
+    if (!chosen || !teacher?.id) return
+    setWorking(true)
+    setBookError('')
     try {
-      const result = await createBooking({
+      await createBooking({
         studentId: user.id,
-        teacherId,
-        scheduledAt: Timestamp.fromDate(instant),
-        duration,
-        lessonNotes: note,
-        // Passed so the booking doesn't have to re-read the profile just to
-        // find out whether a credit is due.
+        teacherId: teacher.id,
+        scheduledAt: Timestamp.fromDate(chosen.start),
+        duration: chosen.duration,
         student: user,
       })
-      setShowPicker(false)
-      setConfirmSlot(null)
-      setPendingSlot(null)
-      setBookingSuccess({ status: result?.status || 'scheduled' })
-      loadCalendar() // reflect the new class on the calendar right away
+      navigate('/student/dashboard')
     } catch (e) {
-      console.error(e)
-      // Someone took the slot between the calendar loading and this tap
-      if (e?.code === 'slot-taken') {
-        setConfirmSlot(null)
-        setConflict('busy')
-        setBookingError('Someone has already booked this slot. Please choose another time.')
-        loadCalendar() // so the slot now shows as unavailable
-      } else if (e?.code === 'no-credits') {
-        // The last credit went while this modal was open, or it expired at
-        // midnight. Nothing was booked and nothing was charged.
-        setConfirmSlot(null)
-        setBookingError('You have no class credits left. Please speak to Guruji\'s office to add more.')
-      } else {
-        setBookingError('Failed to book. Please try again.')
-      }
+      console.error('Booking failed:', e)
+      setBookError(
+        e?.code === 'slot-taken'
+          ? 'Someone took that time while you were choosing. Please pick another.'
+          : e?.message || 'Could not book that class. Please try again.',
+      )
+      setChosen(null)
+      await load()
     } finally {
-      setBookingLoading(false)
+      setWorking(false)
     }
   }
+
+  const closesDay = picking && day?.close && +picking.end === +day.close
 
   return (
     <StudentLayout>
-      <div className="w-full">
-        {/* Header */}
-        <div className="mb-4">
-          <h1 className="text-xl font-semibold text-gray-800">Book a Class</h1>
-          <p className="text-sm text-gray-400 mt-1">
-            {onCredits
-              ? 'Tap a date, then a free time slot. Each class uses one credit.'
-              : 'Tap a date, then a free time slot to book instantly.'}
-          </p>
-        </div>
+      <div className="max-w-xl mx-auto">
 
-        {/* Compact here: this page is about the calendar, and the full card
-            was taking half a phone screen before anyone saw a date. */}
-        <div className="mb-4">
-          <CreditBalance compact onCount={setCredits} />
-        </div>
-
-        {teacherLoadFailed && (
-          <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3">
-            Couldn't load the teacher's calendar right now. Please pull to refresh or try again in a moment.
+        {loadError && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-start justify-between gap-3">
+            <span>{loadError}</span>
+            <button onClick={load} className="shrink-0 font-semibold underline hover:no-underline">Try again</button>
           </div>
         )}
 
-        {/* Timezone view toggle */}
-        {teacherTz && teacherTz !== studentTz && (
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs text-gray-400">Show times in:</span>
-            <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-              <button onClick={() => setDisplayTz(studentTz)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${displayTz === studentTz ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>
-                My time ({tzCity(studentTz)})
-              </button>
-              <button onClick={() => setDisplayTz(teacherTz)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${displayTz === teacherTz ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>
-                Teacher's time ({tzCity(teacherTz)})
-              </button>
-            </div>
-          </div>
+        {dayKey === null
+          ? <Month
+              cursor={cursor} setCursor={setCursor} days={days} loading={!data}
+              onPick={setDayKey} onCount={setCredits} outOfCredits={outOfCredits}
+            />
+          : <Day
+              dayKey={dayKey} day={day} displayTz={displayTz} view={dayView}
+              setView={setDayView} onBack={() => setDayKey(null)}
+              onPickRange={setPicking} outOfCredits={outOfCredits}
+            />}
+
+        {picking && (
+          <TimePickerSheet
+            range={picking} tz={displayTz} now={now} closesDay={closesDay}
+            onCancel={() => setPicking(null)}
+            onPick={({ start, duration }) => { setPicking(null); setChosen({ start, duration }) }}
+          />
         )}
 
-        {/* Controls row — compact 3-tag legend + Book Class button on one line */}
-        <div className="flex items-center justify-between gap-2 mb-4">
-          <div className="flex items-center gap-2.5 text-[11px] text-gray-500 min-w-0 flex-wrap">
-            <span className="flex items-center gap-1 shrink-0">
-              <span className="w-2.5 h-2.5 rounded-sm bg-green-200 border border-green-300" /> Upcoming
-            </span>
-            <span className="flex items-center gap-1 shrink-0">
-              <span className="w-2.5 h-2.5 rounded-sm bg-red-200 border border-red-300" /> Busy
-            </span>
-            <span className="flex items-center gap-1 shrink-0">
-              <span className="w-2.5 h-2.5 rounded-sm bg-gray-200 border border-gray-300" /> Done
-            </span>
-          </div>
-          <button
-            onClick={() => setShowPicker(true)}
-            disabled={outOfCredits}
-            title={outOfCredits ? 'You have no credits left' : undefined}
-            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors shrink-0"
-          >
-            <RiCalendarLine size={16} />
-            Book Class
+        {chosen && (
+          <Confirm
+            chosen={chosen} displayTz={displayTz} teacherTz={teacherTz}
+            working={working} error={bookError}
+            onCancel={() => setChosen(null)} onConfirm={book}
+          />
+        )}
+      </div>
+    </StudentLayout>
+  )
+}
+
+// ─── The month ───────────────────────────────────────────────────────────────
+
+const DAY_STYLE = {
+  available: 'bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 cursor-pointer',
+  full: 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed',
+  blocked: 'bg-orange-50 border border-orange-200 text-orange-700 cursor-not-allowed',
+  closed: 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed',
+  later: 'bg-white border border-gray-200 text-gray-400 cursor-not-allowed',
+  past: 'border border-transparent text-gray-300 cursor-default',
+}
+const DAY_WORD = {
+  available: 'available', full: 'fully booked', blocked: 'unavailable',
+  closed: 'no classes', later: 'not open for booking yet', past: 'past',
+}
+
+function Month({ cursor, setCursor, days, loading, onPick, onCount, outOfCredits }) {
+  const label = new Date(cursor.y, cursor.m, 1)
+    .toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+
+  function step(by) {
+    const d = new Date(cursor.y, cursor.m + by, 1)
+    setCursor({ y: d.getFullYear(), m: d.getMonth() })
+  }
+
+  return (
+    <>
+      <h1 className="text-xl font-semibold text-gray-800">Book a class</h1>
+      <p className="text-xs text-gray-400 mt-0.5 mb-4">Pick any day that isn't marked.</p>
+
+      <div className="mb-4"><CreditBalance compact onCount={onCount} /></div>
+
+      {outOfCredits && (
+        <p className="mb-4 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-xs text-red-700 flex items-start gap-2">
+          <RiErrorWarningLine size={14} className="shrink-0 mt-px" />
+          You'll need credits before you can book a class.
+        </p>
+      )}
+
+      <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <button onClick={() => step(-1)} aria-label="Previous month"
+            className="p-2 -ml-2 text-gray-400 hover:text-gray-700 transition-colors">
+            <RiArrowLeftSLine size={20} />
+          </button>
+          <span className="text-sm font-semibold text-gray-800">{label}</span>
+          <button onClick={() => step(1)} aria-label="Next month"
+            className="p-2 -mr-2 text-gray-400 hover:text-gray-700 transition-colors">
+            <RiArrowRightSLine size={20} />
           </button>
         </div>
 
-        {/* Calendar */}
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <style>{`
-            /* Subtle neutral borders that read well on both light and dark */
-            .rbc-month-view,
-            .rbc-time-view             { border-color: rgba(128,128,128,0.2); }
-            .rbc-header                { border-color: rgba(128,128,128,0.2) !important; font-size: 12px; font-weight: 500; color: #9ca3af; padding: 6px 4px; }
-            .rbc-day-bg + .rbc-day-bg  { border-color: rgba(128,128,128,0.14) !important; }
-            .rbc-month-row + .rbc-month-row { border-color: rgba(128,128,128,0.14) !important; }
-            .rbc-timeslot-group        { border-color: rgba(128,128,128,0.14) !important; }
-            .rbc-time-slot             { border-color: transparent !important; }
-            .rbc-time-content          { border-top-color: rgba(128,128,128,0.14) !important; }
-            .rbc-time-content > * + *   { border-left-color: rgba(128,128,128,0.14) !important; }
-            .rbc-time-header-content   { border-left-color: rgba(128,128,128,0.14) !important; }
-            .rbc-time-header-content > * + * { border-left-color: rgba(128,128,128,0.14) !important; }
-            .rbc-time-header.rbc-overflowing { border-right-color: rgba(128,128,128,0.14) !important; }
-            /* Remove the empty all-day row */
-            .rbc-allday-cell           { display: none !important; }
-            /* Today highlight — subtle tint */
-            .rbc-today                 { background-color: rgba(245,158,11,0.07) !important; }
-            /* Date cells in month view */
-            .rbc-date-cell             { font-size: 12px; padding: 4px 6px; }
-            .rbc-date-cell a           { cursor: pointer; }
-            .rbc-date-cell a:hover     { color: #f59e0b; font-weight: 600; }
-            .rbc-off-range-bg          { background: rgba(128,128,128,0.06); }
-            .rbc-off-range .rbc-date-cell a { opacity: 0.35; pointer-events: none; }
-            /* Clickable time slots in day view */
-            .rbc-day-slot .rbc-time-slot:hover { background: rgba(245,158,11,0.07); cursor: pointer; }
-            .rbc-slot-selection        { background: rgba(245,158,11,0.18) !important; }
-            .rbc-label                 { font-size: 11px; color: #9ca3af; }
-            .rbc-current-time-indicator { background: #f59e0b; height: 2px; }
-          `}</style>
-          <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            style={{ height: 540 }}
-            date={currentDate}
-            onNavigate={date => { setPendingSlot(null); setCurrentDate(date) }}
-            view={currentView}
-            onView={v => { setPendingSlot(null); setCurrentView(v) }}
-            onDrillDown={handleDrillDown}
-            drilldownView="day"
-            selectable
-            longPressThreshold={10}
-            onSelectSlot={handleSelectSlot}
-            onSelectEvent={handleSelectEvent}
-            dayPropGetter={date => {
-              const today = new Date(); today.setHours(0, 0, 0, 0)
-              if (date < today) return { style: { opacity: 0.45, cursor: 'not-allowed' } }
-              return {}
-            }}
-            slotPropGetter={date => {
-              if (isBefore(date, new Date())) return { style: { cursor: 'not-allowed' } }
-              return {}
-            }}
-            components={{ toolbar: CalendarToolbar }}
-            eventPropGetter={(event) => {
-              const base = { borderRadius: '6px', fontSize: '11px', padding: '2px 6px' }
-              if (event.type === 'selection')
-                return { style: { ...base, backgroundColor: '#f59e0b', border: '2px solid #d97706', color: '#fff', fontWeight: 600 } }
-              if (event.type === 'mine')
-                return { style: { ...base, backgroundColor: '#bbf7d0', border: '1px solid #86efac', color: '#166534' } }
-              if (event.type === 'completed')
-                return { style: { ...base, backgroundColor: '#e5e7eb', border: '1px solid #d1d5db', color: '#4b5563' } }
-              // busy / blocked
-              return { style: { ...base, backgroundColor: '#fecaca', border: '1px solid #fca5a5', color: '#991b1b' } }
-            }}
-            views={['month', 'day']}
-            popup
-          />
+        <div className="grid grid-cols-7 gap-1.5 mb-1.5">
+          {WEEK.map((w, i) => (
+            <span key={i} className="text-center text-[10px] font-bold text-gray-400">{w}</span>
+          ))}
+        </div>
+
+        {loading ? (
+          <p className="text-center text-sm text-gray-400 py-10">Loading…</p>
+        ) : (
+          <div className="grid grid-cols-7 gap-1.5">
+            {days.map(d => d.blank ? <span key={d.key} /> : (
+              <button
+                key={d.key}
+                onClick={() => d.status === 'available' && onPick(d.key)}
+                disabled={d.status !== 'available'}
+                aria-label={`${d.n} — ${DAY_WORD[d.status]}`}
+                className={`h-12 rounded-lg flex flex-col items-center justify-center gap-1 transition-colors ${DAY_STYLE[d.status]}`}
+              >
+                <span className="text-[13px] font-semibold tabular-nums">{d.n}</span>
+                {d.mine
+                  ? <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  : <span className="w-1.5 h-1.5" />}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-y-2 gap-x-3 mt-5 pt-4 border-t border-gray-100">
+          <Key className="bg-amber-50 border border-amber-200">Available</Key>
+          <Key className="bg-white border border-gray-200"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" /> Your class</Key>
+          <Key className="bg-gray-100 border border-gray-200">Fully booked</Key>
+          <Key className="bg-orange-50 border border-orange-200">Unavailable</Key>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function Key({ className, children }) {
+  return (
+    <span className="flex items-center gap-2 text-[11px] text-gray-500">
+      <span className={`w-3.5 h-3.5 rounded shrink-0 ${className}`} />
+      {children}
+    </span>
+  )
+}
+
+// ─── One day ─────────────────────────────────────────────────────────────────
+
+function Day({ dayKey, day, displayTz, view, setView, onBack, onPickRange, outOfCredits }) {
+  const [y, m, d] = dayKey.split('-').map(Number)
+  const title = new Date(y, m - 1, d)
+    .toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
+
+  if (!day) return null
+  const nothing = day.ranges.length === 0
+
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        <button onClick={onBack} aria-label="Back to the month"
+          className="p-2 -ml-2 text-amber-600 hover:text-amber-700 transition-colors">
+          <RiArrowLeftSLine size={22} />
+        </button>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-base font-semibold text-gray-800 truncate">{title}</h1>
+          <p className="text-[11px] text-gray-400">
+            {day.windows.length
+              ? `Classes run ${fmtTime12(day.windows[0].start, displayTz)} – ${fmtTime12(day.close, displayTz)}`
+              : 'No classes this day'}
+          </p>
+        </div>
+        <div className="flex bg-gray-100 rounded-lg p-0.5 shrink-0">
+          <Toggle on={view === 'grid'} onClick={() => setView('grid')} label="Grid view"><RiLayoutGridLine size={15} /></Toggle>
+          <Toggle on={view === 'list'} onClick={() => setView('list')} label="List view"><RiListUnordered size={15} /></Toggle>
         </div>
       </div>
 
-      {/* Floating confirm bar when a slot is selected (reliable on mobile) */}
-      {pendingSlot && !showPicker && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-800 truncate">
-              {format(pendingSlot, 'EEE, d MMM')} · {format(pendingSlot, 'h:mm a')}
-            </p>
-            <p className="text-xs text-gray-400">{tzCity(displayTz)} time</p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => setPendingSlot(null)}
-              className="px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50">
-              Cancel
-            </button>
-            <button onClick={() => openBookingFor(pendingSlot)}
-              disabled={outOfCredits}
-              className="px-4 py-2 text-sm font-medium bg-amber-500 hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-lg">
-              {outOfCredits ? 'No credits left' : 'Book this slot'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Booking success popup */}
-      {bookingSuccess && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
-            {/* Always confirmed. A booking that clashes is refused outright
-                now, so there is no longer a "waiting for the teacher" state to
-                land in from here. */}
-            <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-4 bg-green-50 text-green-600">
-              <RiCheckLine size={30} />
+      {view === 'grid' ? (
+        <>
+          {(day.taken.length > 0 || day.blocked.length > 0) && (
+            <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Already taken</p>
+              <div className="flex flex-wrap gap-1.5 mb-2.5">
+                {[...day.taken, ...day.blocked].map((p, i) => (
+                  <span key={i} className="text-[11.5px] font-semibold text-gray-500 bg-gray-100 border border-gray-200 rounded-lg px-2 py-1">
+                    {fmtRangeLabel(p, displayTz)}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Please pick any other time — {countWord(day.taken.length + day.blocked.length)} already booked.
+              </p>
             </div>
-            <h2 className="text-lg font-semibold text-gray-800">Class booked!</h2>
-            <p className="text-sm text-gray-500 mt-2">
-              Your class is confirmed and added to your schedule. See you there!
-            </p>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => { setBookingSuccess(null); setNote('') }}
-                className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50"
-              >
-                Book another
-              </button>
-              <button
-                onClick={() => navigate('/student/dashboard')}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium"
-              >
-                View my classes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Cross-timezone confirmation — each side shows its OWN date, because a
-          late or early slot can land on a different day for the two of you. */}
-      {confirmSlot && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6">
-            <h2 className="text-base font-semibold text-gray-800">Check the time</h2>
-            <p className="text-xs text-gray-500 mt-1">
-              You and Guruji are in different timezones. Please confirm this is the slot you mean.
-            </p>
-
-            <div className="space-y-2 mt-4">
-              <div className="rounded-xl border border-gray-200 px-4 py-3">
-                <p className="text-xs text-gray-400">Your time · {tzCity(studentTz)}</p>
-                <p className="text-sm text-gray-600 mt-1">{fmtLongDate(confirmSlot, studentTz)}</p>
-                <p className="text-xl font-semibold text-gray-800 leading-tight mt-0.5">
-                  {fmtTime12(confirmSlot, studentTz)}
-                </p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700 mb-2">When you can book</p>
+          {nothing
+            ? <Empty />
+            : (
+              <div className="flex flex-col gap-2">
+                {day.ranges.map((r, i) => (
+                  <RangeRow key={i} range={r} tz={displayTz} closesDay={+r.end === +day.close}
+                    disabled={outOfCredits} onClick={() => onPickRange(r)} />
+                ))}
               </div>
-
-              <div className="rounded-xl border border-amber-300 px-4 py-3">
-                <p className="text-xs text-amber-600">Guruji's time · {tzCity(teacherTz)}</p>
-                <p className="text-sm text-gray-600 mt-1">{fmtLongDate(confirmSlot, teacherTz)}</p>
-                <p className="text-xl font-semibold text-gray-800 leading-tight mt-0.5">
-                  {fmtTime12(confirmSlot, teacherTz)}
-                </p>
-              </div>
-            </div>
-
-            <p className="text-xs text-gray-400 mt-3">
-              {duration < 60 ? `${duration} minutes` : `${duration / 60} hour${duration > 60 ? 's' : ''}`}
-            </p>
-
-            <div className="flex gap-3 mt-5">
-              <button onClick={() => setConfirmSlot(null)} disabled={bookingLoading}
-                className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50 disabled:opacity-50">
-                Change time
-              </button>
-              <button onClick={() => handleBook(true)} disabled={bookingLoading}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50">
-                {bookingLoading ? 'Booking...' : 'Confirm booking'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Booking modal */}
-      {showPicker && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold text-gray-800">Request a Class</h2>
-              <button onClick={() => { setShowPicker(false); setConflict(false) }}>
-                <RiCloseLine size={20} className="text-gray-400" />
-              </button>
-            </div>
-
-            <div className="space-y-4 mb-5">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
-                <input
-                  type="date"
-                  min={minDate}
-                  value={selectedDate}
-                  onChange={e => { setSelectedDate(e.target.value); handleDateTimeChange(e.target.value, undefined) }}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Time</label>
-                <input
-                  type="time"
-                  value={selectedTime}
-                  onChange={e => { setSelectedTime(e.target.value); handleDateTimeChange(undefined, e.target.value) }}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">Duration</label>
-                <div className="flex gap-2">
-                  {[30, 45, 60, 90].map(d => (
-                    <button key={d} type="button"
-                      onClick={() => { setDuration(d); handleDateTimeChange(undefined, undefined) }}
-                      className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${
-                        duration === d
-                          ? 'bg-amber-500 text-white border-amber-500'
-                          : 'border-gray-200 text-gray-600 hover:border-amber-300'
-                      }`}
-                    >
-                      {d < 60 ? `${d}m` : `${d / 60}h`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Note to teacher (optional)</label>
-                <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
-                  placeholder="What you'd like to learn..."
-                />
-              </div>
-
-              {/* Dual-timezone preview — so the student picks a slot that works for the teacher too */}
-              {selectedDate && selectedTime && realInstant() && (
-                <div className="bg-amber-50 rounded-lg px-3 py-2.5 space-y-1">
-                  <p className="text-xs font-medium text-amber-800">{fmtLongDate(realInstant(), studentTz)}</p>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">Your time ({tzCity(studentTz)})</span>
-                    <span className="font-medium text-gray-800">{fmtTime12(realInstant(), studentTz)}</span>
+            )}
+          <p className="text-[11px] text-gray-400 leading-relaxed mt-3">
+            Tap a stretch and set the exact start on the clock — 3:30, 4:15, whatever suits you.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-gray-500 leading-relaxed bg-white border border-gray-100 rounded-xl px-3 py-2.5 mb-3">
+            The whole day, in order. Tap any free stretch to take a time inside it.
+          </p>
+          {nothing ? <Empty /> : (
+            <div className="flex flex-col gap-1.5">
+              {day.pieces.map((p, i) => p.kind === 'free'
+                ? (p.minutes >= 30
+                    ? <RangeRow key={i} range={p} tz={displayTz} closesDay={+p.end === +day.close}
+                        disabled={outOfCredits} onClick={() => onPickRange(p)} />
+                    : null)
+                : (
+                  <div key={i} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-gray-100 border border-gray-200">
+                    <span className="w-0.5 self-stretch rounded-full bg-gray-300 shrink-0" />
+                    <RiLock2Line size={13} className="text-gray-400 shrink-0" />
+                    <span className="flex-1 min-w-0 text-[12.5px] font-semibold text-gray-500">{fmtRangeLabel(p, displayTz)}</span>
+                    <span className="text-[10.5px] font-semibold text-gray-400 shrink-0">
+                      {p.kind === 'blocked' ? 'Unavailable' : 'Booked'}
+                    </span>
                   </div>
-                  {teacherTz && teacherTz !== studentTz && (
-                    <>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-500">Teacher's time ({tzCity(teacherTz)})</span>
-                        <span className="font-medium text-gray-800">{fmtTime12(realInstant(), teacherTz)}</span>
-                      </div>
-                      {/* The heading above is the STUDENT's date. Far enough
-                          apart and the same moment is a different day for
-                          Guruji — a 10:55 pm class in Los Angeles is the next
-                          morning in Kolkata. Said plainly only when it happens,
-                          so it reads as a warning rather than clutter. */}
-                      {!sameCalendarDay(realInstant(), studentTz, teacherTz) && (
-                        <p className="text-[11px] text-amber-700 bg-amber-100 rounded px-2 py-1 mt-1.5">
-                          For Guruji this is <span className="font-semibold">{fmtDayInTz(realInstant(), teacherTz)}</span> — a different day from yours.
-                        </p>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {conflict === 'blocked' && (
-                <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">
-                  The teacher is unavailable at this time. Please pick another slot.
-                </p>
-              )}
-              {conflict === 'busy' && (
-                <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">
-                  Already someone has booked a class at this time. Please choose another slot.
-                </p>
-              )}
-              {/* What this booking costs, before they commit to it */}
-              {onCredits && credits !== null && (
-                <p className={`text-xs rounded-lg px-3 py-2 ${
-                  outOfCredits ? 'text-red-600 bg-red-50' : 'text-gray-500 bg-gray-50'
-                }`}>
-                  {outOfCredits
-                    ? 'You have no credits left — please speak to Guruji\'s office.'
-                    : `Uses 1 credit · ${credits - 1} left after this`}
-                </p>
-              )}
-
-              {bookingError && (
-                <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{bookingError}</p>
-              )}
+                ))}
             </div>
+          )}
+        </>
+      )}
+    </>
+  )
+}
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setShowPicker(false); setConflict(false) }}
-                className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleBook}
-                disabled={bookingLoading || !selectedDate || !selectedTime || conflict === 'blocked' || conflict === 'busy' || outOfCredits}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50"
-              >
-                {bookingLoading ? 'Booking...' : 'Book Class'}
-              </button>
+function Toggle({ on, onClick, label, children }) {
+  return (
+    <button onClick={onClick} aria-label={label} aria-pressed={on}
+      className={`w-9 h-8 rounded-md flex items-center justify-center transition-colors ${
+        on ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+      }`}>
+      {children}
+    </button>
+  )
+}
+
+function RangeRow({ range, tz, closesDay, disabled, onClick }) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      aria-label={`${fmtRangeLabel(range, tz)}, available — set an exact time`}
+      className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-left hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+      <span className="min-w-0">
+        <span className="block text-[13.5px] font-bold text-amber-900">{fmtRangeLabel(range, tz)}</span>
+        <span className="block text-[10.5px] text-amber-700 mt-px">{describeRange(range, { closesDay })}</span>
+      </span>
+      <RiArrowRightSLine size={18} className="text-amber-600 shrink-0" />
+    </button>
+  )
+}
+
+function Empty() {
+  return (
+    <p className="bg-white border border-gray-100 rounded-xl px-4 py-6 text-center text-sm text-gray-400">
+      Nothing left on this day. Try another.
+    </p>
+  )
+}
+
+function countWord(n) {
+  if (n === 1) return 'that slot is'
+  if (n === 2) return 'those two slots are'
+  if (n === 3) return 'those three slots are'
+  return `those ${n} slots are`
+}
+
+// ─── Confirming ──────────────────────────────────────────────────────────────
+
+function Confirm({ chosen, displayTz, teacherTz, working, error, onCancel, onConfirm }) {
+  const ends = new Date(chosen.start.getTime() + chosen.duration * 60000)
+  // Guruji's clock, whenever it disagrees with the student's — and the DATE
+  // too when it is a different day for him, which it often is for the students
+  // abroad this long teaching day exists for.
+  const shifted = fmtTime12(chosen.start, displayTz) !== fmtTime12(chosen.start, teacherTz)
+  const otherDay = !sameCalendarDay(chosen.start, displayTz, teacherTz)
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center sm:p-4">
+      <div className="bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92dvh] overflow-y-auto">
+        <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
+          <div>
+            <h2 className="text-base font-semibold text-gray-800">Confirm your class</h2>
+            <p className="text-xs text-gray-500 mt-0.5">This books the slot straight away.</p>
+          </div>
+          <button onClick={onCancel} aria-label="Close"
+            className="shrink-0 -mr-2 -mt-1 p-2 text-gray-400 hover:text-gray-700 transition-colors">
+            <RiCloseLine size={20} />
+          </button>
+        </div>
+
+        <div className="px-5 pb-5">
+          <div className="rounded-xl bg-gray-50 border border-gray-100 p-4 mb-3">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                <RiCalendarLine size={17} className="text-amber-600" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-gray-800">{fmtLongDate(chosen.start, displayTz)}</span>
+                <span className="block text-xs text-gray-500">
+                  {fmtTime12(chosen.start, displayTz)} – {fmtTime12(ends, displayTz)} · {chosen.duration} minutes
+                </span>
+              </span>
             </div>
           </div>
+
+          {shifted && (
+            <p className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2.5 mb-2 text-[11.5px] leading-relaxed text-amber-800 flex items-start gap-2">
+              <RiTimeLine size={14} className="shrink-0 mt-px" />
+              <span>
+                For Guruji this is <strong className="font-bold">{fmtTime12(chosen.start, teacherTz)}</strong>
+                {otherDay && <>, <strong className="font-bold">{fmtDayInTz(chosen.start, teacherTz)}</strong></>}.
+              </span>
+            </p>
+          )}
+
+          {/* On its own line. The deadline is what the studio ASKS for; a late
+              cancellation still returns the credit, because keeping it would
+              mean charging for a lesson nobody taught. Saying the stricter rule
+              and behaving by the kinder one leaves nobody worse off than they
+              were told. */}
+          <p className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5 mb-4 text-[11.5px] leading-relaxed text-gray-500">
+            Need to cancel? Please do it at least <strong className="font-bold text-gray-800">24 hours ahead</strong> so your credit goes back to your account.
+          </p>
+
+          {error && (
+            <p className="mb-3 text-xs text-red-600 flex items-start gap-1.5">
+              <RiErrorWarningLine size={14} className="shrink-0 mt-px" />{error}
+            </p>
+          )}
+
+          <button onClick={onConfirm} disabled={working}
+            className="w-full h-12 rounded-xl bg-amber-500 text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:bg-gray-200 disabled:text-gray-400 transition-colors">
+            {working ? 'Booking…' : <><RiCheckLine size={16} /> Confirm booking</>}
+          </button>
+          <button onClick={onCancel} className="w-full h-11 text-[13px] font-semibold text-gray-500">
+            Pick a different time
+          </button>
         </div>
-      )}
-    </StudentLayout>
+      </div>
+    </div>
   )
 }

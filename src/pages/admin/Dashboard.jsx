@@ -122,7 +122,7 @@ export default function AdminDashboard() {
                       <button onClick={async () => { await rejectClass(cls.id, cls.studentId); fetchAll() }}
                         className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors"
                       >
-                        <RiCloseLine size={13} /> Reject
+                        <RiCloseLine size={13} /> <span className="whitespace-nowrap">Reject &amp; refund</span>
                       </button>
                     </div>
                   </div>

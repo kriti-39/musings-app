@@ -9,7 +9,8 @@ import ClassDetailModal from '../../components/admin/ClassDetailModal'
 import { getAllClassesForMonth, getAllStudents, getAllPendingRequests, sweepPastClasses } from '../../firebase/db'
 import { useAuth } from '../../context/AuthContext'
 import ManageAvailabilityModal from '../../components/shared/ManageAvailabilityModal'
-import { RiAddLine, RiArrowLeftSLine, RiArrowRightSLine, RiCalendarCheckLine } from 'react-icons/ri'
+import TeachingHoursModal from '../../components/shared/TeachingHoursModal'
+import { RiAddLine, RiArrowLeftSLine, RiArrowRightSLine, RiCalendarCheckLine, RiTimeLine } from 'react-icons/ri'
 
 const localizer = dateFnsLocalizer({
   format, parse,
@@ -78,6 +79,7 @@ export default function AdminSchedule() {
   const [showSchedule, setShowSchedule] = useState(false)
   const [showDetail, setShowDetail] = useState(null)
   const [showAvailability, setShowAvailability] = useState(false)
+  const [showHours, setShowHours] = useState(false)
   const [clickedSlot, setClickedSlot] = useState(null)
   const [pendingSlot, setPendingSlot] = useState(null)
 
@@ -166,9 +168,13 @@ export default function AdminSchedule() {
             <p className="text-sm text-amber-600 mt-0.5">{pendingCount} pending request{pendingCount > 1 ? 's' : ''}</p>
           )}
           <div className="flex gap-2 mt-3">
+            <button onClick={() => setShowHours(true)}
+              className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+              <RiTimeLine size={18} /> Weekly hours
+            </button>
             <button onClick={() => setShowAvailability(true)}
               className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
-              <RiCalendarCheckLine size={18} /> Availability
+              <RiCalendarCheckLine size={18} /> Days off
             </button>
             <button onClick={() => { setClickedSlot(new Date()); setShowSchedule(true) }}
               className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
@@ -288,6 +294,9 @@ export default function AdminSchedule() {
       )}
       {showAvailability && (
         <ManageAvailabilityModal onClose={() => setShowAvailability(false)} />
+      )}
+      {showHours && (
+        <TeachingHoursModal onClose={() => setShowHours(false)} />
       )}
 
       {showDetail && (

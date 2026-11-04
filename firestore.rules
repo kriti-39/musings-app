@@ -234,6 +234,16 @@ service cloud.firestore {
       allow read, write: if isAdminOrTeacher();
     }
 
+    // When the studio teaches. Every signed-in user READS this — a student
+    // cannot be shown what is available without knowing what the day is — and
+    // only staff write it. It decides nothing about money or access: at worst
+    // a wrong value makes a time unbookable, which the slot rules would catch
+    // anyway.
+    match /settings/{id} {
+      allow read: if isAuth();
+      allow write: if isAdminOrTeacher();
+    }
+
     match /recurringSchedules/{id} {
       allow read: if isAuth() && (isAdminOrTeacher() || resource.data.studentId == request.auth.uid);
       allow write: if isAdminOrTeacher();

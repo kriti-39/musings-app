@@ -103,10 +103,6 @@ function sections(student, isStaff) {
           a: 'Ask Guruji to reset it. There is no self-service reset — your login is a User ID, not an email address.',
         },
         {
-          q: 'Can I use this on my phone?',
-          a: 'Yes. Open it in your browser and use "Add to Home screen" — it then behaves like an app, including notifications. On an iPhone you must add it to the home screen for notifications to work at all.',
-        },
-        {
           q: 'How do I change how it looks?',
           a: 'Settings → Appearance. Light, dark, or match your phone. It only changes this device.',
         },
@@ -121,7 +117,11 @@ function sections(student, isStaff) {
         },
         {
           q: 'Can I get a reminder before class?',
-          a: 'Yes — Settings → Notifications. Choose how long before, from a few minutes to a day.',
+          // The iPhone caveat used to sit inside a "can I use this on my
+          // phone?" question, which was a strange thing to ask about an app
+          // people open on their phones. The caveat itself is real and
+          // belongs here, where somebody is actually setting a reminder up.
+          a: 'Yes — Settings → Notifications. Choose how long before, from a few minutes to a day. On an iPhone, add the app to your home screen first ("Share → Add to Home Screen"), or reminders cannot reach you at all.',
         },
       ],
     },

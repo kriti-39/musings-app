@@ -59,6 +59,8 @@ const TITLES = {
   class_reminder: 'Upcoming class',
   credits_purchased: 'Classes bought',
   student_details_changed: 'Student details changed',
+  credit_requested: 'Bank transfer to check',
+  credit_request_declined: 'Credit request',
 }
 
 export function titleFor(type) {

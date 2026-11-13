@@ -88,6 +88,19 @@ export function isIndianStudent(student) {
   return true
 }
 
+// How this student pays: through the card gateway, or bank to bank.
+//
+// The office can set it per student (`payBy` on the profile, which a student
+// cannot change — it is not among the fields they may edit). Left unset it
+// follows the country: Razorpay for India, a transfer for everybody else,
+// because a wire from abroad cannot go through a gateway and for some
+// countries no gateway works at all.
+export function paysByTransfer(student) {
+  if (student?.payBy === 'transfer') return true
+  if (student?.payBy === 'gateway') return false
+  return !isIndianStudent(student)
+}
+
 // The window for a specific purchase, e.g. "5 weeks".
 export function validityLabel(student, quantity = null) {
   const w = validityWeeks(student, quantity ?? creditCap(student))

@@ -11,6 +11,7 @@
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './config'
 import { defaultTeaching, DEFAULT_DAY } from '../utils/availability'
+import { tzOffsetMinutes } from '../utils/timezone'
 
 const REF = ['settings', 'teaching']
 
@@ -61,6 +62,11 @@ export async function saveTeaching({ hours, timezone, teacherId = null }) {
   await setDoc(ref(), {
     hours: sane(hours),
     timezone,
+    // The security rules enforce these hours too, and rules cannot look a
+    // timezone up, so the zone's distance from UTC is stored beside it. Right
+    // for a zone with no daylight saving, which Kolkata is; a studio in one
+    // that has it would need this refreshed when the clocks change.
+    offsetMinutes: tzOffsetMinutes(timezone),
     teacherId,
     updatedAt: serverTimestamp(),
   }, { merge: true })

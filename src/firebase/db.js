@@ -2,7 +2,7 @@ import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, deleteField,
   query, where, orderBy, limit, Timestamp, serverTimestamp, onSnapshot
 } from 'firebase/firestore'
-import { db } from './config'
+import { db, auth } from './config'
 import { createNotification, notifyStaff } from './notify'
 import {
   consumeCredit, returnCredit, refundCreditForClass,
@@ -702,55 +702,63 @@ export async function requestReschedule(classId, newScheduledAt) {
 // (no approval needed). Staff notification is wrapped so it can never fail the
 // cancellation itself.
 export async function cancelClassByStudent(classId) {
+  // The server does this whenever it can be reached: it is the only place a
+  // credit can be returned from. A student's own device is not allowed to
+  // write to `credits` (the rules let them spend one and nothing else), so a
+  // refund attempted here is refused however it is written.
+  if (await cancelOnServer(classId)) return
+
+  // Without the server — the local dev machine, or an outage — the class is
+  // still cancelled, and the credit is flagged for staff to return by hand.
+  // Slower for the student, but never lost.
   const cls = await getClass(classId)
   await updateDoc(doc(db, 'classes', classId), {
     status: 'cancelled',
     updatedAt: serverTimestamp(),
   })
-  // The credit always comes back, however late the cancellation.
-  //
-  // The app ASKS for 24 hours' notice and says so on the booking screen, but
-  // it does not enforce it. The deadline is there to discourage dropping a
-  // class an hour before it starts; actually confiscating a credit over it
-  // would mean the studio keeping money for a lesson nobody taught, and the
-  // argument that follows costs Guruji more than the credit is worth.
-  //
-  // So the rule students read is the stricter one, and the behaviour is the
-  // kinder one. Erring that way round is safe: nobody is ever worse off than
-  // they were told they would be. It also empties the review queue this used
-  // to fill, where every late cancellation waited on a decision that was
-  // nearly always "give it back".
-  //
-  // If the original batch has already expired, refundCreditForClass issues a
-  // fresh credit instead of reviving a dead one.
-  const lateNotice = cls?.scheduledAt?.toDate?.()
-    ? cls.scheduledAt.toDate().getTime() - Date.now() < 24 * 3600000
-    : false
   if (cls?.creditBatchId && !cls.creditRefundedAt) {
-    try {
-      await refundCreditForClass(cls, await getUser(cls.studentId),
-        lateNotice ? 'Class cancelled (late notice)' : 'Class cancelled')
-    } catch (e) {
-      // Falling back to the review flag keeps the credit recoverable by hand
-      // rather than lost, which is the one outcome worth protecting against.
-      console.error('Cancelled, automatic refund failed — flagging instead:', e)
-      try { await flagCreditForReview(classId, 'Student cancelled; automatic refund failed') }
-      catch (e2) { console.error('Could not flag the credit for review either:', e2) }
-    }
+    try { await flagCreditForReview(classId, 'Student cancelled their own class') }
+    catch (e) { console.error('Could not flag the credit for review:', e) }
   }
   try {
     const staffIds = await getStaffIds()
     const { name, when } = await staffContext(
       cls?.studentId, cls?.scheduledAt?.toDate?.() ?? null, cls?.teacherId)
-    // Staff are told whether it was last-minute, because that is the part
-    // worth noticing — the credit needs no decision any more.
-    const note = lateNotice ? ' (last minute)' : ''
     await Promise.all(staffIds.map(id =>
       createNotification(id, 'class_cancelled_by_student',
-        when ? `Cancelled their class${note} — ${when}` : `Cancelled a class${note}`,
-        classId, name)
+        when ? `Cancelled their class — ${when}` : 'Cancelled a class', classId, name)
     ))
   } catch (e) { console.error('Cancelled, staff notify failed:', e) }
+}
+
+// True when the server cancelled the class (and dealt with the credit and the
+// notifications itself). False when there is no server to ask, so the caller
+// falls back. A deliberate refusal — the class has already started, say — is
+// thrown, not swallowed: falling back would do by hand what the server just
+// declined to do.
+async function cancelOnServer(classId) {
+  const user = auth?.currentUser
+  if (!user || !import.meta.env?.PROD) return false
+  let res
+  try {
+    const token = await user.getIdToken()
+    res = await fetch('/api/classes/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ classId }),
+    })
+  } catch (e) {
+    console.error('Cancel endpoint unreachable, cancelling locally:', e)
+    return false
+  }
+  if (res.ok) return true
+  if (res.status >= 500 || res.status === 404 && !(res.headers.get('content-type') || '').includes('json')) {
+    return false
+  }
+  const body = await res.json().catch(() => ({}))
+  const err = new Error(body?.error || 'Could not cancel that class.')
+  err.code = res.status === 429 ? 'too-many' : 'cancel-refused'
+  throw err
 }
 
 // ─── RECORDINGS AND LESSON NOTES ──────────────────────────────────────────────

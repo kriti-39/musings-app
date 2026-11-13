@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../firebase/config'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import PasswordInput from '../components/shared/PasswordInput'
 import InstallButton from '../components/shared/InstallButton'
@@ -85,6 +85,18 @@ export default function Login() {
         <div className="mt-5">
           <InstallButton />
         </div>
+
+        {/* The only way in to the policy pages without an account, which is how
+            a payment reviewer arrives. */}
+        <nav className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-6 text-[11px] text-gray-400">
+          <Link to="/terms" className="hover:text-amber-600">Terms</Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/privacy" className="hover:text-amber-600">Privacy</Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/refunds" className="hover:text-amber-600">Refunds</Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/delivery" className="hover:text-amber-600">Service delivery</Link>
+        </nav>
       </div>
     </div>
   )

@@ -26,6 +26,7 @@
 export const LIMITS = {
   push: 60,
   'create-order': 20,
+  cancel: 30,
 }
 
 function bucketOf(now) {

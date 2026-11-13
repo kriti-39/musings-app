@@ -19,6 +19,44 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    // Is this time inside the studio's teaching hours?
+    //
+    // The booking screen only OFFERS times inside them, but a screen is not a
+    // rule: without this a student could write a class for three in the
+    // morning straight from a browser console. The hours live in
+    // settings/teaching as minutes from midnight per weekday, in the studio's
+    // own zone; `offsetMinutes` is that zone's distance from UTC, stored
+    // alongside because rules cannot look a timezone up. With no document at
+    // all the default applies: six in the morning to midnight, every day.
+    //
+    // A class must END by closing time, which is how midnight stays a closing
+    // hour and never becomes a starting one.
+    function teachingAllows(start, mins) {
+      let p = /databases/$(database)/documents/settings/teaching;
+      let t = exists(p) ? get(p).data : {};
+      let offset = ('offsetMinutes' in t) ? t.offsetMinutes : 330;
+      let local = start + duration.value(offset, 'm');
+      let key = string(local.dayOfWeek() == 7 ? 0 : local.dayOfWeek());
+      let from = local.hours() * 60 + local.minutes();
+      return ('hours' in t)
+        ? (key in t.hours && t.hours[key] != null
+            && from >= t.hours[key].open && from + mins <= t.hours[key].close)
+        : (from >= 360 && from + mins <= 1440);
+    }
+
+    // Once this request has committed, does the class hold the lock on the
+    // i-th quarter hour from `start`?
+    //
+    // getAfter() reads the lock as the transaction LEAVES it, which is what
+    // makes this checkable at all: the class and its locks are written
+    // together, so neither exists yet when the other's rule runs. Requiring it
+    // is what ties a class to its slot. Before this, the locks were a
+    // convention the app followed, and a class written by hand simply did not
+    // bother with them.
+    function holdsLock(teacherId, start, i, classId) {
+      return getAfter(/databases/$(database)/documents/slotLocks/$(teacherId + '_' + string(start.toMillis() / 900000 + i))).data.classId == classId;
+    }
+
     function isStaffUser(uid) {
       return exists(/databases/$(database)/documents/users/$(uid))
         && get(/databases/$(database)/documents/users/$(uid)).data.role in ['admin', 'teacher'];
@@ -105,7 +143,20 @@ service cloud.firestore {
           && d.scheduledAt is timestamp
           && d.scheduledAt > request.time
           && d.scheduledAt < request.time + duration.value(7, 'd')
-          && d.duration is int && d.duration >= 15 && d.duration <= 180
+          // The three lengths the studio teaches, and nothing else. This was
+          // 15 to 180, which let one credit buy a three-hour class from the
+          // console although the screen only ever offered an hour.
+          && d.duration is int && d.duration in [30, 45, 60]
+          // On the quarter hour, inside teaching hours.
+          && d.scheduledAt.toMillis() % 900000 == 0
+          && d.teacherId is string
+          && teachingAllows(d.scheduledAt, d.duration)
+          // And actually holding its slot: two quarter hours for the shortest
+          // class, three for 45 minutes, four for the hour.
+          && holdsLock(d.teacherId, d.scheduledAt, 0, classId)
+          && holdsLock(d.teacherId, d.scheduledAt, 1, classId)
+          && (d.duration < 45 || holdsLock(d.teacherId, d.scheduledAt, 2, classId))
+          && (d.duration < 60 || holdsLock(d.teacherId, d.scheduledAt, 3, classId))
           // A credit student must name a credit batch that is really theirs.
           // Students on the old arrangement book without one. billingMode is
           // staff-only, so neither branch can be chosen by the student.
@@ -155,6 +206,14 @@ service cloud.firestore {
               && after.scheduledAt is timestamp
               && after.scheduledAt > request.time
               && after.scheduledAt < request.time + duration.value(7, 'd')
+              // The new time answers to the same rules as a fresh booking:
+              // quarter hour, teaching hours, and the slot really taken.
+              && after.scheduledAt.toMillis() % 900000 == 0
+              && teachingAllows(after.scheduledAt, before.duration)
+              && holdsLock(before.teacherId, after.scheduledAt, 0, classId)
+              && (before.duration <= 15 || holdsLock(before.teacherId, after.scheduledAt, 1, classId))
+              && (before.duration < 45 || holdsLock(before.teacherId, after.scheduledAt, 2, classId))
+              && (before.duration < 60 || holdsLock(before.teacherId, after.scheduledAt, 3, classId))
             )
             // 4. Mark a class that has already happened as done (the app tracks
             //    student and teacher separately so both can confirm), and the
@@ -196,29 +255,48 @@ service cloud.firestore {
     // need a get() per quarter hour, and a three-hour class claims thirteen of
     // them — past the limit rules allow in one request. The class rules above
     // are what bound a student's writes; this keeps the locks well-formed.
-    // A lock must also say WHO claimed it, and that has to be the person
-    // writing it. This is attribution, not permission — the two are worth not
-    // confusing:
+    // A lock says which class holds one quarter hour, who claimed it, and WHEN
+    // that quarter hour is. The last of those is checked against the
+    // document's own id, so a lock cannot claim to be about a time it is not.
     //
-    // There is no way to check here that the named class is real, belongs to
-    // the writer, or covers this quarter hour. The lock is written in the SAME
-    // transaction that creates the class, so at the moment this rule runs the
-    // class does not exist yet and a get() on it would error and deny — every
-    // booking in the app would stop. Verifying coverage would additionally mean
-    // deriving a time from the document id, which rules cannot do.
+    // That is what makes a live lock safe from being re-pointed. A student may
+    // overwrite a lock only if it is theirs already, or STALE: the class it
+    // names is gone, is no longer going to happen, or has moved away from this
+    // quarter hour. A lock still doing its job belongs to that class and
+    // cannot be taken by hand, which was the route to a double booking.
     //
-    // So what remains possible by hand is re-pointing a lock at some other
-    // class, which frees a slot that is actually taken and lets a second class
-    // be booked into it. No money and no data are reachable that way; the
-    // result is a visible clash for the studio to undo. `claimedBy` means such
-    // a lock names whoever wrote it. App Check is what stops the attempt.
+    // (The lock is still written in the same transaction that creates its
+    // class, so nothing here looks the NEW class up. The class rule does that
+    // from its side with getAfter: see holdsLock.)
     match /slotLocks/{key} {
+      function lockShape() {
+        let d = request.resource.data;
+        return d.classId is string && d.classId != ''
+          && d.teacherId is string
+          && d.claimedBy == request.auth.uid
+          && d.at is timestamp
+          && key == d.teacherId + '_' + string(d.at.toMillis() / 900000);
+      }
+
+      function lockIsStale() {
+        let old = resource.data;
+        let p = /databases/$(database)/documents/classes/$(old.classId);
+        let c = exists(p) ? get(p).data : null;
+        return c == null
+          || (('status' in c) && !(c.status in ['scheduled', 'pending']))
+          || !(old.at + duration.value(15, 'm') > c.scheduledAt
+               && old.at < c.scheduledAt + duration.value(c.duration, 'm'));
+      }
+
       allow read: if isAuth();
-      allow create, update: if isAuth()
-        && request.resource.data.classId is string
-        && request.resource.data.classId != ''
-        && request.resource.data.teacherId is string
-        && request.resource.data.claimedBy == request.auth.uid;
+      allow create: if isAuth() && lockShape();
+      allow update: if isAuth() && lockShape() && (
+        resource.data.classId == request.resource.data.classId
+        // Locks from before `at` existed carry nothing to judge them by.
+        || !('at' in resource.data)
+        || isAdminOrTeacher()
+        || lockIsStale()
+      );
       allow delete: if isAdminOrTeacher();
     }
 
@@ -242,6 +320,42 @@ service cloud.firestore {
     match /settings/{id} {
       allow read: if isAuth();
       allow write: if isAdminOrTeacher();
+    }
+
+    // "I have paid by bank transfer — please add my credits."
+    //
+    // One document per student, keyed by their own id, and that is the whole
+    // defence against a flood: rules cannot count documents, but they can tell
+    // a create from an update, so a student has exactly one place to write and
+    // may write there again only once the last ask has been answered.
+    //
+    // A request carries an AMOUNT and never a number of credits. hasOnly()
+    // refuses any other field, so a student cannot attach a quantity, mark
+    // their own request granted, or name who resolved it. What a transfer is
+    // worth is decided by staff, and the credits themselves are still created
+    // only by staff — nothing here grants anything.
+    match /creditRequests/{studentId} {
+      function validAsk() {
+        let d = request.resource.data;
+        let p = me();
+        return d.keys().hasOnly(['studentId', 'amount', 'currency', 'note', 'status', 'createdAt'])
+          && d.studentId == studentId
+          && d.status == 'pending'
+          && d.amount is number && d.amount > 0 && d.amount <= 10000000
+          && d.currency is string && d.currency.size() <= 8
+          && (!('note' in d) || (d.note is string && d.note.size() <= 300))
+          && d.createdAt == request.time
+          && p.role == 'student'
+          && (!('isActive' in p) || p.isActive != false);
+      }
+
+      allow read: if isAuth() && (isAdminOrTeacher() || request.auth.uid == studentId);
+      allow create: if isAuth() && request.auth.uid == studentId && validAsk();
+      allow update: if isAuth() && (
+        isAdminOrTeacher()
+        || (request.auth.uid == studentId && resource.data.status != 'pending' && validAsk())
+      );
+      allow delete: if isAdminOrTeacher();
     }
 
     match /recurringSchedules/{id} {
@@ -272,10 +386,27 @@ service cloud.firestore {
       // but not another student. Unrestricted, this was a way to send any
       // family a convincing "fees overdue, pay this UPI id" message from
       // inside the app they trust.
-      allow create: if isAuth() && (
-        isAdminOrTeacher()
-        || isStaffUser(request.resource.data.userId)
-      );
+      //
+      // And only so many. Rules cannot count documents, but they can insist on
+      // a document's NAME: a student's notification must be called
+      // <sender>_<recipient>_<hour>_<n> with n under twenty, so there are only
+      // twenty names to use for each member of staff in any hour, and a name
+      // already taken cannot be written again. Twenty an hour is far more than
+      // booking, moving and cancelling classes ever needs, and a loop stops
+      // dead at the twenty-first.
+      function studentNotice() {
+        let d = request.resource.data;
+        return isStaffUser(d.userId)
+          && d.seq is int && d.seq >= 0 && d.seq < 20
+          && id == request.auth.uid + '_' + d.userId + '_'
+                   + string(request.time.toMillis() / 3600000) + '_' + string(d.seq)
+          && d.message is string && d.message.size() <= 300
+          && d.type is string && d.type.size() <= 40
+          && (!('title' in d) || d.title == null || (d.title is string && d.title.size() <= 80))
+          && d.isRead == false;
+      }
+
+      allow create: if isAuth() && (isAdminOrTeacher() || studentNotice());
 
       // Marking your own as read, and nothing else — not rewriting what it says.
       allow update: if isAuth() && (

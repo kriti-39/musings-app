@@ -26,6 +26,7 @@ export default function EditStudentModal({ student, photo = null, onClose, onSuc
     feeAmount: student?.feeAmount ?? '',
     billingMode: student?.billingMode || 'legacy',
     creditsWithoutPayment: student?.creditsWithoutPayment === true,
+    payBy: student?.payBy || '',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -52,6 +53,8 @@ export default function EditStudentModal({ student, photo = null, onClose, onSuc
         ...(isAdmin ? {
           billingMode: form.billingMode,
           creditsWithoutPayment: form.creditsWithoutPayment,
+          // '' follows the country: gateway for India, transfer elsewhere.
+          payBy: form.payBy || null,
         } : {}),
       })
       onSuccess?.()
@@ -188,6 +191,25 @@ export default function EditStudentModal({ student, photo = null, onClose, onSuc
                     the office must enter what was paid before credits are added.
                   </span>
                 </label>
+              )}
+
+              {/* Card gateway or bank transfer. Left on automatic it follows
+                  the country, which is right for nearly everybody; this is for
+                  the student abroad whose card does work, or the one in India
+                  who pays from an overseas account. */}
+              {form.billingMode === 'credits' && (
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">How they pay</label>
+                  <select
+                    value={form.payBy}
+                    onChange={e => setForm(f => ({ ...f, payBy: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  >
+                    <option value="">Automatic — by country</option>
+                    <option value="gateway">Online payment (Razorpay)</option>
+                    <option value="transfer">Bank transfer, then asks for credits</option>
+                  </select>
+                </div>
               )}
             </div>
           )}

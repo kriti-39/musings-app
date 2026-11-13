@@ -26,6 +26,14 @@ import StudentRecordings from './pages/student/Recordings'
 import Settings from './pages/shared/Settings'
 import Help from './pages/shared/Help'
 
+// Public on purpose. Razorpay's reviewers open these without an account before
+// international card payments can be enabled, so they must not sit behind
+// ProtectedRoute like everything else here.
+import Terms from './pages/legal/Terms'
+import Privacy from './pages/legal/Privacy'
+import Refunds from './pages/legal/Refunds'
+import Delivery from './pages/legal/Delivery'
+
 function RoleRedirect() {
   const { role, loading } = useAuth()
   if (loading) return <div className="min-h-dvh flex items-center justify-center text-gray-400">Loading...</div>
@@ -43,6 +51,12 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RoleRedirect />} />
           <Route path="/login" element={<Login />} />
+
+          {/* Policy pages — reachable signed out */}
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/refunds" element={<Refunds />} />
+          <Route path="/delivery" element={<Delivery />} />
 
           {/* Admin */}
           <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />

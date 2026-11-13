@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import MonthClassesModal from '../../components/shared/MonthClassesModal'
 import FollowUpCard from '../../components/shared/FollowUpCard'
+import CreditRequests from '../../components/shared/CreditRequests'
 import { useAuth } from '../../context/AuthContext'
 import {
   getAdminDashboardStats, getAllClassesForMonth,
@@ -86,6 +87,9 @@ export default function AdminDashboard() {
 
         {/* Students to contact after a class was cancelled */}
         <FollowUpCard />
+
+        {/* Bank transfers a student abroad says they have sent */}
+        <CreditRequests />
 
         {/* Pending booking requests */}
         {pending.length > 0 && (

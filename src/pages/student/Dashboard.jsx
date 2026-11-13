@@ -151,13 +151,28 @@ function ClassCard({ cls, onAction, onPatch, tz, teacherTz }) {
   const [newDate, setNewDate] = useState('')
   const [newTime, setNewTime] = useState('')
   const [confirm, setConfirm] = useState(null)
+  const [problem, setProblem] = useState('')
   const date = cls.scheduledAt?.toDate?.() ?? new Date()
   const showTeacher = teacherTz && teacherTz !== tz
 
+  // A refusal used to vanish: the promise rejected, nothing caught it, and the
+  // card went on showing the change as if it had been accepted. Now it says
+  // what happened and reloads, so the screen goes back to the truth.
   async function handle(fn) {
     setLoading(true)
-    try { await fn(); onAction() }
-    finally { setLoading(false) }
+    setProblem('')
+    try { await fn() }
+    catch (e) {
+      console.error('Class action failed:', e)
+      setProblem(
+        e?.code === 'slot-taken'
+          ? 'That time has already been booked. Please pick another.'
+          : e?.code === 'permission-denied'
+            ? 'That time is not available. Classes start on the quarter hour, inside teaching hours, up to a week ahead.'
+            : e?.message || 'That did not go through. Please try again.',
+      )
+    }
+    finally { setLoading(false); onAction() }
   }
 
   async function runConfirm() {
@@ -170,6 +185,13 @@ function ClassCard({ cls, onAction, onPatch, tz, teacherTz }) {
 
   function askReschedule() {
     if (!newDate || !newTime) return
+    // Classes start on the quarter hour: the slot locks work in fifteen-minute
+    // pieces, and the rules refuse anything in between.
+    if (Number(newTime.split(':')[1]) % 15 !== 0) {
+      setProblem('Please pick a time on the quarter hour, like 4:00, 4:15, 4:30 or 4:45.')
+      return
+    }
+    setProblem('')
     const when = new Date(`${newDate}T${newTime}`).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
     setConfirm({
       title: 'Send reschedule request?',
@@ -238,9 +260,10 @@ function ClassCard({ cls, onAction, onPatch, tz, teacherTz }) {
           <div className="grid grid-cols-5 gap-2">
             <input type="date" value={newDate} min={minDate} onChange={e => setNewDate(e.target.value)}
               className="col-span-3 w-full min-w-0 border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400" />
-            <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)}
+            <input type="time" step={900} value={newTime} onChange={e => setNewTime(e.target.value)}
               className="col-span-2 w-full min-w-0 border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400" />
           </div>
+          {problem && <p className="text-xs text-red-600">{problem}</p>}
           <p className="text-xs text-gray-400">Your teacher will need to re-confirm the new time.</p>
           <div className="flex gap-2">
             <button onClick={() => setReschedule(false)} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-xs hover:bg-gray-50">Back</button>

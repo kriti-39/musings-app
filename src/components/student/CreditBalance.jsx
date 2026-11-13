@@ -3,9 +3,11 @@ import { RiTicketLine, RiTimeLine, RiErrorWarningLine } from 'react-icons/ri'
 import { useAuth } from '../../context/AuthContext'
 import { subscribeStudentCredits, expireStaleCredits } from '../../firebase/credits'
 import {
-  creditSummary, usesCredits, creditsWord, fmtExpiry,
+  creditSummary, usesCredits, creditsWord, fmtExpiry, paysByTransfer,
 } from '../../utils/credits'
+import { subscribeOwnCreditRequest, fmtAsk } from '../../firebase/creditRequests'
 import BuyCreditsModal from './BuyCreditsModal'
+import RequestCreditsModal from './RequestCreditsModal'
 
 // ─── A student's own credit balance ──────────────────────────────────────────
 // Live, because credits change from the other side: Guruji's office adds them
@@ -21,6 +23,18 @@ export default function CreditBalance({ compact = false, onCount }) {
   const [batches, setBatches] = useState(null)
   const [buying, setBuying] = useState(false)
   const onCredits = usesCredits(user)
+  // Students abroad pay bank to bank, so for them this card asks the studio
+  // for credits instead of opening the card gateway.
+  const byTransfer = paysByTransfer(user)
+  const [request, setRequest] = useState(null)
+
+  useEffect(() => {
+    if (!user?.id || !onCredits || !byTransfer || compact) return
+    return subscribeOwnCreditRequest(
+      user.id, setRequest,
+      e => console.error('Credit request failed to load:', e),
+    )
+  }, [user?.id, onCredits, byTransfer, compact])
 
   useEffect(() => {
     if (!user?.id || !onCredits) return
@@ -52,6 +66,7 @@ export default function CreditBalance({ compact = false, onCount }) {
   // this way and still means the same thing every time.
   const tone = none ? 'credit-card--empty' : soon ? 'credit-card--soon' : ''
   const full = summary.canHold === 0
+  const waiting = byTransfer && request?.status === 'pending'
 
   if (compact) {
     return (
@@ -91,13 +106,13 @@ export default function CreditBalance({ compact = false, onCount }) {
             which left this side of the card blank and gave no hint why. */}
         <button
           onClick={() => setBuying(true)}
-          disabled={full}
+          disabled={full && !waiting}
           title={full ? 'You are holding as many classes as you can at once' : undefined}
           className={`shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity ${
             full ? 'c-btn--off' : `hover:opacity-90 ${none ? 'c-btn' : 'c-btn--ghost'}`
           }`}
         >
-          Buy credits
+          {byTransfer ? (waiting ? 'Requested' : 'Request credits') : 'Buy credits'}
         </button>
       </div>
 
@@ -144,11 +159,25 @@ export default function CreditBalance({ compact = false, onCount }) {
       )}
       {/* The balance above is live, so credits appear here by themselves the
           moment the webhook grants them — no refresh, no polling. */}
-      {buying && (
+      {/* A request that is still with the studio, said on the card itself so
+          the student is not left wondering whether it went anywhere. */}
+      {waiting && (
+        <p className="c-note text-[11px] mt-2 leading-snug">
+          You told us you sent {fmtAsk(request)}. Credits appear here once the studio has seen it arrive.
+        </p>
+      )}
+      {buying && !byTransfer && (
         <BuyCreditsModal
           student={user}
           canHold={summary.canHold}
           topUpFrom={summary.topUpFrom}
+          onClose={() => setBuying(false)}
+        />
+      )}
+      {buying && byTransfer && (
+        <RequestCreditsModal
+          student={user}
+          pending={waiting ? request : null}
           onClose={() => setBuying(false)}
         />
       )}

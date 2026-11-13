@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import TeacherLayout from '../../components/teacher/TeacherLayout'
 import MonthClassesModal from '../../components/shared/MonthClassesModal'
 import FollowUpCard from '../../components/shared/FollowUpCard'
+import CreditRequests from '../../components/shared/CreditRequests'
 import { useAuth } from '../../context/AuthContext'
 import { getDashboardStats, getTeacherClassesForDay, getTeacherClassesForMonth, getAllStudentsIncludingInactive, getPendingRequests, confirmClass, rejectClass, sweepPastClasses } from '../../firebase/db'
 import { RiCheckLine, RiCloseLine, RiCalendarLine } from 'react-icons/ri'
@@ -114,6 +115,9 @@ export default function TeacherDashboard() {
 
         {/* Students to contact after a class was cancelled */}
         <FollowUpCard />
+
+        {/* Bank transfers a student abroad says they have sent */}
+        <CreditRequests />
 
         {/* Pending requests */}
         {pending.length > 0 && (

@@ -1,8 +1,8 @@
 import {
-  doc, collection, runTransaction, serverTimestamp, getDoc,
+  doc, collection, runTransaction, serverTimestamp, getDoc, Timestamp,
 } from 'firebase/firestore'
 import { db, auth } from './config'
-import { granuleKeys, lockHolds } from '../utils/slots'
+import { granuleKeys, lockHolds, GRANULE_MIN } from '../utils/slots'
 
 // ─── One class per slot. No exceptions, for anybody ──────────────────────────
 // `findOverlappingClasses` asks "is this time free?" and then the class is
@@ -71,10 +71,17 @@ async function assertFree(tx, keys, exceptClassId) {
 // What this field buys is attribution: such a lock now carries the uid of
 // whoever wrote it, so a collision can be traced rather than just discovered.
 // App Check is what makes the write itself hard to attempt.
+//
+// `at` is the quarter hour this lock is about, as a real time. The rules check
+// it against the document's own id, and use it to tell a lock that is still
+// doing its job from one left behind by a class that was cancelled or moved:
+// a live lock can no longer be overwritten by hand, a stale one still can.
 function claim(tx, keys, classId, teacherId, claimedBy) {
   for (const key of keys) {
+    const granule = Number(key.slice(key.lastIndexOf('_') + 1))
     tx.set(doc(db, SLOT_LOCKS, key), {
       classId, teacherId, claimedBy, claimedAt: serverTimestamp(),
+      at: Timestamp.fromMillis(granule * GRANULE_MIN * 60000),
     })
   }
 }

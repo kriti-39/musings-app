@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { RiArrowLeftLine } from 'react-icons/ri'
 import { STUDIO } from './studio'
-import { useContact, telHref } from '../../firebase/contact'
 
 // ─── The shell every policy page shares ──────────────────────────────────────
 // These four pages exist because Razorpay's banking partners will not enable
@@ -11,9 +10,10 @@ import { useContact, telHref } from '../../firebase/contact'
 //
 // They are also the only pages a stranger ever reads, so they say who the
 // studio is and how to reach it, which is the other half of what the review
-// looks for.
+// looks for. The way to reach it is the studio's own address and email, never
+// a person's number: these are formal documents, and the person answering
+// enquiries changes. Their number lives on the login screen and in Help.
 export default function LegalPage({ title, updated, children }) {
-  const contact = useContact()
   return (
     <div className="min-h-dvh bg-gray-50">
       <header className="bg-white border-b border-gray-100">
@@ -39,13 +39,6 @@ export default function LegalPage({ title, updated, children }) {
             {STUDIO.legalName}<br />
             {STUDIO.address}<br />
             <a href={`mailto:${STUDIO.email}`} className="text-amber-600 hover:underline">{STUDIO.email}</a>
-            {contact && (
-              <>
-                <br />
-                Enquiries{contact.name ? ` (${contact.name})` : ''}:{' '}
-                <a href={telHref(contact.phone)} className="text-amber-600 hover:underline">{contact.phone}</a>
-              </>
-            )}
           </address>
 
           <nav className="flex flex-wrap gap-x-4 gap-y-1 mt-5 text-xs">

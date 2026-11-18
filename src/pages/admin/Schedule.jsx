@@ -167,18 +167,28 @@ export default function AdminSchedule() {
           {pendingCount > 0 && (
             <p className="text-sm text-amber-600 mt-0.5">{pendingCount} pending request{pendingCount > 1 ? 's' : ''}</p>
           )}
-          <div className="flex gap-2 mt-3">
+          {/* One even row of equal, fixed-height buttons. With full labels the
+              three needed about 430px and a phone has about 340, so each label
+              wrapped onto two lines and the buttons grew tall with the text
+              floating in the middle. Labels never wrap now: short on a phone,
+              full from tablet width up. */}
+          <div className="grid grid-cols-3 gap-2 mt-3 sm:flex sm:flex-wrap">
             <button onClick={() => setShowHours(true)}
-              className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
-              <RiTimeLine size={18} /> Weekly hours
+              className="h-10 inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 rounded-lg border border-gray-200 bg-white text-gray-700 text-[13px] sm:text-sm font-medium whitespace-nowrap hover:bg-gray-50 transition-colors">
+              <RiTimeLine size={17} className="shrink-0 text-gray-500" />
+              <span className="sm:hidden">Hours</span>
+              <span className="hidden sm:inline">Weekly hours</span>
             </button>
             <button onClick={() => setShowAvailability(true)}
-              className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
-              <RiCalendarCheckLine size={18} /> Days off
+              className="h-10 inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 rounded-lg border border-gray-200 bg-white text-gray-700 text-[13px] sm:text-sm font-medium whitespace-nowrap hover:bg-gray-50 transition-colors">
+              <RiCalendarCheckLine size={17} className="shrink-0 text-gray-500" />
+              <span>Days off</span>
             </button>
             <button onClick={() => { setClickedSlot(new Date()); setShowSchedule(true) }}
-              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-              <RiAddLine size={18} /> Schedule Class
+              className="h-10 inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[13px] sm:text-sm font-semibold whitespace-nowrap transition-colors">
+              <RiAddLine size={18} className="shrink-0" />
+              <span className="sm:hidden">Schedule</span>
+              <span className="hidden sm:inline">Schedule class</span>
             </button>
           </div>
         </div>

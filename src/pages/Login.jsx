@@ -4,10 +4,12 @@ import { auth } from '../firebase/config'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import PasswordInput from '../components/shared/PasswordInput'
+import { useContact, telHref } from '../firebase/contact'
 import InstallButton from '../components/shared/InstallButton'
 import { idToEmail } from '../utils/auth'
 
 export default function Login() {
+  const contact = useContact()
   const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -88,7 +90,14 @@ export default function Login() {
 
         {/* The only way in to the policy pages without an account, which is how
             a payment reviewer arrives. */}
-        <nav className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-6 text-[11px] text-gray-400">
+        {contact && (
+          <p className="text-center text-xs text-gray-500 mt-6">
+            Enquiries{contact.name ? ` — ${contact.name}` : ''}:{' '}
+            <a href={telHref(contact.phone)} className="font-medium text-amber-600 hover:underline">{contact.phone}</a>
+          </p>
+        )}
+
+        <nav className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-4 text-[11px] text-gray-400">
           <Link to="/terms" className="hover:text-amber-600">Terms</Link>
           <span aria-hidden="true">·</span>
           <Link to="/privacy" className="hover:text-amber-600">Privacy</Link>

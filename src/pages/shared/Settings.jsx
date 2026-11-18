@@ -10,6 +10,7 @@ import ThemePicker from '../../components/shared/ThemePicker'
 import MyProfileCard from '../../components/shared/MyProfileCard'
 import TimezonePicker from '../../components/shared/TimezonePicker'
 import TransferDetailsCard from '../../components/shared/TransferDetailsCard'
+import ContactCard from '../../components/shared/ContactCard'
 
 export default function Settings() {
   const { user, role } = useAuth()
@@ -47,6 +48,9 @@ export default function Settings() {
 
         {/* Where students abroad send their fees — staff only */}
         {(role === 'admin' || role === 'teacher') && <TransferDetailsCard />}
+
+        {/* The public enquiries number — staff keep it current */}
+        {(role === 'admin' || role === 'teacher') && <ContactCard />}
 
         {/* Notifications — students + teacher (admins use the in-app bell only) */}
         {(role === 'student' || role === 'teacher') && <NotificationSettings user={user} />}

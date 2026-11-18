@@ -322,6 +322,14 @@ service cloud.firestore {
       allow write: if isAdminOrTeacher();
     }
 
+    // The enquiries name and number, and nothing else: shown on the login
+    // screen and the policy pages, which people read before they have an
+    // account. Readable by anyone for that reason. Writing still falls to the
+    // rule above, so only staff can change it.
+    match /settings/contact {
+      allow read: if true;
+    }
+
     // "I have paid by bank transfer — please add my credits."
     //
     // One document per student, keyed by their own id, and that is the whole

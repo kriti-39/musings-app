@@ -25,7 +25,7 @@ import { STUDIO } from './studio'
 // not have to.
 export default function Privacy() {
   return (
-    <LegalPage title="Privacy policy" updated="18 November 2026">
+    <LegalPage title="Privacy policy" updated="20 November 2026">
       <p>
         {STUDIO.name} keeps only what it needs to teach you, run your account and keep track of
         fees. This page sets out exactly what that is, where it is kept, who else can see it, and
@@ -39,8 +39,8 @@ export default function Privacy() {
           times appear correctly on your own clock.</li>
         <li><strong>Your classes</strong> — when they are, whether they took place, and lesson
           notes written for you.</li>
-        <li><strong>Recordings</strong> of lessons, where a lesson was recorded, with their link
-          and passcode.</li>
+        <li><strong>Recordings</strong> of lessons, made by Guruji with the student's agreement,
+          with their link and passcode.</li>
         <li><strong>Your credits and payments</strong> — what you bought and when, the amount, how
           it was paid (for example card, UPI or bank transfer) and the payment provider's reference
           for it.</li>
@@ -52,6 +52,8 @@ export default function Privacy() {
         <li><strong>Notifications and reminders</strong> — the messages sent to you in the app,
           your reminder settings, and, if you turn on notifications, a token that lets them reach
           your device.</li>
+        <li><strong>Your agreement</strong> — the date you agreed to our terms and this policy, and
+          which version you agreed to.</li>
         <li><strong>Security records</strong> — limited technical information, such as how often
           an account has used certain features, which helps us prevent misuse.</li>
       </ul>
@@ -99,10 +101,11 @@ export default function Privacy() {
 
       <h2>Students under 18</h2>
       <p>
-        Where a student is a child, the account is expected to be set up and overseen by a parent
-        or guardian, who may ask to see anything held about their child and ask for it to be
-        corrected or removed. If you believe a child's account has been created without a parent's
-        knowledge, write to us and we will remove it.
+        Children do not use their own accounts. Where a student is a child, the account is set up
+        for, held and used by a parent or guardian, who agrees to our terms and this policy on the
+        child's behalf when they first sign in. The parent or guardian may ask to see anything held
+        about their child, and ask for it to be corrected or removed. If you believe a child's
+        account has been created without a parent's knowledge, write to us and we will remove it.
       </p>
 
       <h2>How long we keep it</h2>

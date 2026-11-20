@@ -15,24 +15,24 @@ export const STUDIO = {
   // The name on the Razorpay account and the bank account behind it. For a
   // sole proprietor this is usually the person's own name, or "<Name>
   // (Proprietor, <Trading Name>)".
-  legalName: 'FILL IN — registered name on the Razorpay account',
+  legalName: 'Debapriya Adhikary',
 
   // The full registered address, with postcode. Razorpay expects a real,
   // complete one; a city alone is not enough.
-  address: 'FILL IN — full registered address, including postcode',
+  address: 'Flat No. 302, Nivedita Apartment, P26/37, 2nd Row, Mandir Gate, Narendrapur, South 24 Parganas, West Bengal 700103',
 
   // Reachable, monitored, and the same address the account uses.
-  email: 'FILL IN — contact email',
+  email: 'musingswithdeva@gmail.com',
 
   // Optional. Remove it rather than inventing one.
-  phone: '',
+  phone: '+91 98310 79587',
 
   // Only if registered. Leave empty otherwise — never invent a number.
   gstin: '',
 
   // The country whose law governs the terms, and the city whose courts have
   // jurisdiction.
-  jurisdiction: 'FILL IN — city, India',
+  jurisdiction: 'Kolkata, West Bengal',
 }
 
 // True when anything above still needs filling, so the app can say so loudly

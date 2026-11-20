@@ -5,6 +5,7 @@ import { auth } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import NotificationBell from '../shared/NotificationBell'
+import AgreeToTerms, { TERMS_VERSION } from './AgreeToTerms'
 import {
   RiDashboardLine, RiCalendarLine, RiMoneyDollarCircleLine,
   RiMenuLine, RiLogoutBoxLine, RiSunLine, RiMoonLine, RiSettings3Line, RiVideoLine, RiQuestionLine } from 'react-icons/ri'
@@ -29,6 +30,10 @@ export default function StudentLayout({ children }) {
     await signOut(auth)
     navigate('/login')
   }
+
+  // Nothing else until the current terms have been agreed to. Every student
+  // page renders inside this layout, so this one check covers them all.
+  if (user && user.termsVersion !== TERMS_VERSION) return <AgreeToTerms />
 
   return (
     <div className="min-h-dvh bg-gray-50 flex">

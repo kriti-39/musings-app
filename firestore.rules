@@ -92,8 +92,16 @@ service cloud.firestore {
           request.auth.uid == userId
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'name', 'phone', 'gender', 'timezone',
-            'notifReminderMinutes', 'fcmTokens', 'hasPhoto', 'updatedAt'
+            'notifReminderMinutes', 'fcmTokens', 'hasPhoto', 'updatedAt',
+            'termsVersion', 'termsAcceptedAt'
           ])
+          // Agreeing to the terms: dated by the SERVER's clock, so an
+          // agreement cannot be backdated or postdated.
+          && (!('termsAcceptedAt' in request.resource.data.diff(resource.data).affectedKeys())
+              || request.resource.data.termsAcceptedAt == request.time)
+          && (!('termsVersion' in request.resource.data.diff(resource.data).affectedKeys())
+              || (request.resource.data.termsVersion is string
+                  && request.resource.data.termsVersion.size() <= 20))
         )
       );
       allow delete: if isAdmin();

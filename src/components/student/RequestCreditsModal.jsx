@@ -16,7 +16,9 @@ import {
 export default function RequestCreditsModal({ student, pending = null, onClose }) {
   const [details, setDetails] = useState(null)      // null = still loading
   const [amount, setAmount] = useState('')
-  const [currency, setCurrency] = useState('USD')
+  const [unit, setUnit] = useState('inr')              // 'inr' | 'own'
+  const [currency, setCurrency] = useState('INR')
+  const [ownCurrency, setOwnCurrency] = useState('USD') // kept if they switch back and forth
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -113,20 +115,52 @@ export default function RequestCreditsModal({ student, pending = null, onClose }
         Once you have sent the money, tell us how much. The studio checks the transfer and adds your credits.
       </p>
 
-      <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
+      {/* Fees are often quoted in rupees and converted by the student before
+          sending, so they may know the rupee figure better than what left
+          their own bank. Either is fine: they say which, and the office checks
+          the statement either way. Rupees comes first because that is how the
+          fee was quoted. */}
+      <p className="block text-xs font-medium text-gray-600 mt-4 mb-1.5">I am entering the amount in</p>
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Currency of the amount">
+        {[
+          { v: 'inr', label: 'Indian rupees (₹)' },
+          { v: 'own', label: 'My own currency' },
+        ].map(o => (
+          <button key={o.v} type="button" role="radio" aria-checked={unit === o.v} disabled={busy}
+            onClick={() => { setUnit(o.v); setCurrency(o.v === 'inr' ? 'INR' : (ownCurrency || 'USD')) }}
+            className={`h-10 rounded-lg border text-[13px] font-medium transition-colors disabled:opacity-50 ${
+              unit === o.v ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-amber-300'
+            }`}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      <div className={`mt-3 grid gap-2 ${unit === 'own' ? 'grid-cols-[1fr_auto]' : 'grid-cols-1'}`}>
         <div>
-          <label htmlFor="ask-amount" className="block text-xs font-medium text-gray-600 mb-1">Amount you sent</label>
-          <input id="ask-amount" type="number" inputMode="decimal" min="0" value={amount}
-            onChange={e => setAmount(e.target.value)} disabled={busy} placeholder="e.g. 120"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50" />
+          <label htmlFor="ask-amount" className="block text-xs font-medium text-gray-600 mb-1">
+            {unit === 'inr' ? 'Amount in rupees' : 'Amount you sent'}
+          </label>
+          <div className="relative">
+            {unit === 'inr' && (
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">₹</span>
+            )}
+            <input id="ask-amount" type="number" inputMode="decimal" min="0" value={amount}
+              onChange={e => setAmount(e.target.value)} disabled={busy}
+              placeholder={unit === 'inr' ? 'e.g. 5000' : 'e.g. 60'}
+              className={`w-full border border-gray-200 rounded-lg py-2.5 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50 ${unit === 'inr' ? 'pl-7' : 'pl-3'}`} />
+          </div>
         </div>
-        <div>
-          <label htmlFor="ask-currency" className="block text-xs font-medium text-gray-600 mb-1">Currency</label>
-          <select id="ask-currency" value={currency} onChange={e => setCurrency(e.target.value)} disabled={busy}
-            className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50">
-            {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
+        {unit === 'own' && (
+          <div>
+            <label htmlFor="ask-currency" className="block text-xs font-medium text-gray-600 mb-1">Currency</label>
+            <select id="ask-currency" value={currency}
+              onChange={e => { setCurrency(e.target.value); setOwnCurrency(e.target.value) }} disabled={busy}
+              className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50">
+              {CURRENCIES.filter(c => c !== 'INR').map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="mt-3">

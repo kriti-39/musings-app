@@ -48,6 +48,7 @@ export function fmtAsk(req) {
   if (!req) return ''
   const n = Number(req.amount) || 0
   const shown = Number.isInteger(n) ? n.toLocaleString('en-IN') : n.toFixed(2)
+  if (req.currency === 'INR') return `₹${shown}`
   return req.currency && req.currency !== 'Other' ? `${shown} ${req.currency}` : shown
 }
 

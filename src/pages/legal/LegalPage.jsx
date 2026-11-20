@@ -29,7 +29,7 @@ export default function LegalPage({ title, updated, children }) {
         <h1 className="text-2xl font-semibold text-gray-800">{title}</h1>
         <p className="text-xs text-gray-400 mt-1 mb-8">Last updated {updated}</p>
 
-        <div className="legal-body text-sm text-gray-600 leading-relaxed">
+        <div className="legal-body text-[14.5px] leading-relaxed">
           {children}
         </div>
 
@@ -50,13 +50,37 @@ export default function LegalPage({ title, updated, children }) {
         </footer>
       </main>
 
+      {/* Theme colours only, never fixed ones. The headings and bold words
+          used to be hard-coded dark greys, which on a phone in dark mode came
+          out dark on dark and all but vanished.
+
+          The text sits on a softly shaded card so it reads as a document, with
+          the section headings in the app's own blue for structure. Body text is
+          the full ink colour softened a little — comfortable for a long read,
+          and still well above the contrast needed in both themes. */}
       <style>{`
-        .legal-body h2 { font-size: 15px; font-weight: 600; color: #1f2937; margin: 28px 0 8px; }
-        .legal-body h2:first-child { margin-top: 0; }
+        .legal-body {
+          color: color-mix(in srgb, var(--color-ink) 86%, var(--color-surface));
+          background: var(--color-surface);
+          border: 1px solid var(--color-line);
+          border-radius: 16px;
+          padding: 22px 20px;
+        }
+        @media (min-width: 640px) { .legal-body { padding: 30px 32px; } }
+        .legal-body h2 {
+          font-size: 16px; font-weight: 650; color: var(--color-accent);
+          margin: 30px 0 10px; padding-top: 22px; border-top: 1px solid var(--color-line);
+        }
+        .legal-body h2:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
         .legal-body p { margin: 0 0 12px; }
+        .legal-body p:last-child { margin-bottom: 0; }
         .legal-body ul { margin: 0 0 12px; padding-left: 20px; list-style: disc; }
-        .legal-body li { margin: 0 0 6px; }
-        .legal-body strong { color: #374151; font-weight: 600; }
+        .legal-body ul ul { margin: 6px 0 0; list-style: circle; }
+        .legal-body li { margin: 0 0 8px; }
+        .legal-body li::marker { color: var(--color-accent); }
+        .legal-body strong { color: var(--color-ink); font-weight: 650; }
+        .legal-body a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }
+        .legal-body a:hover { text-decoration-thickness: 2px; }
       `}</style>
     </div>
   )

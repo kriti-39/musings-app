@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0A7ABF"/>
-  <g transform="translate(-18,-6)" fill="#fff">
-    <ellipse cx="226" cy="352" rx="70" ry="52" transform="rotate(-22 226 352)"/>
-    <rect x="256" y="116" width="34" height="220" rx="4"/>
-    <path transform="translate(-6 0)" d="M280 116 C 300 176, 384 184, 394 256 C 400 296, 384 324, 364 342 C 378 300, 370 262, 326 240 C 312 233, 298 230, 280 230 Z"/>
-  </g></svg>
